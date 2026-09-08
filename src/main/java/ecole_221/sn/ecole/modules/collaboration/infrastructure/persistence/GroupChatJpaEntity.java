@@ -15,6 +15,13 @@ import java.util.Set;
            @Index(name = "idx_group_chats_archived", columnList = "archived")
        })
 public class GroupChatJpaEntity {
+    @org.hibernate.annotations.TenantId
+    @jakarta.persistence.Column(name = "organization_id")
+    private String organizationId;
+
+    public String getOrganizationId() { return organizationId; }
+    public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
+
     
     @Id
     @Column(name = "id", length = 36)

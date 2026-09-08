@@ -9,6 +9,13 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "notification_templates")
 public class NotificationTemplateJpaEntity {
+    @org.hibernate.annotations.TenantId
+    @jakarta.persistence.Column(name = "organization_id")
+    private String organizationId;
+
+    public String getOrganizationId() { return organizationId; }
+    public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
+
 
     @Id
     private String id;

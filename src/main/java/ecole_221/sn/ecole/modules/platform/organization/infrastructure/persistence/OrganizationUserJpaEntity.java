@@ -23,6 +23,9 @@ public class OrganizationUserJpaEntity {
     @Column(nullable = false)
     private String role;
     
+    @Column(name = "role_id")
+    private String roleId;
+    
     @Column(columnDefinition = "TEXT[]")
     @JdbcTypeCode(SqlTypes.ARRAY)
     private List<String> permissions;
@@ -64,6 +67,9 @@ public class OrganizationUserJpaEntity {
     
     public String getRole() { return role; }
     public void setRole(String role) { this.role = role; }
+    
+    public String getRoleId() { return roleId; }
+    public void setRoleId(String roleId) { this.roleId = roleId; }
     
     public List<String> getPermissions() { return permissions; }
     public void setPermissions(List<String> permissions) { this.permissions = permissions; }

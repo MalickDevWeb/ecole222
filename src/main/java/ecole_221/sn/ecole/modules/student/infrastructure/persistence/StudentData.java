@@ -11,6 +11,13 @@ import java.util.Map;
 @Entity
 @Table(name = "student_data")
 public class StudentData {
+    @org.hibernate.annotations.TenantId
+    @jakarta.persistence.Column(name = "organization_id")
+    private String organizationId;
+
+    public String getOrganizationId() { return organizationId; }
+    public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
+
 
     @Id
     private String studentId;

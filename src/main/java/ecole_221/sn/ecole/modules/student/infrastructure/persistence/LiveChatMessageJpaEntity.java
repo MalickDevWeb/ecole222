@@ -9,6 +9,13 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "live_chat_messages")
 public class LiveChatMessageJpaEntity {
+    @org.hibernate.annotations.TenantId
+    @jakarta.persistence.Column(name = "organization_id")
+    private String organizationId;
+
+    public String getOrganizationId() { return organizationId; }
+    public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
+
 
     @Id
     private String id;

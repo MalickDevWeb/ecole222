@@ -13,6 +13,13 @@ import java.time.LocalDateTime;
            @Index(name = "idx_messages_sender_timestamp", columnList = "sender_id, timestamp")
        })
 public class MessageJpaEntityOptimized {
+    @org.hibernate.annotations.TenantId
+    @jakarta.persistence.Column(name = "organization_id")
+    private String organizationId;
+
+    public String getOrganizationId() { return organizationId; }
+    public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
+
     
     @Id
     @Column(name = "id", length = 36)

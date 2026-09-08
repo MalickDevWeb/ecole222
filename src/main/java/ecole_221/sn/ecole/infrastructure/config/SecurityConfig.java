@@ -69,12 +69,12 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_PATHS).permitAll()
-                .requestMatchers("/admin/**").hasRole("ADMIN")
+                .requestMatchers("/admin/**").hasAnyRole("ADMIN", "ADMINISTRATOR")
                 .requestMatchers("/planning/**").authenticated()
-                .requestMatchers("/vigil/check-ins").hasAnyRole("ADMIN", "VIGIL", "PROFESSEUR")
-                .requestMatchers("/security/**", "/vigil/**").hasAnyRole("ADMIN", "VIGIL")
-                .requestMatchers("/professor/**", "/prof/**").hasAnyRole("PROFESSEUR", "ADMIN")
-                .requestMatchers("/student/**").hasAnyRole("ETUDIANT", "PROFESSEUR", "ADMIN")
+                .requestMatchers("/vigil/check-ins").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "PROFESSEUR", "TEACHER")
+                .requestMatchers("/security/**", "/vigil/**").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL")
+                .requestMatchers("/professor/**", "/prof/**").hasAnyRole("PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR")
+                .requestMatchers("/student/**").hasAnyRole("ETUDIANT", "STUDENT", "PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR")
                 .anyRequest().authenticated()
             )
             .exceptionHandling(exception -> exception

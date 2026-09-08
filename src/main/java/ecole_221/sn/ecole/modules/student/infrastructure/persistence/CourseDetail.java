@@ -10,6 +10,13 @@ import java.util.Map;
 @Entity
 @Table(name = "course_details")
 public class CourseDetail {
+    @org.hibernate.annotations.TenantId
+    @jakarta.persistence.Column(name = "organization_id")
+    private String organizationId;
+
+    public String getOrganizationId() { return organizationId; }
+    public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
+
 
     @Id
     private String courseId;

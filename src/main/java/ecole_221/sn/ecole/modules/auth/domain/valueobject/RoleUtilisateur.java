@@ -23,9 +23,12 @@ public record RoleUtilisateur(String value) {
     
     private boolean isValidRole(String role) {
         return role.equals("ADMIN") || 
+               role.equals("ADMINISTRATOR") ||
                role.equals("SUPER_ADMIN") || 
                role.equals("ETUDIANT") || 
+               role.equals("STUDENT") ||
                role.equals("PROFESSEUR") || 
+               role.equals("TEACHER") ||
                role.equals("SECRETAIRE") || 
                role.equals("COMPTABLE") || 
                role.equals("VIGIL") || 
@@ -66,9 +69,12 @@ public record RoleUtilisateur(String value) {
     
     // Rôles prédéfinis
     public static final RoleUtilisateur ADMIN = new RoleUtilisateur("ADMIN");
+    public static final RoleUtilisateur ADMINISTRATOR = new RoleUtilisateur("ADMINISTRATOR");
     public static final RoleUtilisateur SUPER_ADMIN = new RoleUtilisateur("SUPER_ADMIN");
     public static final RoleUtilisateur ETUDIANT = new RoleUtilisateur("ETUDIANT");
+    public static final RoleUtilisateur STUDENT = new RoleUtilisateur("STUDENT");
     public static final RoleUtilisateur PROFESSEUR = new RoleUtilisateur("PROFESSEUR");
+    public static final RoleUtilisateur TEACHER = new RoleUtilisateur("TEACHER");
     public static final RoleUtilisateur SECRETAIRE = new RoleUtilisateur("SECRETAIRE");
     public static final RoleUtilisateur COMPTABLE = new RoleUtilisateur("COMPTABLE");
     public static final RoleUtilisateur VIGIL = new RoleUtilisateur("VIGIL");

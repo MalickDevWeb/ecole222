@@ -161,15 +161,15 @@ public class User implements UserDetails {
     }
     
     public boolean isAdmin() {
-        return role.equals(RoleUtilisateur.ADMIN) || role.equals(RoleUtilisateur.SUPER_ADMIN);
+        return role.equals(RoleUtilisateur.ADMIN) || role.equals(RoleUtilisateur.ADMINISTRATOR) || role.equals(RoleUtilisateur.SUPER_ADMIN);
     }
     
     public boolean isStudent() {
-        return role.equals(RoleUtilisateur.ETUDIANT);
+        return role.equals(RoleUtilisateur.ETUDIANT) || role.equals(RoleUtilisateur.STUDENT);
     }
     
     public boolean isProfessor() {
-        return role.equals(RoleUtilisateur.PROFESSEUR);
+        return role.equals(RoleUtilisateur.PROFESSEUR) || role.equals(RoleUtilisateur.TEACHER);
     }
     
     public boolean isFullyVerified() {

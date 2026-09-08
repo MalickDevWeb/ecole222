@@ -131,7 +131,7 @@ class TenantContextTest {
     
     @Test
     void testRequiresTenant() {
-        assertFalse(TenantContext.requiresTenant());
+        assertTrue(TenantContext.requiresTenant());
         
         TenantContext.setPlatformMode(true);
         assertFalse(TenantContext.requiresTenant());
@@ -145,10 +145,11 @@ class TenantContextTest {
     }
     
     private Organization createTestOrganization(String id) {
-        return OrganizationFactory.create(
+        return OrganizationFactory.reconstruct(
+            id,
             "Test Organization",
-            OrganizationType.ECOLE,
-            OrganizationStatus.ACTIVE,
+            "ECOLE",
+            "ACTIVE",
             "Senegal",
             "Dakar",
             "Test Address",
@@ -158,7 +159,11 @@ class TenantContextTest {
             null, // logo
             null, // subscriptionId
             null, // primaryDomainId
-            Map.of() // settings
+            Map.of(), // settings
+            java.time.LocalDateTime.now(),
+            java.time.LocalDateTime.now(),
+            null,
+            null
         );
     }
 }

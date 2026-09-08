@@ -6,6 +6,13 @@ import java.time.LocalDateTime;
 @Entity
 @Table(name = "parents")
 public class ParentJpaEntity {
+    @org.hibernate.annotations.TenantId
+    @jakarta.persistence.Column(name = "organization_id")
+    private String organizationId;
+
+    public String getOrganizationId() { return organizationId; }
+    public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
+
 
     @Id
     private String id;
