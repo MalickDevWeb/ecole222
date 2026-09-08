@@ -36,6 +36,7 @@ public class SecurityConfig {
         "/auth/login-token",
         "/auth/logout",
         "/auth/register",
+        "/register-school",
         "/candidatures/settings",
         "/health",
         "/error",
