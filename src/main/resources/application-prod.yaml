@@ -1,0 +1,23 @@
+server:
+  port: ${PORT:8080}
+  compression:
+    enabled: true
+
+spring:
+  jpa:
+    show-sql: false
+    properties:
+      hibernate:
+        jdbc:
+          batch_size: 50
+
+logging:
+  level:
+    root: INFO
+    ecole_221.sn.ecole: INFO
+    org.springframework.web: WARN
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
+    org.springframework.jdbc: WARN
+  file:
+    name: /var/log/ecole/application.log

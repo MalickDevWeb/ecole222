@@ -1,0 +1,160 @@
+server:
+  port: ${PORT:8080}
+  servlet:
+    context-path: /api
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+  compression:
+    enabled: true
+    mime-types: text/html,text/xml,text/plain,text/css,application/javascript,application/json
+  error:
+    include-message: always
+    include-binding-errors: always
+    include-stacktrace: on_param
+    include-exception: false
+
+spring:
+  application:
+    name: ecole
+  profiles:
+    active: ${SPRING_PROFILES_ACTIVE:default}
+  
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://ep-patient-darkness-avnjut8j-pooler.c-11.us-east-1.aws.neon.tech/221-db?sslmode=require&channelBinding=require}
+    username: ${DATABASE_USERNAME:neondb_owner}
+    password: ${DATABASE_PASSWORD:npg_4yY7uSBEPobK}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 10
+      minimum-idle: 5
+      connection-timeout: 30000
+      idle-timeout: 600000
+      max-lifetime: 1800000
+      connection-test-query: SELECT 1
+  
+  jpa:
+    hibernate:
+      ddl-auto: update
+    repositories:
+      bootstrap-mode: lazy
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        use_sql_comments: true
+        jdbc:
+          batch_size: 25
+          order_inserts: true
+          order_updates: true
+    open-in-view: false
+  
+  flyway:
+    enabled: true
+    baseline-on-migrate: true
+    baseline-version: 0
+    clean-on-validation-error: false
+    validate-on-migrate: true
+    locations: classpath:db/migration
+  
+  data:
+    redis:
+      repositories:
+        enabled: false
+      url: ${REDIS_URL:rediss://default:gQAAAAAAArCqAAIgcDExMDg4N2E5MjkwZjM0YTEwOWE1ODRmNzU3ODI4ZmJmNA@crisp-tortoise-176298.upstash.io:6379}
+      ssl:
+        enabled: true
+      timeout: 60000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+  
+  cache:
+    type: redis
+    redis:
+      time-to-live: 900000
+      cache-null-values: false
+      key-prefix: ecole_
+      use-key-prefix: true
+  
+  servlet:
+    multipart:
+      enabled: true
+      max-file-size: 10MB
+      max-request-size: 10MB
+      file-size-threshold: 2MB
+      location: ${java.io.tmpdir}
+
+logging:
+  level:
+    root: INFO
+    ecole_221.sn.ecole: DEBUG
+    org.springframework.web: DEBUG
+    org.springframework.security: DEBUG
+    org.hibernate.SQL: DEBUG
+    org.hibernate.type.descriptor.sql.BasicBinder: TRACE
+    org.springframework.jdbc: DEBUG
+    org.springframework.transaction: DEBUG
+    org.springframework.cache: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+    file: "%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{36} - %msg%n"
+  file:
+    name: logs/application.log
+    max-size: 10MB
+    max-history: 30
+  logback:
+    rollingpolicy:
+      max-file-size: 10MB
+      total-size-cap: 1GB
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    try-it-out-enabled: true
+    operations-sorter: alpha
+    tags-sorter: alpha
+    display-request-duration: true
+
+cloudinary:
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:qudmvipg}
+  api-key: ${CLOUDINARY_API_KEY:512985687338673}
+  api-secret: ${CLOUDINARY_API_SECRET:iF7CTcBpQrS11jszJKQ2-Qu3V6k}
+
+jwt:
+  secret: ${JWT_SECRET:ecole221-super-secret-key-must-be-at-least-32-chars}
+
+# Configuration pour les services IA (Gemini, Mistral, Mock)
+ai:
+  provider: ${AI_PROVIDER:mock}
+  gemini:
+    api-key: ${GEMINI_API_KEY:your-gemini-api-key}
+    model: ${GEMINI_MODEL:gemini-pro}
+    temperature: ${GEMINI_TEMPERATURE:0.7}
+    max-tokens: ${GEMINI_MAX_TOKENS:1000}
+  mistral:
+    api-key: ${MISTRAL_API_KEY:your-mistral-api-key}
+    model: ${MISTRAL_MODEL:mistral-large-latest}
+    temperature: ${MISTRAL_TEMPERATURE:0.7}
+    max-tokens: ${MISTRAL_MAX_TOKENS:1000}
+
+# Configuration pour les services d'emails (Brevo)
+email:
+  provider: ${EMAIL_PROVIDER:mock}
+  brevo:
+    api-key: ${BREVO_API_KEY:your-brevo-api-key}
+    sender-email: ${BREVO_SENDER_EMAIL:noreply@ecole221.sn}
+    sender-name: ${BREVO_SENDER_NAME:École 221}
+  smtp:
+    host: ${SMTP_HOST:smtp-relay.brevo.com}
+    port: ${SMTP_PORT:587}
+    username: ${SMTP_USERNAME:your-brevo-smtp-username}
+    password: ${SMTP_PASSWORD:your-brevo-smtp-password}

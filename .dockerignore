@@ -1,0 +1,5 @@
+.git
+target
+*.log
+.mvn/wrapper/maven-wrapper.jar
+test_*.sh

@@ -1,0 +1,61 @@
+server:
+  port: 0
+  servlet:
+    context-path: /api
+    encoding:
+      charset: UTF-8
+      enabled: true
+      force: true
+
+spring:
+  application:
+    name: ecole-test
+  
+  datasource:
+    url: jdbc:h2:mem:testdb
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.H2Dialect
+  
+  flyway:
+    enabled: false
+  
+  data:
+    redis:
+      repositories:
+        enabled: false
+  
+  cache:
+    type: none
+
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+jwt:
+  secret: test-secret-key-for-testing-only-must-be-at-least-32-chars
+
+ai:
+  provider: mock
+
+email:
+  provider: mock
+
+logging:
+  level:
+    root: WARN
+    ecole_221.sn.ecole: DEBUG
+    org.springframework.web: INFO
+    org.springframework.security: INFO
+    org.hibernate.SQL: DEBUG

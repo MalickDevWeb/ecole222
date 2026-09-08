@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Exec(mvn)",
+      "Exec(curl)",
+      "Exec(chmod)",
+      "Exec(./test_finance.sh)"
+    ]
+  }
+}

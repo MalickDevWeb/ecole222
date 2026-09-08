@@ -1,0 +1,2507 @@
+{
+  "summary": {
+    "total": 273,
+    "pass": 190,
+    "fail": 77,
+    "skip": 6
+  },
+  "ids": {
+    "courseId": "course-1",
+    "studentId": "usr-003",
+    "sessionId": "session-001",
+    "gradeId": "g-1",
+    "homeworkId": "hw-001",
+    "moduleId": "module-1",
+    "classId": "M1 GL",
+    "id": "11fd713f-cf05-49db-993c-b59816751277",
+    "kpiKey": "recovery_rate",
+    "groupId": "11fd713f-cf05-49db-993c-b59816751277",
+    "userId": "user-001",
+    "type": "GROUP",
+    "roomId": "ROOM-TEST-$(date +%s)",
+    "slotId": "SLOT-TEST-$(date +%s)",
+    "filiereId": "CLS-TEST-$(date +%s)",
+    "classeId": "CLS-TEST-$(date +%s)",
+    "actorId": "usr-003",
+    "module": "auth",
+    "entityType": "User",
+    "entityId": "usr-001",
+    "severity": "HIGH",
+    "checkpointId": "gate-A",
+    "personId": "usr-001",
+    "status": "PENDING",
+    "step": "1",
+    "category": "finance",
+    "activityType": "LOGIN",
+    "academicYear": "2025-2026",
+    "period": "month",
+    "classe": "M1 GL",
+    "recipientId": "usr-001",
+    "enfantId": "usr-001",
+    "messageId": "msg-001",
+    "presenceId": "att-001",
+    "role": "VIGIL",
+    "vigilId": "VIG-221",
+    "expenseId": "exp-1",
+    "alertId": "alert-2"
+  },
+  "results": [
+    {
+      "method": "GET",
+      "path": "/security/vigil-profiles/{id}",
+      "resolved": "/security/vigil-profiles/kpi-1",
+      "role": "vigil",
+      "code": 404,
+      "status": "FAIL",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/finance/students/{id}",
+      "resolved": "/finance/students/kpi-1",
+      "role": "admin",
+      "code": 404,
+      "status": "FAIL",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/finance/expenses/{id}",
+      "resolved": "/finance/expenses/kpi-1",
+      "role": "admin",
+      "code": 404,
+      "status": "FAIL",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admissions/settings",
+      "resolved": "/admissions/settings",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admissions/candidates/{id}",
+      "resolved": "/admissions/candidates/settings-1",
+      "role": "admin",
+      "code": 404,
+      "status": "FAIL",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin/planning/slots",
+      "resolved": "/admin/planning/slots",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin/planning/rooms",
+      "resolved": "/admin/planning/rooms",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin/planning/filieres",
+      "resolved": "/admin/planning/filieres",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin/planning/classes",
+      "resolved": "/admin/planning/classes",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/student/live-sessions/{sessionId}/chat",
+      "resolved": "/student/live-sessions/session-001/chat",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/student/attendances",
+      "resolved": "/student/attendances",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/security/vigil-profiles",
+      "resolved": "/security/vigil-profiles",
+      "role": "vigil",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/professor/modules/{moduleId}/quizzes",
+      "resolved": "/professor/modules/module-1/quizzes",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/professor/courses/{courseId}/reminders",
+      "resolved": "/professor/courses/self-check/reminders",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/professor/courses/{courseId}/quizzes",
+      "resolved": "/professor/courses/self-check/quizzes",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/professor/courses/{courseId}/modules",
+      "resolved": "/professor/courses/self-check/modules",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/professor/courses/{courseId}/lessons",
+      "resolved": "/professor/courses/self-check/lessons",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/professor/courses/{courseId}/homeworks",
+      "resolved": "/professor/courses/self-check/homeworks",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/planning/slots",
+      "resolved": "/planning/slots",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/planning/rooms",
+      "resolved": "/planning/rooms",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/planning/filieres",
+      "resolved": "/planning/filieres",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/planning/classes",
+      "resolved": "/planning/classes",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/finance/transactions",
+      "resolved": "/finance/transactions",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/finance/students",
+      "resolved": "/finance/students",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/finance/expenses",
+      "resolved": "/finance/expenses",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/kpis",
+      "resolved": "/dashboard/kpis",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/alerts",
+      "resolved": "/dashboard/alerts",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/activities",
+      "resolved": "/dashboard/activities",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/workgroups",
+      "resolved": "/collaboration/workgroups",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/workgroups/{groupId}/voice",
+      "resolved": "/collaboration/workgroups/group-123baf3f/voice",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/workgroups/{groupId}/tasks",
+      "resolved": "/collaboration/workgroups/group-123baf3f/tasks",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/workgroups/{groupId}/messages",
+      "resolved": "/collaboration/workgroups/task-93872e6b/messages",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/workgroups/{groupId}/homeworks",
+      "resolved": "/collaboration/workgroups/task-93872e6b/homeworks",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/workgroups/{groupId}/documents",
+      "resolved": "/collaboration/workgroups/task-93872e6b/documents",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/voice-sessions",
+      "resolved": "/collaboration/voice-sessions",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/meets",
+      "resolved": "/collaboration/meets",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/candidatures/settings",
+      "resolved": "/candidatures/settings",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/security-events",
+      "resolved": "/audit/security-events",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/logs",
+      "resolved": "/audit/logs",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/parent/messages",
+      "resolved": "/api/parent/messages",
+      "role": "parent",
+      "code": 403,
+      "status": "FAIL",
+      "message": "Accès refusé: rôle incorrect. Rôle requis: PARENT"
+    },
+    {
+      "method": "GET",
+      "path": "/admissions/candidates",
+      "resolved": "/admissions/candidates",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "No enum constant ecole_221.sn.ecole.modules.admissions.domain.valueobject.CandidateStatus.pending"
+    },
+    {
+      "method": "GET",
+      "path": "/admin/students/{id}/profile360",
+      "resolved": "/admin/students/e4c25986-7cf1-4915-9a1b-d21679ec718c/profile360",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin/students/{id}/documents",
+      "resolved": "/admin/students/log-1/documents",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/vigil/profile",
+      "resolved": "/vigil/profile",
+      "role": "vigil",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/vigil/last-scan",
+      "resolved": "/vigil/last-scan",
+      "role": "vigil",
+      "code": 200,
+      "status": "PASS",
+      "message": "Aucun scan récent"
+    },
+    {
+      "method": "GET",
+      "path": "/vigil/check-ins",
+      "resolved": "/vigil/check-ins",
+      "role": "vigil",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/sync/check",
+      "resolved": "/sync/check",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/student/profile",
+      "resolved": "/student/profile",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/student/live-sessions",
+      "resolved": "/student/live-sessions",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/student/live-sessions/{sessionId}/chat-history",
+      "resolved": "/student/live-sessions/session-001/chat-history",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/student/homeworks",
+      "resolved": "/student/homeworks",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/student/grades",
+      "resolved": "/student/grades",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/student/grades/download",
+      "resolved": "/student/grades/download",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": "%PDF-1.5\n%����\n3 0 obj\n<</Filter/FlateDecode/Length 1572>>stream\nx��X]o�H\u0014}���/�f���\f�\u0000}sm���GbH�Jya�I�ʘ\u0004p������\u001d�\u000ev�ͤ�R��9���;�<�>�=N�!\f�E��\u0005\u0015���\u0002�\u0010>�A\u0005�\u001d \u0006q�"
+    },
+    {
+      "method": "GET",
+      "path": "/student/digital-badge",
+      "resolved": "/student/digital-badge",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/student/dashboard",
+      "resolved": "/student/dashboard",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/student/courses",
+      "resolved": "/student/courses",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/student/courses/{courseId}/details",
+      "resolved": "/student/courses/course-1/details",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/security/vigil-profiles/user/{userId}",
+      "resolved": "/security/vigil-profiles/user/usr-002",
+      "role": "vigil",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/security/vigil-profiles/role/{role}",
+      "resolved": "/security/vigil-profiles/role/VIGIL",
+      "role": "vigil",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/security/checkpoint-status",
+      "resolved": "/security/checkpoint-status",
+      "role": "vigil",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/professor/schedule",
+      "resolved": "/professor/schedule",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/professor/planning",
+      "resolved": "/professor/planning",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/professor/courses",
+      "resolved": "/professor/courses",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/professor/courses/{courseId}/students",
+      "resolved": "/professor/courses/course-1/students",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/professor/courses/{courseId}/grades",
+      "resolved": "/professor/courses/course-1/grades",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/prof/classes/{classId}/students",
+      "resolved": "/prof/classes/M1%20GL/students",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/planning/slots/{slotId}",
+      "resolved": "/planning/slots/SLOT-TEST-%24%28date%20%2B%25s%29",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "No message available"
+    },
+    {
+      "method": "GET",
+      "path": "/planning/rooms/{roomId}",
+      "resolved": "/planning/rooms/ROOM-TEST-%24%28date%20%2B%25s%29",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "No message available"
+    },
+    {
+      "method": "GET",
+      "path": "/planning/filieres/{filiereId}",
+      "resolved": "/planning/filieres/FIL-TEST",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/planning/filieres/{filiereId}/classes",
+      "resolved": "/planning/filieres/FIL-TEST/classes",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/planning/classes/{classeId}",
+      "resolved": "/planning/classes/CLS-TEST-%24%28date%20%2B%25s%29",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "No message available"
+    },
+    {
+      "method": "GET",
+      "path": "/finance/transactions/student/{studentId}",
+      "resolved": "/finance/transactions/student/usr-001",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/finance/transactions/recent",
+      "resolved": "/finance/transactions/recent",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/finance/total-debt",
+      "resolved": "/finance/total-debt",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/finance/total-collected",
+      "resolved": "/finance/total-collected",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/finance/students/debt",
+      "resolved": "/finance/students/debt",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/finance/students/classe/{classe}",
+      "resolved": "/finance/students/classe/M1%20GL",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/finance/payment-trends",
+      "resolved": "/finance/payment-trends",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/finance/financial-report/{period}",
+      "resolved": "/finance/financial-report/month",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/finance/expenses/total/{category}",
+      "resolved": "/finance/expenses/total/finance",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "Catégorie invalide: finance. Catégories autorisées: RH, Loyer/Charges, Matériel, Autre"
+    },
+    {
+      "method": "GET",
+      "path": "/finance/expenses/status/{status}",
+      "resolved": "/finance/expenses/status/PENDING",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "Statut invalide: PENDING. Statuts autorisés: Payé, En Attente, Annulé"
+    },
+    {
+      "method": "GET",
+      "path": "/finance/expenses/recent",
+      "resolved": "/finance/expenses/recent",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "Required parameter 'startDate' is not present."
+    },
+    {
+      "method": "GET",
+      "path": "/finance/expenses/category/{category}",
+      "resolved": "/finance/expenses/category/finance",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "Catégorie invalide: finance. Catégories autorisées: RH, Loyer/Charges, Matériel, Autre"
+    },
+    {
+      "method": "GET",
+      "path": "/finance/expenses/between",
+      "resolved": "/finance/expenses/between",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "Required parameter 'startDate' is not present."
+    },
+    {
+      "method": "GET",
+      "path": "/finance/expenses-by-category",
+      "resolved": "/finance/expenses-by-category",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/finance/dashboard",
+      "resolved": "/finance/dashboard",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/email/status",
+      "resolved": "/email/status",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/security-kpis",
+      "resolved": "/dashboard/security-kpis",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/regional-stats/{academicYear}",
+      "resolved": "/dashboard/regional-stats/2025-2026",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/kpis/{kpiKey}",
+      "resolved": "/dashboard/kpis/recovery_rate",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/kpis/category/{category}",
+      "resolved": "/dashboard/kpis/category/finance",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/financial-kpis",
+      "resolved": "/dashboard/financial-kpis",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/complete",
+      "resolved": "/dashboard/complete",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/alerts/urgent",
+      "resolved": "/dashboard/alerts/urgent",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/alerts/active",
+      "resolved": "/dashboard/alerts/active",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/activities/type/{activityType}",
+      "resolved": "/dashboard/activities/type/LOGIN",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/dashboard/academic-kpis",
+      "resolved": "/dashboard/academic-kpis",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/common/version",
+      "resolved": "/common/version",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/common/notifications",
+      "resolved": "/common/notifications",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/common/info",
+      "resolved": "/common/info",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/common/health",
+      "resolved": "/common/health",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": "Backend École 221 is running !"
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/voice-sessions/{sessionId}",
+      "resolved": "/collaboration/voice-sessions/session-001",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/groupchat/users/{userId}/chats",
+      "resolved": "/collaboration/groupchat/users/test-user/chats",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/groupchat/groups/{id}",
+      "resolved": "/collaboration/groupchat/groups/alert-2",
+      "role": "admin",
+      "code": 404,
+      "status": "FAIL",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/groupchat/groups/{id}/messages",
+      "resolved": "/collaboration/groupchat/groups/alert-2/messages",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/groupchat/groups/{id}/frontend",
+      "resolved": "/collaboration/groupchat/groups/alert-2/frontend",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/groupchat/groups/types/{type}",
+      "resolved": "/collaboration/groupchat/groups/types/GROUP",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/collaboration/admin-meets",
+      "resolved": "/collaboration/admin-meets",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/candidatures/candidatures",
+      "resolved": "/candidatures/candidatures",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/candidatures/candidatures/{id}",
+      "resolved": "/candidatures/candidatures/meet-f1bb6d87",
+      "role": "admin",
+      "code": 404,
+      "status": "FAIL",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/auth/me",
+      "resolved": "/auth/me",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/trail/{entityType}/{entityId}",
+      "resolved": "/audit/trail/User/usr-001",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/statistics",
+      "resolved": "/audit/statistics",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/security-trends",
+      "resolved": "/audit/security-trends",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/security-statistics",
+      "resolved": "/audit/security-statistics",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/security-history/{personId}",
+      "resolved": "/audit/security-history/usr-001",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/security-events/severity/{severity}",
+      "resolved": "/audit/security-events/severity/HIGH",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/security-events/recent",
+      "resolved": "/audit/security-events/recent",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/security-events/pending-investigations",
+      "resolved": "/audit/security-events/pending-investigations",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/security-events/checkpoint/{checkpointId}",
+      "resolved": "/audit/security-events/checkpoint/gate-A",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/logs/recent",
+      "resolved": "/audit/logs/recent",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/logs/module/{module}",
+      "resolved": "/audit/logs/module/auth",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/logs/entity/{entityType}",
+      "resolved": "/audit/logs/entity/User",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/audit/logs/actor/{actorId}",
+      "resolved": "/audit/logs/actor/usr-003",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/api/parent/paiements",
+      "resolved": "/api/parent/paiements",
+      "role": "parent",
+      "code": 403,
+      "status": "FAIL",
+      "message": "Accès refusé: rôle incorrect. Rôle requis: PARENT"
+    },
+    {
+      "method": "GET",
+      "path": "/api/parent/enfants",
+      "resolved": "/api/parent/enfants",
+      "role": "parent",
+      "code": 403,
+      "status": "FAIL",
+      "message": "Accès refusé: rôle incorrect. Rôle requis: PARENT"
+    },
+    {
+      "method": "GET",
+      "path": "/api/parent/enfants/{enfantId}/stats",
+      "resolved": "/api/parent/enfants/usr-001/stats",
+      "role": "parent",
+      "code": 403,
+      "status": "FAIL",
+      "message": "Accès refusé: rôle incorrect. Rôle requis: PARENT"
+    },
+    {
+      "method": "GET",
+      "path": "/api/parent/enfants/{enfantId}/presences",
+      "resolved": "/api/parent/enfants/usr-001/presences",
+      "role": "parent",
+      "code": 403,
+      "status": "FAIL",
+      "message": "Accès refusé: rôle incorrect. Rôle requis: PARENT"
+    },
+    {
+      "method": "GET",
+      "path": "/api/parent/enfants/{enfantId}/planning",
+      "resolved": "/api/parent/enfants/usr-001/planning",
+      "role": "parent",
+      "code": 403,
+      "status": "FAIL",
+      "message": "Accès refusé: rôle incorrect. Rôle requis: PARENT"
+    },
+    {
+      "method": "GET",
+      "path": "/api/parent/enfants/{enfantId}/notes",
+      "resolved": "/api/parent/enfants/usr-001/notes",
+      "role": "parent",
+      "code": 403,
+      "status": "FAIL",
+      "message": "Accès refusé: rôle incorrect. Rôle requis: PARENT"
+    },
+    {
+      "method": "GET",
+      "path": "/api/parent/candidatures",
+      "resolved": "/api/parent/candidatures",
+      "role": "parent",
+      "code": 403,
+      "status": "FAIL",
+      "message": "Accès refusé: rôle incorrect. Rôle requis: PARENT"
+    },
+    {
+      "method": "GET",
+      "path": "/admissions/top-candidates",
+      "resolved": "/admissions/top-candidates",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admissions/statistics",
+      "resolved": "/admissions/statistics",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admissions/kanban",
+      "resolved": "/admissions/kanban",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admissions/candidates/step/{step}",
+      "resolved": "/admissions/candidates/step/1",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admissions/candidates/status/{status}",
+      "resolved": "/admissions/candidates/status/PENDING",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin/users",
+      "resolved": "/admin/users",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin/stats",
+      "resolved": "/admin/stats",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin/schedule",
+      "resolved": "/admin/schedule",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "GET",
+      "path": "/admin/realtime-logs",
+      "resolved": "/admin/realtime-logs",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "PUT",
+      "path": "/security/vigil-profiles/{id}",
+      "resolved": "/security/vigil-profiles/VIG-221",
+      "role": "vigil",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "DELETE",
+      "path": "/security/vigil-profiles/{id}",
+      "resolved": "/security/vigil-profiles/VIG-221",
+      "role": "vigil",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "PUT",
+      "path": "/finance/students/{id}",
+      "resolved": "/finance/students/usr-001",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "DELETE",
+      "path": "/finance/students/{id}",
+      "resolved": "/finance/students/usr-001",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "PUT",
+      "path": "/finance/expenses/{id}",
+      "resolved": "/finance/expenses/exp-1",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "JSON parse error: Cannot construct instance of `ecole_221.sn.ecole.modules.finance.application.port.command.UpdateExpenseCommand`, problem: L'ID ne peut pas être vide"
+    },
+    {
+      "method": "PUT",
+      "path": "/dashboard/regional-stats/{id}",
+      "resolved": "/dashboard/regional-stats/sched-001",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "PUT",
+      "path": "/dashboard/kpis/{id}",
+      "resolved": "/dashboard/kpis/sched-001",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "PUT",
+      "path": "/dashboard/alerts/{id}",
+      "resolved": "/dashboard/alerts/alert-2",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": "upd"
+    },
+    {
+      "method": "PUT",
+      "path": "/collaboration/groupchat/groups/{id}/name",
+      "resolved": "/collaboration/groupchat/groups/task-93872e6b/name",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": ""
+    },
+    {
+      "method": "PUT",
+      "path": "/audit/security-events/{id}",
+      "resolved": "/audit/security-events/evt-1",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Le type d'événement ne peut pas être null"
+    },
+    {
+      "method": "PUT",
+      "path": "/admissions/settings",
+      "resolved": "/admissions/settings",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "JSON parse error: Cannot map `null` into type `int` (set `DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES` to 'false' to allow)"
+    },
+    {
+      "method": "PUT",
+      "path": "/admissions/candidates/{id}",
+      "resolved": "/admissions/candidates/sched-001",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Name is null"
+    },
+    {
+      "method": "DELETE",
+      "path": "/admissions/candidates/{id}",
+      "resolved": "/admissions/candidates/sched-001",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "sched-001"
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/planning/slots",
+      "resolved": "/admin/planning/slots",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Type definition error: [simple type, class ecole_221.sn.ecole.modules.admin.domain.model.TimeSlot]"
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/planning/rooms",
+      "resolved": "/admin/planning/rooms",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Type definition error: [simple type, class ecole_221.sn.ecole.modules.admin.domain.model.Room]"
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/planning/filieres",
+      "resolved": "/admin/planning/filieres",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Type definition error: [simple type, class ecole_221.sn.ecole.modules.admin.domain.model.Filiere]"
+    },
+    {
+      "method": "PUT",
+      "path": "/admin/planning/classes",
+      "resolved": "/admin/planning/classes",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Type definition error: [simple type, class ecole_221.sn.ecole.modules.admin.domain.model.Classe]"
+    },
+    {
+      "method": "POST",
+      "path": "/vigil/scan",
+      "resolved": "/vigil/scan",
+      "role": "vigil",
+      "code": 200,
+      "status": "PASS",
+      "message": "Format de badge invalide ou non reconnu."
+    },
+    {
+      "method": "POST",
+      "path": "/sync",
+      "resolved": "/sync",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Type definition error: [simple type, class ecole_221.sn.ecole.modules.sync.domain.model.SyncAction]"
+    },
+    {
+      "method": "POST",
+      "path": "/student/tutor/chat",
+      "resolved": "/student/tutor/chat",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/student/send-notification",
+      "resolved": "/student/send-notification",
+      "role": "student",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Cannot invoke \"String.length()\" because \"content\" is null"
+    },
+    {
+      "method": "POST",
+      "path": "/student/request-confirmation",
+      "resolved": "/student/request-confirmation",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": "Confirmation envoyée avec succès"
+    },
+    {
+      "method": "POST",
+      "path": "/student/qr-validate",
+      "resolved": "/student/qr-validate",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": "Token QR expire ou invalide"
+    },
+    {
+      "method": "POST",
+      "path": "/student/live-sessions/{sessionId}/reaction",
+      "resolved": "/student/live-sessions/session-001/reaction",
+      "role": "student",
+      "code": 400,
+      "status": "FAIL",
+      "message": "Session live introuvable: session-001"
+    },
+    {
+      "method": "POST",
+      "path": "/student/live-sessions/{sessionId}/chat",
+      "resolved": "/student/live-sessions/session-001/chat",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/student/homeworks/{homeworkId}/start",
+      "resolved": "/student/homeworks/hw-001/start",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/student/homeworks/{homeworkId}/progress",
+      "resolved": "/student/homeworks/hw-001/progress",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/student/grades/{gradeId}/review",
+      "resolved": "/student/grades/g-1/review",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/student/courses/{courseId}/quizzes/submit",
+      "resolved": "/student/courses/course-1/quizzes/submit",
+      "role": "student",
+      "code": 200,
+      "status": "PASS",
+      "message": "Quiz evalue avec succes par le serveur !"
+    },
+    {
+      "method": "POST",
+      "path": "/student/courses/{courseId}/homeworks/{homeworkId}/submit",
+      "resolved": "/student/courses/course-1/homeworks/hw-001/submit",
+      "role": "student",
+      "code": 0,
+      "status": "SKIP",
+      "message": "multipart skipped in bulk pass"
+    },
+    {
+      "method": "POST",
+      "path": "/student/attendances",
+      "resolved": "/student/attendances",
+      "role": "student",
+      "code": 400,
+      "status": "FAIL",
+      "message": "Validation failed for object='attendanceRequestDto'. Error count: 2"
+    },
+    {
+      "method": "POST",
+      "path": "/security/vigil-profiles",
+      "resolved": "/security/vigil-profiles",
+      "role": "vigil",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Identifier of entity 'ecole_221.sn.ecole.modules.security.infrastructure.persistence.VigilProfileJpaEntity' must be manually assigned before calling 'persist()'"
+    },
+    {
+      "method": "POST",
+      "path": "/security/scan-logs",
+      "resolved": "/security/scan-logs",
+      "role": "vigil",
+      "code": 200,
+      "status": "PASS",
+      "message": "Accès autorisé. Bienvenue à l'École 221."
+    },
+    {
+      "method": "POST",
+      "path": "/professor/schedule/{sessionId}/reschedule",
+      "resolved": "/professor/schedule/session-001/reschedule",
+      "role": "prof",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Session not found"
+    },
+    {
+      "method": "POST",
+      "path": "/professor/schedule/{sessionId}/cancel",
+      "resolved": "/professor/schedule/session-001/cancel",
+      "role": "prof",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Session not found"
+    },
+    {
+      "method": "POST",
+      "path": "/professor/planning/{sessionId}/reschedule",
+      "resolved": "/professor/planning/session-001/reschedule",
+      "role": "prof",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Session not found"
+    },
+    {
+      "method": "POST",
+      "path": "/professor/planning/{sessionId}/cancel",
+      "resolved": "/professor/planning/session-001/cancel",
+      "role": "prof",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Session not found"
+    },
+    {
+      "method": "POST",
+      "path": "/professor/modules/{moduleId}/quizzes",
+      "resolved": "/professor/modules/module-1/quizzes",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": "Quiz créé dans le module avec succès"
+    },
+    {
+      "method": "POST",
+      "path": "/professor/courses/{courseId}/reminders",
+      "resolved": "/professor/courses/course-1/reminders",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/professor/courses/{courseId}/quizzes",
+      "resolved": "/professor/courses/course-1/quizzes",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": "Quiz créé dans le cours avec succès"
+    },
+    {
+      "method": "POST",
+      "path": "/professor/courses/{courseId}/modules",
+      "resolved": "/professor/courses/course-1/modules",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": "Module créé avec succès"
+    },
+    {
+      "method": "POST",
+      "path": "/professor/courses/{courseId}/lessons",
+      "resolved": "/professor/courses/course-1/lessons",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": "Leçon créée avec succès"
+    },
+    {
+      "method": "POST",
+      "path": "/professor/courses/{courseId}/homeworks",
+      "resolved": "/professor/courses/course-1/homeworks",
+      "role": "prof",
+      "code": 400,
+      "status": "FAIL",
+      "message": "Validation failed for object='createHomeworkRequestDto'. Error count: 3"
+    },
+    {
+      "method": "POST",
+      "path": "/professor/courses/{courseId}/grades/{studentId}",
+      "resolved": "/professor/courses/course-1/grades/usr-003",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/prof/attendance/submit",
+      "resolved": "/prof/attendance/submit",
+      "role": "prof",
+      "code": 200,
+      "status": "PASS",
+      "message": "Présences soumises avec succès"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/slots",
+      "resolved": "/planning/slots",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "Le type de créneau ne peut pas être vide"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/rooms",
+      "resolved": "/planning/rooms",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "L'ID ne peut pas être null"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/filieres",
+      "resolved": "/planning/filieres",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "L'ID ne peut pas être null"
+    },
+    {
+      "method": "POST",
+      "path": "/planning/classes",
+      "resolved": "/planning/classes",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "JSON parse error: Cannot map `null` into type `int` (set `DeserializationFeature.FAIL_ON_NULL_FOR_PRIMITIVES` to 'false' to allow)"
+    },
+    {
+      "method": "POST",
+      "path": "/media/upload",
+      "resolved": "/media/upload",
+      "role": "admin",
+      "code": 0,
+      "status": "SKIP",
+      "message": "multipart skipped in bulk pass"
+    },
+    {
+      "method": "POST",
+      "path": "/finance/transactions",
+      "resolved": "/finance/transactions",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Identifier of entity 'ecole_221.sn.ecole.modules.finance.infrastructure.persistence.TransactionJpaEntity' must be manually assigned before calling 'persist()'"
+    },
+    {
+      "method": "POST",
+      "path": "/finance/students",
+      "resolved": "/finance/students",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Identifier of entity 'ecole_221.sn.ecole.modules.finance.infrastructure.persistence.StudentFinanceJpaEntity' must be manually assigned before calling 'persist()'"
+    },
+    {
+      "method": "POST",
+      "path": "/finance/payment-reminders",
+      "resolved": "/finance/payment-reminders",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/finance/expenses",
+      "resolved": "/finance/expenses",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "JSON parse error: Cannot deserialize value of type `java.time.LocalDateTime` from String \"2026-08-12\": Failed to deserialize `java.time.LocalDateTime` (with format 'ParseCaseSensitive(false)(Value(Year,4,10,EXCEEDS_PAD)'-'Value(MonthOfYear,"
+    },
+    {
+      "method": "POST",
+      "path": "/finance/block-debtors",
+      "resolved": "/finance/block-debtors",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/email/send",
+      "resolved": "/email/send",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Cannot invoke \"String.length()\" because \"content\" is null"
+    },
+    {
+      "method": "POST",
+      "path": "/email/send-template",
+      "resolved": "/email/send-template",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": "Email template envoyé avec succès"
+    },
+    {
+      "method": "POST",
+      "path": "/email/send-reminder",
+      "resolved": "/email/send-reminder",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Cannot invoke \"String.toLowerCase()\" because \"reminderType\" is null"
+    },
+    {
+      "method": "POST",
+      "path": "/email/send-confirmation",
+      "resolved": "/email/send-confirmation",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Cannot invoke \"String.toLowerCase()\" because \"type\" is null"
+    },
+    {
+      "method": "POST",
+      "path": "/dashboard/system-alert",
+      "resolved": "/dashboard/system-alert",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/dashboard/kpis",
+      "resolved": "/dashboard/kpis",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/dashboard/alerts",
+      "resolved": "/dashboard/alerts",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Identifier of entity 'ecole_221.sn.ecole.modules.dashboard.infrastructure.persistence.DashboardAlertJpaEntity' must be manually assigned before calling 'persist()'"
+    },
+    {
+      "method": "POST",
+      "path": "/dashboard/activities",
+      "resolved": "/dashboard/activities",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Identifier of entity 'ecole_221.sn.ecole.modules.dashboard.infrastructure.persistence.ActivityLogJpaEntity' must be manually assigned before calling 'persist()'"
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/workgroups",
+      "resolved": "/collaboration/workgroups",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/workgroups/{groupId}/voice",
+      "resolved": "/collaboration/workgroups/441e50de-84d7-4987-92b4-d18f0e35782a/voice",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/workgroups/{groupId}/tasks",
+      "resolved": "/collaboration/workgroups/441e50de-84d7-4987-92b4-d18f0e35782a/tasks",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/workgroups/{groupId}/messages",
+      "resolved": "/collaboration/workgroups/441e50de-84d7-4987-92b4-d18f0e35782a/messages",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/workgroups/{groupId}/homeworks",
+      "resolved": "/collaboration/workgroups/441e50de-84d7-4987-92b4-d18f0e35782a/homeworks",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/workgroups/{groupId}/documents",
+      "resolved": "/collaboration/workgroups/441e50de-84d7-4987-92b4-d18f0e35782a/documents",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/voice-sessions",
+      "resolved": "/collaboration/voice-sessions",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/meets",
+      "resolved": "/collaboration/meets",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/test/run-all",
+      "resolved": "/collaboration/groupchat/test/run-all",
+      "role": "admin",
+      "code": 0,
+      "status": "SKIP",
+      "message": "skipped heavy test runner"
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/messages/{id}/read",
+      "resolved": "/collaboration/groupchat/messages/msg-001/read",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/individual",
+      "resolved": "/collaboration/groupchat/individual",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/groups",
+      "resolved": "/collaboration/groupchat/groups",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/groups/{id}/unpin",
+      "resolved": "/collaboration/groupchat/groups/11fd713f-cf05-49db-993c-b59816751277/unpin",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/groups/{id}/unmute",
+      "resolved": "/collaboration/groupchat/groups/11fd713f-cf05-49db-993c-b59816751277/unmute",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/groups/{id}/unarchive",
+      "resolved": "/collaboration/groupchat/groups/11fd713f-cf05-49db-993c-b59816751277/unarchive",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/groups/{id}/pin",
+      "resolved": "/collaboration/groupchat/groups/11fd713f-cf05-49db-993c-b59816751277/pin",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/groups/{id}/participants",
+      "resolved": "/collaboration/groupchat/groups/11fd713f-cf05-49db-993c-b59816751277/participants",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/groups/{id}/mute",
+      "resolved": "/collaboration/groupchat/groups/11fd713f-cf05-49db-993c-b59816751277/mute",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/groups/{id}/messages/text",
+      "resolved": "/collaboration/groupchat/groups/msg-001/messages/text",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/groups/{id}/messages/image",
+      "resolved": "/collaboration/groupchat/groups/msg-001/messages/image",
+      "role": "admin",
+      "code": 0,
+      "status": "SKIP",
+      "message": "multipart skipped in bulk pass"
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/groups/{id}/messages/audio",
+      "resolved": "/collaboration/groupchat/groups/msg-001/messages/audio",
+      "role": "admin",
+      "code": 0,
+      "status": "SKIP",
+      "message": "multipart skipped in bulk pass"
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/groups/{id}/description",
+      "resolved": "/collaboration/groupchat/groups/11fd713f-cf05-49db-993c-b59816751277/description",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/groups/{id}/avatar",
+      "resolved": "/collaboration/groupchat/groups/11fd713f-cf05-49db-993c-b59816751277/avatar",
+      "role": "admin",
+      "code": 0,
+      "status": "SKIP",
+      "message": "multipart skipped in bulk pass"
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/groups/{id}/archive",
+      "resolved": "/collaboration/groupchat/groups/11fd713f-cf05-49db-993c-b59816751277/archive",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/collaboration/groupchat/groups/{id}/admins",
+      "resolved": "/collaboration/groupchat/groups/11fd713f-cf05-49db-993c-b59816751277/admins",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/candidatures/submit",
+      "resolved": "/candidatures/submit",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": "Candidature soumise avec succès"
+    },
+    {
+      "method": "POST",
+      "path": "/candidatures/settings",
+      "resolved": "/candidatures/settings",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/auth/logout",
+      "resolved": "/auth/logout",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": "Déconnexion réussie"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "resolved": "/auth/login",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/auth/login-token",
+      "resolved": "/auth/login-token",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/audit/security-events",
+      "resolved": "/audit/security-events",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Le type d'événement ne peut pas être null"
+    },
+    {
+      "method": "POST",
+      "path": "/audit/logs",
+      "resolved": "/audit/logs",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "L'ID utilisateur ne peut pas être null"
+    },
+    {
+      "method": "POST",
+      "path": "/api/parent/rdv",
+      "resolved": "/api/parent/rdv",
+      "role": "parent",
+      "code": 403,
+      "status": "FAIL",
+      "message": "Accès refusé: rôle incorrect. Rôle requis: PARENT"
+    },
+    {
+      "method": "POST",
+      "path": "/api/parent/presences/{presenceId}/justifier",
+      "resolved": "/api/parent/presences/att-001/justifier",
+      "role": "parent",
+      "code": 400,
+      "status": "FAIL",
+      "message": "Required parameter 'motif' is not present."
+    },
+    {
+      "method": "POST",
+      "path": "/api/parent/messages",
+      "resolved": "/api/parent/messages",
+      "role": "parent",
+      "code": 403,
+      "status": "FAIL",
+      "message": "Accès refusé: rôle incorrect. Rôle requis: PARENT"
+    },
+    {
+      "method": "POST",
+      "path": "/api/parent/inscrire-enfant",
+      "resolved": "/api/parent/inscrire-enfant",
+      "role": "parent",
+      "code": 403,
+      "status": "FAIL",
+      "message": "Accès refusé: rôle incorrect. Rôle requis: PARENT"
+    },
+    {
+      "method": "POST",
+      "path": "/admissions/candidates",
+      "resolved": "/admissions/candidates",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Name is null"
+    },
+    {
+      "method": "POST",
+      "path": "/admissions/automation/process",
+      "resolved": "/admissions/automation/process",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": "Admissions traitées avec succès"
+    },
+    {
+      "method": "POST",
+      "path": "/admissions/automation/matricules",
+      "resolved": "/admissions/automation/matricules",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": "Matricules générées avec succès"
+    },
+    {
+      "method": "POST",
+      "path": "/admissions/automation/interviews",
+      "resolved": "/admissions/automation/interviews",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": "Invitations d'entretien envoyées avec succès"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/students",
+      "resolved": "/admin/students",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Internal Server Error"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/students/{id}/profile360",
+      "resolved": "/admin/students/usr-001/profile360",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/admin/students/{id}/documents",
+      "resolved": "/admin/students/usr-001/documents",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/admin/student-diagnostic",
+      "resolved": "/admin/student-diagnostic",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/admin/schedule/assign",
+      "resolved": "/admin/schedule/assign",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/admin/professors",
+      "resolved": "/admin/professors",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Internal Server Error"
+    },
+    {
+      "method": "POST",
+      "path": "/admin/gates/assign",
+      "resolved": "/admin/gates/assign",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "POST",
+      "path": "/admin/candidatures/settings",
+      "resolved": "/admin/candidatures/settings",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/finance/students/{id}/status",
+      "resolved": "/finance/students/usr-001/status",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/finance/expenses/{id}/status",
+      "resolved": "/finance/expenses/exp-1/status",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "Statut invalide: APPROVED. Statuts autorisés: Payé, En Attente, Annulé"
+    },
+    {
+      "method": "PATCH",
+      "path": "/dashboard/kpis/{kpiKey}/value",
+      "resolved": "/dashboard/kpis/recovery_rate/value",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/dashboard/alerts/{id}/deactivate",
+      "resolved": "/dashboard/alerts/alert-2/deactivate",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/candidatures/candidatures/{id}/statut",
+      "resolved": "/candidatures/candidatures/11fd713f-cf05-49db-993c-b59816751277/statut",
+      "role": "admin",
+      "code": 404,
+      "status": "FAIL",
+      "message": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/audit/security-events/{id}/resolve",
+      "resolved": "/audit/security-events/evt-1/resolve",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/parent/profil",
+      "resolved": "/api/parent/profil",
+      "role": "parent",
+      "code": 403,
+      "status": "FAIL",
+      "message": "Accès refusé: rôle incorrect. Rôle requis: PARENT"
+    },
+    {
+      "method": "PATCH",
+      "path": "/api/parent/messages/{messageId}/lu",
+      "resolved": "/api/parent/messages/msg-001/lu",
+      "role": "parent",
+      "code": 403,
+      "status": "FAIL",
+      "message": "Accès refusé: rôle incorrect. Rôle requis: PARENT"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admissions/settings/toggle",
+      "resolved": "/admissions/settings/toggle",
+      "role": "admin",
+      "code": 500,
+      "status": "FAIL",
+      "message": "Cannot invoke \"java.lang.Boolean.booleanValue()\" because the return value of \"java.util.Map.get(Object)\" is null"
+    },
+    {
+      "method": "PATCH",
+      "path": "/admissions/candidates/{id}/step",
+      "resolved": "/admissions/candidates/11fd713f-cf05-49db-993c-b59816751277/step",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/admissions/candidates/{id}/status",
+      "resolved": "/admissions/candidates/11fd713f-cf05-49db-993c-b59816751277/status",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "PATCH",
+      "path": "/admin/students/{id}/status",
+      "resolved": "/admin/students/usr-001/status",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "DELETE",
+      "path": "/planning/slots/{slotId}",
+      "resolved": "/planning/slots/SLOT-TEST-%24%28date%20%2B%25s%29",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "No message available"
+    },
+    {
+      "method": "DELETE",
+      "path": "/planning/rooms/{roomId}",
+      "resolved": "/planning/rooms/ROOM-TEST-%24%28date%20%2B%25s%29",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "No message available"
+    },
+    {
+      "method": "DELETE",
+      "path": "/planning/filieres/{filiereId}",
+      "resolved": "/planning/filieres/CLS-TEST-%24%28date%20%2B%25s%29",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "No message available"
+    },
+    {
+      "method": "DELETE",
+      "path": "/planning/classes/{classeId}",
+      "resolved": "/planning/classes/CLS-TEST-%24%28date%20%2B%25s%29",
+      "role": "admin",
+      "code": 400,
+      "status": "FAIL",
+      "message": "No message available"
+    },
+    {
+      "method": "DELETE",
+      "path": "/collaboration/voice-sessions/{sessionId}",
+      "resolved": "/collaboration/voice-sessions/session-001",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": "Session vocale terminée"
+    },
+    {
+      "method": "DELETE",
+      "path": "/collaboration/groupchat/messages/{id}",
+      "resolved": "/collaboration/groupchat/messages/msg-001",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "DELETE",
+      "path": "/collaboration/groupchat/groups/{id}/participants/{participantId}",
+      "resolved": "/collaboration/groupchat/groups/11fd713f-cf05-49db-993c-b59816751277/participants/test-id",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "DELETE",
+      "path": "/collaboration/groupchat/groups/{id}/admins/{adminId}",
+      "resolved": "/collaboration/groupchat/groups/11fd713f-cf05-49db-993c-b59816751277/admins/test-id",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "DELETE",
+      "path": "/admin/students/{id}",
+      "resolved": "/admin/students/usr-001",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    },
+    {
+      "method": "DELETE",
+      "path": "/admin/professors/{id}",
+      "resolved": "/admin/professors/usr-002",
+      "role": "admin",
+      "code": 200,
+      "status": "PASS",
+      "message": ""
+    }
+  ]
+}
