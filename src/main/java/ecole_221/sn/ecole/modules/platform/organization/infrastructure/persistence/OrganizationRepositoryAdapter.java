@@ -105,6 +105,7 @@ public class OrganizationRepositoryAdapter implements OrganizationRepositoryPort
         entity.setName(domain.getName());
         entity.setType(OrganizationTypeJpa.valueOf(domain.getType().value()));
         entity.setStatus(OrganizationStatusJpa.valueOf(domain.getStatus().value()));
+        entity.setSlug(domain.getSlug());
         entity.setCountry(domain.getCountry());
         entity.setCity(domain.getCity());
         entity.setAddress(domain.getAddress());
@@ -128,6 +129,7 @@ public class OrganizationRepositoryAdapter implements OrganizationRepositoryPort
             entity.getName(),
             entity.getType().name(),
             entity.getStatus().name(),
+            entity.getSlug(),
             entity.getCountry(),
             entity.getCity(),
             entity.getAddress(),

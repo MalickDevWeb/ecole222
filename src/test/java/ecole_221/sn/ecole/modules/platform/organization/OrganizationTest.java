@@ -130,6 +130,7 @@ class OrganizationTest {
             "École Test",
             OrganizationType.ECOLE,
             OrganizationStatus.ACTIVE,
+            null, // slug
             "Senegal",
             "Dakar",
             "Test Address",

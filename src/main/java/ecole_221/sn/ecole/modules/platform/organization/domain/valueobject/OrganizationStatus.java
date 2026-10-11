@@ -16,7 +16,7 @@ public record OrganizationStatus(String value) {
         String normalized = value.trim().toUpperCase(Locale.ROOT);
         if (!isValidStatus(normalized)) {
             throw new IllegalArgumentException("Statut d'organization invalide: " + value + 
-                ". Statuts autorisés: PENDING, ACTIVE, SUSPENDED, REJECTED, EXPIRED, CANCELLED");
+                ". Statuts autorisés: PENDING, ACTIVE, SUSPENDED, REJECTED, EXPIRED, CANCELLED, ARCHIVED");
         }
     }
     
@@ -26,7 +26,8 @@ public record OrganizationStatus(String value) {
                status.equals("SUSPENDED") || 
                status.equals("REJECTED") || 
                status.equals("EXPIRED") || 
-               status.equals("CANCELLED");
+               status.equals("CANCELLED") ||
+               status.equals("ARCHIVED");
     }
     
     public static OrganizationStatus fromString(String value) {
@@ -42,6 +43,7 @@ public record OrganizationStatus(String value) {
             case "REJECTED", "REJETE" -> "REJECTED";
             case "EXPIRED", "EXPIRE" -> "EXPIRED";
             case "CANCELLED", "ANNULE" -> "CANCELLED";
+            case "ARCHIVED", "ARCHIVE" -> "ARCHIVED";
             default -> normalized;
         };
 
@@ -59,6 +61,7 @@ public record OrganizationStatus(String value) {
     public static final OrganizationStatus REJECTED = new OrganizationStatus("REJECTED");
     public static final OrganizationStatus EXPIRED = new OrganizationStatus("EXPIRED");
     public static final OrganizationStatus CANCELLED = new OrganizationStatus("CANCELLED");
+    public static final OrganizationStatus ARCHIVED = new OrganizationStatus("ARCHIVED");
     
     public String displayName() {
         return switch (value) {
@@ -68,6 +71,7 @@ public record OrganizationStatus(String value) {
             case "REJECTED" -> "Rejeté";
             case "EXPIRED" -> "Expiré";
             case "CANCELLED" -> "Annulé";
+            case "ARCHIVED" -> "Archivé";
             default -> value;
         };
     }

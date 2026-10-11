@@ -150,6 +150,7 @@ class TenantContextTest {
             "Test Organization",
             "ECOLE",
             "ACTIVE",
+            null, // slug
             "Senegal",
             "Dakar",
             "Test Address",

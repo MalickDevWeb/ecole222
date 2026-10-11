@@ -21,6 +21,7 @@ public class OrganizationFactory {
             name,
             type,
             OrganizationStatus.PENDING,
+            null, // slug
             null, // country
             null, // city
             null, // address
@@ -37,7 +38,7 @@ public class OrganizationFactory {
     /**
      * Crée une nouvelle organization avec tous les détails.
      */
-    public static Organization create(String name, OrganizationType type, OrganizationStatus status,
+    public static Organization create(String name, OrganizationType type, OrganizationStatus status, String slug,
                                      String country, String city, String address, String phone, String email,
                                      String website, String logo, String subscriptionId, String primaryDomainId,
                                      Map<String, Object> settings) {
@@ -50,6 +51,7 @@ public class OrganizationFactory {
             name,
             type,
             status,
+            slug,
             country,
             city,
             address,
@@ -70,7 +72,7 @@ public class OrganizationFactory {
     /**
      * Reconstruit une organization depuis la base de données.
      */
-    public static Organization reconstruct(String id, String name, String type, String status,
+    public static Organization reconstruct(String id, String name, String type, String status, String slug,
                                          String country, String city, String address, String phone, String email,
                                          String website, String logo, String subscriptionId, String primaryDomainId,
                                          Map<String, Object> settings, LocalDateTime createdAt, LocalDateTime updatedAt,
@@ -81,6 +83,7 @@ public class OrganizationFactory {
             name,
             OrganizationType.fromString(type),
             OrganizationStatus.fromString(status),
+            slug,
             country,
             city,
             address,

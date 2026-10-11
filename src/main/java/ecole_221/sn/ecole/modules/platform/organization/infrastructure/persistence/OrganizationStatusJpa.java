@@ -10,5 +10,6 @@ public enum OrganizationStatusJpa {
     SUSPENDED,
     REJECTED,
     EXPIRED,
-    CANCELLED
+    CANCELLED,
+    ARCHIVED
 }

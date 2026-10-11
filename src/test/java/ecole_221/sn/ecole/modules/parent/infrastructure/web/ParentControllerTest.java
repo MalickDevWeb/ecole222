@@ -64,7 +64,7 @@ class ParentControllerTest {
         Mockito.when(parentUseCase.getEnfantsByParentId(anyString())).thenReturn(mockChildren);
 
         // Execute and verify
-        mockMvc.perform(get("/api/parent/enfants")
+        mockMvc.perform(get("/parent/enfants")
                 .header("Authorization", "Bearer test-token"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
@@ -76,7 +76,7 @@ class ParentControllerTest {
 
     @Test
     void testGetEnfantsWithoutToken() throws Exception {
-        mockMvc.perform(get("/api/parent/enfants"))
+        mockMvc.perform(get("/parent/enfants"))
                 .andExpect(status().isBadRequest()); // Missing header = 400 Bad Request
     }
 
@@ -96,7 +96,7 @@ class ParentControllerTest {
                                        "Informatique", "L2", "L2-INFO-A", null);
         Mockito.when(parentUseCase.getEnfantsByParentId(anyString())).thenReturn(List.of(mockChild));
 
-        mockMvc.perform(get("/api/parent/enfants/child-1/stats")
+        mockMvc.perform(get("/parent/enfants/child-1/stats")
                 .header("Authorization", "Bearer test-token"))
                 .andExpect(status().isOk());
 

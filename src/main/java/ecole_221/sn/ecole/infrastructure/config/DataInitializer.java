@@ -12,12 +12,13 @@ import ecole_221.sn.ecole.modules.auth.infrastructure.persistence.UserJpaReposit
 import ecole_221.sn.ecole.modules.auth.infrastructure.persistence.UserJpaEntity;
 import ecole_221.sn.ecole.modules.auth.domain.valueobject.RoleUtilisateur;
 import org.springframework.boot.CommandLineRunner;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
-@Component
+////@Component
 public class DataInitializer implements CommandLineRunner {
 
     private final DashboardKpiJpaRepository kpiRepository;
@@ -39,6 +40,7 @@ public class DataInitializer implements CommandLineRunner {
     private final UserJpaRepository userRepository;
     private final ParentJpaRepository parentJpaRepository;
     private final ParentEnfantJpaRepository parentEnfantJpaRepository;
+    private final PasswordEncoder passwordEncoder;
 
     public DataInitializer(
             DashboardKpiJpaRepository kpiRepository,
@@ -59,7 +61,8 @@ public class DataInitializer implements CommandLineRunner {
             VigilProfileJpaRepository vigilProfileRepository,
             UserJpaRepository userRepository,
             ParentJpaRepository parentJpaRepository,
-            ParentEnfantJpaRepository parentEnfantJpaRepository) {
+            ParentEnfantJpaRepository parentEnfantJpaRepository,
+            PasswordEncoder passwordEncoder) {
         this.kpiRepository = kpiRepository;
         this.alertRepository = alertRepository;
         this.regionalStatsRepository = regionalStatsRepository;
@@ -79,6 +82,7 @@ public class DataInitializer implements CommandLineRunner {
         this.userRepository = userRepository;
         this.parentJpaRepository = parentJpaRepository;
         this.parentEnfantJpaRepository = parentEnfantJpaRepository;
+        this.passwordEncoder = passwordEncoder;
     }
 
     @Override
@@ -417,32 +421,33 @@ public class DataInitializer implements CommandLineRunner {
     }
 
     private void populateTestUsers() {
-        // Password en clair pour le test (à remplacer par BCrypt en production)
-        String plainPassword = "admin123";
+        // Mots de passe hachés avec BCrypt (jamais en clair en base de données)
+        String hashedPassword = passwordEncoder.encode("Test@Ecole221!");
+        String hashedParentPassword = passwordEncoder.encode("Parent@Ecole221!");
 
         userRepository.save(new UserJpaEntity(
-            "user-001", "Admin", "Principal", "admin@ecole221.sn", plainPassword,
+            "user-001", "Admin", "Principal", "admin@ecole221.sn", hashedPassword,
             RoleUtilisateur.ADMIN.value(), "2026-EC-001", null
         ));
 
         userRepository.save(new UserJpaEntity(
-            "user-002", "Professeur", "Test", "prof@ecole221.sn", plainPassword,
+            "user-002", "Professeur", "Test", "prof@ecole221.sn", hashedPassword,
             RoleUtilisateur.PROFESSEUR.value(), "2026-EC-002", null
         ));
 
         userRepository.save(new UserJpaEntity(
-            "user-003", "Étudiant", "Test", "etudiant@ecole221.sn", plainPassword,
+            "user-003", "Étudiant", "Test", "etudiant@ecole221.sn", hashedPassword,
             RoleUtilisateur.ETUDIANT.value(), "2026-EC-003", null
         ));
 
         userRepository.save(new UserJpaEntity(
-            "user-004", "Vigile", "Test", "vigil@ecole221.sn", plainPassword,
+            "user-004", "Vigile", "Test", "vigil@ecole221.sn", hashedPassword,
             RoleUtilisateur.VIGIL.value(), "2026-EC-004", null
         ));
 
         // Utilisateur Parent pour le module Parent
         userRepository.save(new UserJpaEntity(
-            "usr-parent-01", "Diallo", "Mamadou", "parent221@gmail.com", "ecole221",
+            "usr-parent-01", "Diallo", "Mamadou", "parent221@gmail.com", hashedParentPassword,
             RoleUtilisateur.PARENT.value(), "PARENT-001", null
         ));
 

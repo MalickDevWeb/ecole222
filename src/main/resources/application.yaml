@@ -1,5 +1,5 @@
 server:
-  port: ${PORT:8080}
+  port: ${PORT:8090}
   servlet:
     context-path: /api
     encoding:
@@ -20,6 +20,9 @@ spring:
     name: ecole
   profiles:
     active: ${SPRING_PROFILES_ACTIVE:default}
+  devtools:
+    restart:
+      enabled: false
   
   datasource:
     url: ${DATABASE_URL:jdbc:postgresql://ep-patient-darkness-avnjut8j-pooler.c-11.us-east-1.aws.neon.tech/221-db?sslmode=require&channelBinding=require}
@@ -51,7 +54,7 @@ spring:
     open-in-view: false
   
   flyway:
-    enabled: true
+    enabled: false
     baseline-on-migrate: true
     baseline-version: 0
     clean-on-validation-error: false

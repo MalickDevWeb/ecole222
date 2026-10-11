@@ -38,6 +38,7 @@ public class SecurityConfig {
         "/auth/register",
         "/register-school",
         "/candidatures/settings",
+        "/candidatures/submit",
         "/health",
         "/error",
         "/student/qr-validate", // Ajouté pour permettre aux vigiles de scanner les QR
@@ -70,12 +71,15 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_PATHS).permitAll()
-                .requestMatchers("/admin/**").hasAnyRole("ADMIN", "ADMINISTRATOR")
+                // Routes exclusivement réservées au SUPER_ADMIN / PLATFORM_ADMIN
+                .requestMatchers("/super-admin/**", "/platform/**", "/v1/super-admin/**", "/v1/platform/**")
+                    .hasAnyRole("SUPER_ADMIN", "PLATFORM_ADMIN")
+                .requestMatchers("/admin/**").hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
                 .requestMatchers("/planning/**").authenticated()
-                .requestMatchers("/vigil/check-ins").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "PROFESSEUR", "TEACHER")
-                .requestMatchers("/security/**", "/vigil/**").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL")
-                .requestMatchers("/professor/**", "/prof/**").hasAnyRole("PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR")
-                .requestMatchers("/student/**").hasAnyRole("ETUDIANT", "STUDENT", "PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR")
+                .requestMatchers("/vigil/check-ins").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "PROFESSEUR", "TEACHER", "SUPER_ADMIN")
+                .requestMatchers("/security/**", "/vigil/**").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "SUPER_ADMIN")
+                .requestMatchers("/professor/**", "/prof/**").hasAnyRole("PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR", "SUPER_ADMIN")
+                .requestMatchers("/student/**").hasAnyRole("ETUDIANT", "STUDENT", "PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR", "SUPER_ADMIN")
                 .anyRequest().authenticated()
             )
             .exceptionHandling(exception -> exception
@@ -97,7 +101,7 @@ public class SecurityConfig {
         CorsConfiguration config = new CorsConfiguration();
         // Origines explicites requises quand allowCredentials=true
         config.setAllowedOriginPatterns(List.of(
-            "http://localhost:5173",
+            "http://localhost:*", "http://127.0.0.1:*",
             "http://127.0.0.1:5173",
             "http://192.168.1.239:5173",
             "https://papa-221.vercel.app"

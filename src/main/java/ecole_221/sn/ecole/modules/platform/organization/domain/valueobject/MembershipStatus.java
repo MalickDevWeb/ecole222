@@ -16,7 +16,7 @@ public record MembershipStatus(String value) {
         String normalized = value.trim().toUpperCase(Locale.ROOT);
         if (!isValidStatus(normalized)) {
             throw new IllegalArgumentException("Statut de membership invalide: " + value + 
-                ". Statuts autorisés: ACTIVE, INVITED, SUSPENDED, EXPIRED");
+                ". Statuts autorisés: ACTIVE, INVITED, SUSPENDED, EXPIRED, TRANSFERRED");
         }
     }
     
@@ -24,7 +24,7 @@ public record MembershipStatus(String value) {
         return status.equals("ACTIVE") || 
                status.equals("INVITED") || 
                status.equals("SUSPENDED") || 
-               status.equals("EXPIRED");
+               status.equals("EXPIRED") || status.equals("TRANSFERRED");
     }
     
     public static MembershipStatus fromString(String value) {
@@ -38,6 +38,7 @@ public record MembershipStatus(String value) {
             case "INVITED", "INVITE" -> "INVITED";
             case "SUSPENDED", "SUSPENDU" -> "SUSPENDED";
             case "EXPIRED", "EXPIRE" -> "EXPIRED";
+            case "TRANSFERRED", "TRANSFERE" -> "TRANSFERRED";
             default -> normalized;
         };
 
@@ -53,6 +54,7 @@ public record MembershipStatus(String value) {
     public static final MembershipStatus INVITED = new MembershipStatus("INVITED");
     public static final MembershipStatus SUSPENDED = new MembershipStatus("SUSPENDED");
     public static final MembershipStatus EXPIRED = new MembershipStatus("EXPIRED");
+    public static final MembershipStatus TRANSFERRED = new MembershipStatus("TRANSFERRED");
     
     public String displayName() {
         return switch (value) {
@@ -60,6 +62,7 @@ public record MembershipStatus(String value) {
             case "INVITED" -> "Invité";
             case "SUSPENDED" -> "Suspendu";
             case "EXPIRED" -> "Expiré";
+            case "TRANSFERRED" -> "Transféré";
             default -> value;
         };
     }

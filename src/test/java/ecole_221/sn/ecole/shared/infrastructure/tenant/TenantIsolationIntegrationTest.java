@@ -1,9 +1,7 @@
 package ecole_221.sn.ecole.shared.infrastructure.tenant;
 
-import ecole_221.sn.ecole.modules.auth.domain.model.User;
-import ecole_221.sn.ecole.modules.auth.domain.model.UserFactory;
-import ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort;
-import ecole_221.sn.ecole.modules.auth.domain.valueobject.RoleUtilisateur;
+import ecole_221.sn.ecole.modules.planning.infrastructure.persistence.FiliereJpaEntity;
+import ecole_221.sn.ecole.modules.planning.infrastructure.persistence.FiliereJpaRepository;
 import ecole_221.sn.ecole.modules.platform.organization.domain.model.Organization;
 import ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationFactory;
 import ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationRepositoryPort;
@@ -22,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
 public class TenantIsolationIntegrationTest {
 
     @Autowired
-    private UserRepositoryPort userRepositoryPort;
+    private FiliereJpaRepository filiereJpaRepository;
 
     @Autowired
     private OrganizationRepositoryPort organizationRepositoryPort;
@@ -50,21 +48,27 @@ public class TenantIsolationIntegrationTest {
     }
 
     @Test
-    void testIsolation_UserSavedInTenantA_CannotBeFoundInTenantB() {
+    void testIsolation_EntitySavedInTenantA_CannotBeFoundInTenantB() {
         // Given Context is Tenant A
         TenantContext.setCurrentOrganization(orgA);
 
-        // Create User in Tenant A
-        User userA = UserFactory.create("Doe", "John", "studentA@example.com", "password", RoleUtilisateur.STUDENT);
-        userRepositoryPort.save(userA);
+        // Create Filiere in Tenant A
+        FiliereJpaEntity filiere = new FiliereJpaEntity();
+        filiere.setId("fil-1");
+        filiere.setName("Maths");
+        filiere.setCode("MATH");
+        filiere.setDescription("Mathematics");
+        filiere.setLevel("L1");
+        // We do NOT set organizationId manually because @TenantId is supposed to handle it
+        filiereJpaRepository.save(filiere);
 
-        // Verify User A exists in Tenant A
-        assertTrue(userRepositoryPort.findByEmail("studentA@example.com").isPresent());
+        // Verify Filiere exists in Tenant A
+        assertTrue(filiereJpaRepository.findById("fil-1").isPresent());
 
         // When switching to Tenant B
         TenantContext.setCurrentOrganization(orgB);
 
-        // Then User A should NOT be visible
-        assertFalse(userRepositoryPort.findByEmail("studentA@example.com").isPresent());
+        // Then Filiere should NOT be visible
+        assertFalse(filiereJpaRepository.findById("fil-1").isPresent());
     }
 }

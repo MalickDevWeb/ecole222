@@ -20,10 +20,10 @@ public record Priority(String value) {
     }
     
     private boolean isValidPriority(String priority) {
-        return priority.equals("LOW") || 
-               priority.equals("MEDIUM") || 
-               priority.equals("HIGH") || 
-               priority.equals("URGENT");
+        return priority.equals("LOW") || priority.equals("BASSE") ||
+               priority.equals("MEDIUM") || priority.equals("MOYENNE") ||
+               priority.equals("HIGH") || priority.equals("HAUTE") ||
+               priority.equals("URGENT") || priority.equals("URGENTE");
     }
     
     // Niveaux prédéfinis
@@ -36,10 +36,10 @@ public record Priority(String value) {
     public static Priority valueOf(String priority) {
         String normalized = priority.trim().toUpperCase();
         return switch (normalized) {
-            case "LOW" -> LOW;
-            case "MEDIUM" -> MEDIUM;
-            case "HIGH" -> HIGH;
-            case "URGENT" -> URGENT;
+            case "LOW", "BASSE", "BAS" -> LOW;
+            case "MEDIUM", "MOYENNE", "MOYEN" -> MEDIUM;
+            case "HIGH", "HAUTE", "HAUT" -> HIGH;
+            case "URGENT", "URGENTE" -> URGENT;
             default -> throw new IllegalArgumentException("Niveau de priorité invalide: " + priority);
         };
     }

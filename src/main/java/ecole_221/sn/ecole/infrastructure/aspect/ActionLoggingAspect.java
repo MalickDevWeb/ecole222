@@ -11,7 +11,7 @@ import java.util.Arrays;
 
 /**
  * Aspect AOP pour logger automatiquement toutes les actions métiers
- * (services, use cases, repositories) pour le débogage
+ * (services, use cases, repositories, controllers) pour le débogage
  */
 @Aspect
 @Component
@@ -20,116 +20,72 @@ public class ActionLoggingAspect {
     private static final Logger logger = LoggerFactory.getLogger(ActionLoggingAspect.class);
 
     /**
-     * Intercepte toutes les méthodes des classes dans les packages de service et use case
+     * Intercepte toutes les méthodes : application, domain, web controllers, persistence
      */
     @Around("execution(* ecole_221.sn.ecole.modules..application..*(..)) || " +
             "execution(* ecole_221.sn.ecole.modules..domain..*(..)) || " +
-            "execution(* ecole_221.sn.ecole.modules..infrastructure..persistence..*(..))")
+            "execution(* ecole_221.sn.ecole.modules..infrastructure.web..*(..)) || " +
+            "execution(* ecole_221.sn.ecole.modules..infrastructure.persistence..*(..))")
     public Object logServiceMethod(ProceedingJoinPoint joinPoint) throws Throwable {
         long startTime = System.currentTimeMillis();
-        
-        String className = joinPoint.getTarget().getClass().getSimpleName();
+
+        String className  = joinPoint.getTarget().getClass().getSimpleName();
         String methodName = joinPoint.getSignature().getName();
-        String packageName = joinPoint.getTarget().getClass().getPackage().getName();
-        
-        // Logger l'entrée dans la méthode
-        logger.debug("\n" + 
-                "┌─────────────────────────────────────────────────────────────────┐\n" +
-                "│ SERVICE/ACTION METHOD CALL                                    │\n" +
-                "├─────────────────────────────────────────────────────────────────┤\n" +
-                "│ Package:  {:<53} │\n" +
-                "│ Class:    {:<53} │\n" +
-                "│ Method:   {:<53} │\n" +
-                "└─────────────────────────────────────────────────────────────────┘",
-                packageName, className, methodName);
-        
-        // Logger les paramètres
+        String pkg        = joinPoint.getTarget().getClass().getPackage().getName();
+
+        // Logger l'entrée
+        logger.info("→ CALL  [{}.{}]  pkg={}", className, methodName, pkg);
+
+        // Logger les paramètres (masque les mots de passe)
         Object[] args = joinPoint.getArgs();
         if (args != null && args.length > 0) {
-            logger.debug("Method parameters: {}", Arrays.toString(args));
+            String argsStr = Arrays.toString(args);
+            // Masquer les mots de passe dans les logs
+            argsStr = argsStr.replaceAll("(?i)(password|motDePasse|mdp)[^,\\]]*", "$1=***");
+            logger.info("   args: {}", argsStr);
         }
-        
+
         try {
             Object result = joinPoint.proceed();
             long duration = System.currentTimeMillis() - startTime;
-            
-            // Logger la sortie
-            logger.debug("\n" + 
-                    "┌─────────────────────────────────────────────────────────────────┐\n" +
-                    "│ SERVICE/ACTION METHOD RETURN                                  │\n" +
-                    "├─────────────────────────────────────────────────────────────────┤\n" +
-                    "│ Class:    {:<53} │\n" +
-                    "│ Method:   {:<53} │\n" +
-                    "│ Duration: {:<52}ms │\n" +
-                    "│ Return:   {:<53} │\n" +
-                    "└─────────────────────────────────────────────────────────────────┘",
-                    className, methodName, duration, 
+            logger.info("← OK    [{}.{}]  {}ms  → {}",
+                    className, methodName, duration,
                     result != null ? result.getClass().getSimpleName() : "void");
-            
             return result;
+
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.error("\n" + 
-                    "┌─────────────────────────────────────────────────────────────────┐\n" +
-                    "│ SERVICE/ACTION METHOD EXCEPTION                              │\n" +
-                    "├─────────────────────────────────────────────────────────────────┤\n" +
-                    "│ Class:    {:<53} │\n" +
-                    "│ Method:   {:<53} │\n" +
-                    "│ Duration: {:<52}ms │\n" +
-                    "│ Error:    {:<53} │\n" +
-                    "└─────────────────────────────────────────────────────────────────┘",
-                    className, methodName, duration, e.getClass().getSimpleName() + ": " + e.getMessage());
-            logger.error("Service method exception details:", e);
+            logger.error("✗ ERROR [{}.{}]  {}ms  → {}: {}",
+                    className, methodName, duration,
+                    e.getClass().getSimpleName(), e.getMessage());
+            logger.error("  Stack trace:", e);
             throw e;
         }
     }
 
     /**
-     * Intercepte spécifiquement les use cases (pour un logging plus détaillé)
+     * Intercepte spécifiquement les use cases (niveau INFO avec double-cadre)
      */
     @Around("execution(* ecole_221.sn.ecole.modules..application.port.usecase..*(..))")
     public Object logUseCaseMethod(ProceedingJoinPoint joinPoint) throws Throwable {
         long startTime = System.currentTimeMillis();
-        
-        String className = joinPoint.getTarget().getClass().getSimpleName();
+
+        String className  = joinPoint.getTarget().getClass().getSimpleName();
         String methodName = joinPoint.getSignature().getName();
-        
-        logger.info("\n" + 
-                "╔════════════════════════════════════════════════════════════════╗\n" +
-                "║ USE CASE METHOD CALL                                        ║\n" +
-                "╠════════════════════════════════════════════════════════════════╣\n" +
-                "║ Class:    {:<50} ║\n" +
-                "║ Method:   {:<50} ║\n" +
-                "╚════════════════════════════════════════════════════════════════╝",
-                className, methodName);
-        
+
+        logger.info("╔══ USE-CASE CALL  [{}.{}]", className, methodName);
+
         try {
             Object result = joinPoint.proceed();
             long duration = System.currentTimeMillis() - startTime;
-            
-            logger.info("\n" + 
-                    "╔════════════════════════════════════════════════════════════════╗\n" +
-                    "║ USE CASE METHOD RETURN                                      ║\n" +
-                    "╠════════════════════════════════════════════════════════════════╣\n" +
-                    "║ Class:    {:<50} ║\n" +
-                    "║ Method:   {:<50} ║\n" +
-                    "║ Duration: {:<49}ms ║\n" +
-                    "╚════════════════════════════════════════════════════════════════╝",
-                    className, methodName, duration);
-            
+            logger.info("╚══ USE-CASE OK    [{}.{}]  {}ms", className, methodName, duration);
             return result;
+
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.error("\n" + 
-                    "╔════════════════════════════════════════════════════════════════╗\n" +
-                    "║ USE CASE METHOD EXCEPTION                                  ║\n" +
-                    "╠════════════════════════════════════════════════════════════════╣\n" +
-                    "║ Class:    {:<50} ║\n" +
-                    "║ Method:   {:<50} ║\n" +
-                    "║ Duration: {:<49}ms ║\n" +
-                    "║ Error:    {:<50} ║\n" +
-                    "╚════════════════════════════════════════════════════════════════╝",
-                    className, methodName, duration, e.getClass().getSimpleName() + ": " + e.getMessage());
+            logger.error("╚══ USE-CASE ERROR [{}.{}]  {}ms  → {}: {}",
+                    className, methodName, duration,
+                    e.getClass().getSimpleName(), e.getMessage());
             throw e;
         }
     }

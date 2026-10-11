@@ -8,7 +8,8 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Agrégat racine représentant une organization (tenant) sur la plateforme.
+ * Agrégat racine pour une Organization (Tenant).
+ * Gère l'état et les comportements métier d'un établissement.
  */
 public class Organization {
     
@@ -16,6 +17,7 @@ public class Organization {
     private String name;
     private OrganizationType type;
     private OrganizationStatus status;
+    private String slug;
     
     // Informations établissement
     private String country;
@@ -38,7 +40,7 @@ public class Organization {
     private LocalDateTime suspendedAt;
     
     // Constructeur privé
-    private Organization(String id, String name, OrganizationType type, OrganizationStatus status,
+    private Organization(String id, String name, OrganizationType type, OrganizationStatus status, String slug,
                       String country, String city, String address, String phone, String email, 
                       String website, String logo, String subscriptionId, String primaryDomainId,
                       Map<String, Object> settings, LocalDateTime createdAt, LocalDateTime updatedAt,
@@ -47,6 +49,7 @@ public class Organization {
         this.name = Objects.requireNonNull(name, "Le nom ne peut pas être null");
         this.type = Objects.requireNonNull(type, "Le type ne peut pas être null");
         this.status = Objects.requireNonNull(status, "Le statut ne peut pas être null");
+        this.slug = slug;
         this.country = country;
         this.city = city;
         this.address = address;
@@ -64,12 +67,12 @@ public class Organization {
     }
     
     // Méthode package-private pour la Factory
-    static Organization createInternal(String id, String name, OrganizationType type, OrganizationStatus status,
+    static Organization createInternal(String id, String name, OrganizationType type, OrganizationStatus status, String slug,
                                      String country, String city, String address, String phone, String email,
                                      String website, String logo, String subscriptionId, String primaryDomainId,
                                      Map<String, Object> settings, LocalDateTime createdAt, LocalDateTime updatedAt,
                                      LocalDateTime validatedAt, LocalDateTime suspendedAt) {
-        return new Organization(id, name, type, status, country, city, address, phone, email, website, logo,
+        return new Organization(id, name, type, status, slug, country, city, address, phone, email, website, logo,
                               subscriptionId, primaryDomainId, settings, createdAt, updatedAt, validatedAt, suspendedAt);
     }
     
@@ -78,6 +81,7 @@ public class Organization {
     public String getName() { return name; }
     public OrganizationType getType() { return type; }
     public OrganizationStatus getStatus() { return status; }
+    public String getSlug() { return slug; }
     public String getCountry() { return country; }
     public String getCity() { return city; }
     public String getAddress() { return address; }
@@ -106,6 +110,11 @@ public class Organization {
     
     public void setStatus(OrganizationStatus status) { 
         this.status = Objects.requireNonNull(status, "Le statut ne peut pas être null");
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    public void setSlug(String slug) {
+        this.slug = slug;
         this.updatedAt = LocalDateTime.now();
     }
     
@@ -161,8 +170,8 @@ public class Organization {
     
     // Comportements métier
     public void validate() {
-        if (this.status != OrganizationStatus.PENDING) {
-            throw new IllegalStateException("Seules les organizations en statut PENDING peuvent être validées");
+        if (!this.status.equals(OrganizationStatus.PENDING)) {
+            throw new IllegalStateException("Seules les organizations en statut PENDING peuvent être validées. Statut actuel: '" + this.status.value() + "'");
         }
         this.status = OrganizationStatus.ACTIVE;
         this.validatedAt = LocalDateTime.now();
@@ -170,7 +179,7 @@ public class Organization {
     }
     
     public void suspend() {
-        if (this.status != OrganizationStatus.ACTIVE) {
+        if (!this.status.equals(OrganizationStatus.ACTIVE)) {
             throw new IllegalStateException("Seules les organizations ACTIVE peuvent être suspendues");
         }
         this.status = OrganizationStatus.SUSPENDED;
@@ -179,7 +188,7 @@ public class Organization {
     }
     
     public void reactivate() {
-        if (this.status != OrganizationStatus.SUSPENDED) {
+        if (!this.status.equals(OrganizationStatus.SUSPENDED)) {
             throw new IllegalStateException("Seules les organizations SUSPENDED peuvent être réactivées");
         }
         this.status = OrganizationStatus.ACTIVE;
@@ -187,8 +196,24 @@ public class Organization {
         this.updatedAt = LocalDateTime.now();
     }
     
+    public void archive() {
+        if (this.status.equals(OrganizationStatus.ARCHIVED)) {
+            throw new IllegalStateException("L'organisation est déjà archivée");
+        }
+        this.status = OrganizationStatus.ARCHIVED;
+        this.updatedAt = LocalDateTime.now();
+    }
+    
+    public void unarchive() {
+        if (!this.status.equals(OrganizationStatus.ARCHIVED)) {
+            throw new IllegalStateException("Seules les organizations archivées peuvent être désarchivées");
+        }
+        this.status = OrganizationStatus.SUSPENDED; // On désarchive en mode suspendu par sécurité
+        this.updatedAt = LocalDateTime.now();
+    }
+    
     public boolean isActive() {
-        return this.status == OrganizationStatus.ACTIVE;
+        return this.status.equals(OrganizationStatus.ACTIVE);
     }
     
     public boolean isPending() {
@@ -196,7 +221,7 @@ public class Organization {
     }
     
     public boolean isSuspended() {
-        return this.status == OrganizationStatus.SUSPENDED;
+        return this.status.equals(OrganizationStatus.SUSPENDED);
     }
     
     @Override
@@ -217,6 +242,7 @@ public class Organization {
         return "Organization{" +
                 "id='" + id + '\'' +
                 ", name='" + name + '\'' +
+                ", slug='" + slug + '\'' +
                 ", type=" + type +
                 ", status=" + status +
                 ", city='" + city + '\'' +

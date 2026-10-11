@@ -23,7 +23,7 @@ import java.util.Map;
  * Expose les endpoints pour la gestion des parents.
  */
 @RestController
-@RequestMapping("/api/parent")
+@RequestMapping("/parent")
 @CrossOrigin(origins = "*")
 @Tag(name = "Parent", description = "Gestion des parents - enfants, stats, messages, paiements")
 public class ParentController {

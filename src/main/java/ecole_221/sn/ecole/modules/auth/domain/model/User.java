@@ -8,7 +8,9 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.time.LocalDateTime;
 import java.util.Collection;
 import java.util.List;
+import java.util.ArrayList;
 import java.util.Objects;
+import ecole_221.sn.ecole.modules.auth.domain.valueobject.TenantProfile;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 
 /**
@@ -24,7 +26,8 @@ public class User implements UserDetails {
     private final String email;
     private String password;
     private final String matricule;
-    private RoleUtilisateur role;
+    private RoleUtilisateur globalRole;
+    private List<TenantProfile> tenantProfiles = new ArrayList<>();
     private String photoUrl;
     
     // Nouveaux champs pour User global (Migration V5)
@@ -37,7 +40,7 @@ public class User implements UserDetails {
     
     // Constructeur privé
     private User(String id, String nom, String prenom, String email, String password, 
-                String matricule, RoleUtilisateur role, String photoUrl, String telephone,
+                String matricule, RoleUtilisateur globalRole, List<TenantProfile> tenantProfiles, String photoUrl, String telephone,
                 Boolean emailVerified, Boolean phoneVerified, LocalDateTime lastLoginAt,
                 String language, String timezone) {
         this.id = Objects.requireNonNull(id, "L'ID ne peut pas être null");
@@ -46,7 +49,8 @@ public class User implements UserDetails {
         this.email = Objects.requireNonNull(email, "L'email ne peut pas être null");
         this.password = password;
         this.matricule = matricule != null ? matricule : "2026-EC-001";
-        this.role = Objects.requireNonNull(role, "Le rôle ne peut pas être null");
+        this.globalRole = globalRole;
+        this.tenantProfiles = tenantProfiles != null ? new ArrayList<>(tenantProfiles) : new ArrayList<>();
         this.photoUrl = photoUrl;
         this.telephone = telephone;
         this.emailVerified = emailVerified != null ? emailVerified : false;
@@ -63,10 +67,10 @@ public class User implements UserDetails {
     
     // Méthode package-private pour la Factory
     static User createInternal(String id, String nom, String prenom, String email, String password, 
-                              String matricule, RoleUtilisateur role, String photoUrl, String telephone,
+                              String matricule, RoleUtilisateur globalRole, List<TenantProfile> tenantProfiles, String photoUrl, String telephone,
                               Boolean emailVerified, Boolean phoneVerified, LocalDateTime lastLoginAt,
                               String language, String timezone) {
-        return new User(id, nom, prenom, email, password, matricule, role, photoUrl, telephone,
+        return new User(id, nom, prenom, email, password, matricule, globalRole, tenantProfiles, photoUrl, telephone,
                       emailVerified, phoneVerified, lastLoginAt, language, timezone);
     }
     
@@ -77,8 +81,10 @@ public class User implements UserDetails {
     public String getEmail() { return email; }
     public String getPassword() { return password; }
     public String getMatricule() { return matricule; }
-    public RoleUtilisateur getRole() { return role; }
+    public RoleUtilisateur getGlobalRole() { return globalRole; }
+    public List<TenantProfile> getTenantProfiles() { return List.copyOf(tenantProfiles); }
     public String getPhotoUrl() { return photoUrl; }
+    public RoleUtilisateur getRole() { return getContextualRole(); }
     
     // Nouveaux getters
     public String getTelephone() { return telephone; }
@@ -101,8 +107,14 @@ public class User implements UserDetails {
         this.password = password;
     }
     
-    public void setRole(RoleUtilisateur role) { 
-        this.role = Objects.requireNonNull(role, "Le rôle ne peut pas être null");
+    public void setGlobalRole(RoleUtilisateur globalRole) { 
+        this.globalRole = globalRole;
+    }
+    
+    public void addTenantProfile(TenantProfile profile) {
+        if (!this.tenantProfiles.contains(profile)) {
+            this.tenantProfiles.add(profile);
+        }
     }
     
     public void setPhotoUrl(String photoUrl) { 
@@ -160,27 +172,44 @@ public class User implements UserDetails {
         this.phoneVerified = true;
     }
     
+    public boolean isFullyVerified() {
+        return emailVerified && (telephone == null || phoneVerified);
+    }
+    
+    // Utilitaires de rôle contextuel
+    public RoleUtilisateur getContextualRole() {
+        if (ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.hasTenant()) {
+            String tenantId = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse(null);
+            return tenantProfiles.stream()
+                    .filter(p -> p.getTenantId().equals(tenantId))
+                    .map(TenantProfile::getRole)
+                    .findFirst()
+                    .orElse(globalRole != null ? globalRole : RoleUtilisateur.VISITEUR); // Fallback
+        }
+        return globalRole != null ? globalRole : RoleUtilisateur.VISITEUR;
+    }
+    
     public boolean isAdmin() {
-        return role.equals(RoleUtilisateur.ADMIN) || role.equals(RoleUtilisateur.ADMINISTRATOR) || role.equals(RoleUtilisateur.SUPER_ADMIN);
+        RoleUtilisateur r = getContextualRole();
+        return r.equals(RoleUtilisateur.ADMIN) || r.equals(RoleUtilisateur.ADMINISTRATOR) || r.equals(RoleUtilisateur.SUPER_ADMIN) || r.equals(RoleUtilisateur.PLATFORM_ADMIN);
     }
     
     public boolean isStudent() {
-        return role.equals(RoleUtilisateur.ETUDIANT) || role.equals(RoleUtilisateur.STUDENT);
+        RoleUtilisateur r = getContextualRole();
+        return r.equals(RoleUtilisateur.ETUDIANT) || r.equals(RoleUtilisateur.STUDENT);
     }
     
     public boolean isProfessor() {
-        return role.equals(RoleUtilisateur.PROFESSEUR) || role.equals(RoleUtilisateur.TEACHER);
-    }
-    
-    public boolean isFullyVerified() {
-        return emailVerified && (telephone == null || phoneVerified);
+        RoleUtilisateur r = getContextualRole();
+        return r.equals(RoleUtilisateur.PROFESSEUR) || r.equals(RoleUtilisateur.TEACHER);
     }
     
     // ==================== IMPLEMENTATION USERDETAILS ====================
     
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
-        return List.of(new SimpleGrantedAuthority("ROLE_" + role.value()));
+        RoleUtilisateur r = getContextualRole();
+        return List.of(new SimpleGrantedAuthority("ROLE_" + r.value()));
     }
 
     @Override
@@ -228,7 +257,8 @@ public class User implements UserDetails {
                 ", nom='" + nom + '\'' +
                 ", prenom='" + prenom + '\'' +
                 ", email='" + email + '\'' +
-                ", role=" + role +
+                ", globalRole=" + globalRole +
+                ", tenantProfilesCount=" + tenantProfiles.size() +
                 ", matricule='" + matricule + '\'' +
                 ", emailVerified=" + emailVerified +
                 '}';

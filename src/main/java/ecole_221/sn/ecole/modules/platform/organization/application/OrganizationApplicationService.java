@@ -4,11 +4,13 @@ import ecole_221.sn.ecole.modules.platform.organization.application.dto.SchoolRe
 import ecole_221.sn.ecole.modules.platform.organization.domain.model.Organization;
 import ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationFactory;
 import ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationRepositoryPort;
+import ecole_221.sn.ecole.modules.platform.organization.domain.valueobject.OrganizationStatus;
 import ecole_221.sn.ecole.modules.platform.organization.domain.valueobject.OrganizationType;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -50,19 +52,47 @@ public class OrganizationApplicationService {
 
     @Transactional
     public Organization registerSchool(SchoolRegistrationRequest request) {
-        // Validation basique (il faudrait vérifier l'unicité du subdomain en base)
+        // Construire les settings avec le primaryColor si fourni
+        Map<String, Object> settings = new java.util.HashMap<>();
+        if (request.getPrimaryColor() != null && !request.getPrimaryColor().isBlank()) {
+            settings.put("primaryColor", request.getPrimaryColor());
+        }
+
+        // Calculer le slug s'il n'est pas fourni
+        String slug = request.getSlug();
+        if (slug == null || slug.trim().isEmpty()) {
+            if (request.getSchoolName() != null && !request.getSchoolName().trim().isEmpty()) {
+                slug = request.getSchoolName().toLowerCase()
+                        .replaceAll("[^a-z0-9]+", "-")
+                        .replaceAll("^-+|-+$", "");
+            }
+            if (slug == null || slug.trim().isEmpty()) {
+                slug = "ecole-" + System.currentTimeMillis();
+            }
+        }
+        slug = slug.trim().toLowerCase();
+
         Organization org = OrganizationFactory.create(
                 request.getSchoolName(),
                 OrganizationType.ECOLE,
-                request.getSubdomain()
+                OrganizationStatus.PENDING,
+                slug,
+                null,                  // country
+                null,                  // city
+                null,                  // address
+                null,                  // phone
+                request.getAdminEmail(), // email de l'admin → email de l'org
+                null,                  // website
+                null,                  // logo
+                null,                  // subscriptionId
+                null,                  // primaryDomainId
+                settings.isEmpty() ? null : settings
         );
+
         // Sauvegarder l'organization (en statut PENDING par défaut)
-        Organization savedOrg = organizationRepositoryPort.save(org);
-        
-        // TODO: Créer l'utilisateur admin initial de l'école (via UserRepositoryPort et OrganizationUserRepositoryPort)
-        
-        return savedOrg;
+        return organizationRepositoryPort.save(org);
     }
+
     
     @Transactional
     public Organization approveSchool(String id) {
@@ -73,4 +103,3 @@ public class OrganizationApplicationService {
         return organizationRepositoryPort.save(org);
     }
 }
-

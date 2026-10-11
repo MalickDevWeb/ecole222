@@ -18,9 +18,19 @@ public class RoomJpaEntity {
     @Id
     private String id;
     private String name;
+    private String nom;
     private int capacity;
+    private Integer capacite;
     private String equipment;
     private String location;
+
+    @jakarta.persistence.PrePersist
+    @jakarta.persistence.PreUpdate
+    public void syncFields() {
+        if (this.nom == null) this.nom = this.name;
+        if (this.name == null) this.name = this.nom;
+        if (this.capacite == null) this.capacite = this.capacity;
+    }
 
     public RoomJpaEntity() {}
 
@@ -28,10 +38,13 @@ public class RoomJpaEntity {
     public void setId(String id) { this.id = id; }
     
     public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    public void setName(String name) { this.name = name; this.nom = name; }
     
+    public String getNom() { return nom; }
+    public void setNom(String nom) { this.nom = nom; this.name = nom; }
+
     public int getCapacity() { return capacity; }
-    public void setCapacity(int capacity) { this.capacity = capacity; }
+    public void setCapacity(int capacity) { this.capacity = capacity; this.capacite = capacity; }
     
     public String getEquipment() { return equipment; }
     public void setEquipment(String equipment) { this.equipment = equipment; }

@@ -1,32 +1,23 @@
 # ── Stage 1 : Build ──────────────────────────────────────────────────────────
-FROM eclipse-temurin:21-jdk-alpine AS build
+FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
 
 WORKDIR /workspace
 
-# Copier les fichiers Maven en premier (optimise le cache Docker)
-COPY mvnw .
-COPY .mvn .mvn
 COPY pom.xml .
+RUN mvn dependency:go-offline -q
 
-# Télécharger les dépendances séparément (mis en cache si pom.xml ne change pas)
-RUN ./mvnw dependency:go-offline -q
-
-# Copier le code source puis builder
 COPY src src
-RUN ./mvnw package -DskipTests -q
+RUN mvn package -DskipTests -q
 
 # ── Stage 2 : Runtime ─────────────────────────────────────────────────────────
 FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-# Copier uniquement le JAR final
 COPY --from=build /workspace/target/*.jar app.jar
 
-# Exposer le port (Render utilisera la variable PORT)
 EXPOSE 8080
 
-# Démarrage optimisé JVM pour conteneur
 ENTRYPOINT ["java", \
   "-Djava.security.egd=file:/dev/./urandom", \
   "-XX:+UseContainerSupport", \

@@ -105,32 +105,35 @@ public class OrganizationUser {
     
     // Comportements métier
     public void activate() {
-        if (this.status != MembershipStatus.INVITED && this.status != MembershipStatus.SUSPENDED) {
+        if (MembershipStatus.ACTIVE.equals(this.status)) {
+            return;
+        }
+        if (!MembershipStatus.INVITED.equals(this.status) && !MembershipStatus.SUSPENDED.equals(this.status)) {
             throw new IllegalStateException("Seuls les memberships INVITED ou SUSPENDED peuvent être activés");
         }
         this.status = MembershipStatus.ACTIVE;
     }
     
     public void suspend() {
-        if (this.status != MembershipStatus.ACTIVE) {
+        if (!MembershipStatus.ACTIVE.equals(this.status)) {
             throw new IllegalStateException("Seuls les memberships ACTIVE peuvent être suspendus");
         }
         this.status = MembershipStatus.SUSPENDED;
     }
     
     public void expire() {
-        if (this.status != MembershipStatus.ACTIVE) {
+        if (!MembershipStatus.ACTIVE.equals(this.status)) {
             throw new IllegalStateException("Seuls les memberships ACTIVE peuvent expirer");
         }
         this.status = MembershipStatus.EXPIRED;
     }
     
     public boolean isActive() {
-        return this.status == MembershipStatus.ACTIVE;
+        return MembershipStatus.ACTIVE.equals(this.status);
     }
     
     public boolean isExpired() {
-        return this.status == MembershipStatus.EXPIRED || 
+        return MembershipStatus.EXPIRED.equals(this.status) || 
                (this.expiresAt != null && this.expiresAt.isBefore(LocalDateTime.now()));
     }
     

@@ -6,7 +6,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
-@Component
+//@Component
 public class CollaborationDataInitializer implements CommandLineRunner {
 
     private final WorkgroupJpaRepository workgroupRepository;

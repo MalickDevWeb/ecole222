@@ -18,11 +18,22 @@ public class ClasseJpaEntity {
     @Id
     private String id;
     private String name;
+    private String nom;
     private String code;
     private String filiereId;
     private String level;
+    private String niveau;
     private int capacity;
     private int currentSize;
+
+    @jakarta.persistence.PrePersist
+    @jakarta.persistence.PreUpdate
+    public void syncFields() {
+        if (this.nom == null) this.nom = this.name;
+        if (this.name == null) this.name = this.nom;
+        if (this.niveau == null) this.niveau = this.level;
+        if (this.level == null) this.level = this.niveau;
+    }
 
     public ClasseJpaEntity() {}
 
@@ -30,7 +41,10 @@ public class ClasseJpaEntity {
     public void setId(String id) { this.id = id; }
     
     public String getName() { return name; }
-    public void setName(String name) { this.name = name; }
+    public void setName(String name) { this.name = name; this.nom = name; }
+
+    public String getNom() { return nom; }
+    public void setNom(String nom) { this.nom = nom; this.name = nom; }
     
     public String getCode() { return code; }
     public void setCode(String code) { this.code = code; }

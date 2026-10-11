@@ -17,7 +17,7 @@ public record RoleUtilisateur(String value) {
         String normalized = value.trim().toUpperCase(Locale.ROOT);
         if (!isValidRole(normalized)) {
             throw new IllegalArgumentException("Rôle invalide: " + value + 
-                ". Rôles autorisés: ADMIN, SUPER_ADMIN, ETUDIANT, PROFESSEUR, SECRETAIRE, COMPTABLE, VIGIL, VISITEUR, PARENT");
+                ". Rôles autorisés: ADMIN, SUPER_ADMIN, PLATFORM_ADMIN, ETUDIANT, PROFESSEUR, SECRETAIRE, COMPTABLE, VIGIL, VISITEUR, PARENT");
         }
     }
     
@@ -25,6 +25,7 @@ public record RoleUtilisateur(String value) {
         return role.equals("ADMIN") || 
                role.equals("ADMINISTRATOR") ||
                role.equals("SUPER_ADMIN") || 
+               role.equals("PLATFORM_ADMIN") || 
                role.equals("ETUDIANT") || 
                role.equals("STUDENT") ||
                role.equals("PROFESSEUR") || 
@@ -53,6 +54,7 @@ public record RoleUtilisateur(String value) {
             case "VIGIL", "VIGILE", "GUARD" -> "VIGIL";
             case "VISITEUR", "VISITOR" -> "VISITEUR";
             case "SUPER_ADMIN", "SUPERADMIN", "SUPER-ADMIN" -> "SUPER_ADMIN";
+            case "PLATFORM_ADMIN", "PLATFORMADMIN" -> "PLATFORM_ADMIN";
             case "PARENT" -> "PARENT";
             default -> normalized;
         };
@@ -71,6 +73,7 @@ public record RoleUtilisateur(String value) {
     public static final RoleUtilisateur ADMIN = new RoleUtilisateur("ADMIN");
     public static final RoleUtilisateur ADMINISTRATOR = new RoleUtilisateur("ADMINISTRATOR");
     public static final RoleUtilisateur SUPER_ADMIN = new RoleUtilisateur("SUPER_ADMIN");
+    public static final RoleUtilisateur PLATFORM_ADMIN = new RoleUtilisateur("PLATFORM_ADMIN");
     public static final RoleUtilisateur ETUDIANT = new RoleUtilisateur("ETUDIANT");
     public static final RoleUtilisateur STUDENT = new RoleUtilisateur("STUDENT");
     public static final RoleUtilisateur PROFESSEUR = new RoleUtilisateur("PROFESSEUR");

@@ -25,6 +25,9 @@ public class OrganizationJpaEntity {
     @Column(nullable = false)
     private OrganizationStatusJpa status;
     
+    @Column(unique = true)
+    private String slug;
+    
     // Informations établissement
     private String country;
     private String city;
@@ -72,6 +75,9 @@ public class OrganizationJpaEntity {
     
     public OrganizationStatusJpa getStatus() { return status; }
     public void setStatus(OrganizationStatusJpa status) { this.status = status; }
+    
+    public String getSlug() { return slug; }
+    public void setSlug(String slug) { this.slug = slug; }
     
     public String getCountry() { return country; }
     public void setCountry(String country) { this.country = country; }

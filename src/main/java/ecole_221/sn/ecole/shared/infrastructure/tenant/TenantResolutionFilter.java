@@ -40,10 +40,16 @@ public class TenantResolutionFilter implements Filter {
         String host = httpRequest.getServerName();
         
         try {
-            logger.debug("Processing request for host: {}", host);
+            logger.debug("Processing request for host: {}, URI: {}", host, httpRequest.getRequestURI());
             
-            // 1. Extraire l'identifiant tenant
-            String tenantIdentifier = extractTenantIdentifier(host);
+            // 1. Extraire l'identifiant tenant (Header prioritaire, puis Host)
+            String headerTenant = httpRequest.getHeader("X-Tenant-ID");
+            if (headerTenant == null || headerTenant.isBlank()) {
+                headerTenant = httpRequest.getHeader("X-Tenant-Slug");
+            }
+            String tenantIdentifier = (headerTenant != null && !headerTenant.isBlank())
+                    ? headerTenant.trim()
+                    : extractTenantIdentifier(host);
             logger.debug("Extracted tenant identifier: {}", tenantIdentifier);
             
             // 2. Vérifier si c'est une requête plateforme
@@ -107,8 +113,14 @@ public class TenantResolutionFilter implements Filter {
      * Résout l'organization à partir de l'identifiant tenant.
      */
     private Organization resolveOrganization(String identifier) {
-        // Essayer par subdomain d'abord
-        Organization org = organizationRepository.findBySubdomain(identifier).orElse(null);
+        // Essayer par ID direct (si UUID passé via X-Tenant-ID)
+        Organization org = organizationRepository.findById(identifier).orElse(null);
+        if (org != null) {
+            return org;
+        }
+
+        // Essayer par subdomain / slug
+        org = organizationRepository.findBySubdomain(identifier).orElse(null);
         if (org != null) {
             return org;
         }
@@ -121,8 +133,20 @@ public class TenantResolutionFilter implements Filter {
         
         // Essayer par email (fallback)
         org = organizationRepository.findByEmail(identifier + "@" + PLATFORM_DOMAIN).orElse(null);
+        if (org != null) {
+            return org;
+        }
+
+        // Fallback développement local : si host = localhost ou 127.0.0.1, prendre la première école ACTIVE
+        if ("localhost".equalsIgnoreCase(identifier) || "127.0.0.1".equalsIgnoreCase(identifier)) {
+            logger.info("Local development detected: falling back to the first ACTIVE organization");
+            return organizationRepository.findAll().stream()
+                    .filter(Organization::isActive)
+                    .findFirst()
+                    .orElse(null);
+        }
         
-        return org;
+        return null;
     }
     
     /**
@@ -140,14 +164,21 @@ public class TenantResolutionFilter implements Filter {
     }
     
     /**
-     * Vérifie si la requête est une requête plateforme (Super Admin).
+     * Vérifie si la requête est une requête plateforme (Super Admin) ou publique.
+     * Ces requêtes ne nécessitent pas de résolution de tenant.
      */
     private boolean isPlatformRequest(HttpServletRequest request) {
         String path = request.getRequestURI();
-        return path.startsWith("/api/v1/platform/") || 
-               path.startsWith("/admin/") ||
-               path.startsWith("/swagger-ui") ||
-               path.startsWith("/v3/api-docs");
+        return path.startsWith("/api/v1/super-admin/")   // Dashboard super-admin
+            || path.startsWith("/api/v1/platform/")       // Routes plateforme
+            || path.startsWith("/api/auth/")              // Authentification
+            || path.startsWith("/api/admin/")             // Admin général
+            || path.startsWith("/api/register-school")    // Inscription école
+            || path.startsWith("/api/sync")               // Synchronisation
+            || path.startsWith("/api/candidatures/settings") // Paramètres publics
+            || path.startsWith("/api/public/")            // Routes publiques
+            || path.startsWith("/swagger-ui")             // Documentation
+            || path.startsWith("/v3/api-docs");           // OpenAPI
     }
     
     /**

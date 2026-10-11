@@ -92,6 +92,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
             entity.getPassword(),
             entity.getMatricule(),
             new RoleUtilisateur(entity.getRole()),
+            new java.util.ArrayList<>(),
             entity.getPhotoUrl(),
             entity.getTelephone(),
             entity.getEmailVerified(),

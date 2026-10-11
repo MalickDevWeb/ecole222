@@ -27,7 +27,6 @@ public class RoleJpaEntity {
     @Column(columnDefinition = "TEXT")
     private String description;
     
-    @Column(columnDefinition = "TEXT[]")
     @JdbcTypeCode(SqlTypes.ARRAY)
     private List<String> permissions;
     

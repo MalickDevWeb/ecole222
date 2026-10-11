@@ -9,12 +9,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
 import org.springframework.web.bind.annotation.*;
 
-import java.lang.annotation.Annotation;
 import java.util.Arrays;
 
 /**
- * Aspect AOP pour logger automatiquement toutes les méthodes des contrôleurs
- * Cela permet de voir toutes les actions avec détails complets pour le débogage
+ * Aspect AOP pour logger automatiquement toutes les méthodes des contrôleurs REST.
  */
 @Aspect
 @Component
@@ -22,146 +20,78 @@ public class LoggingAspect {
 
     private static final Logger logger = LoggerFactory.getLogger(LoggingAspect.class);
 
-    /**
-     * Intercepte toutes les méthodes des classes annotées avec @RestController ou @Controller
-     */
     @Around("within(@org.springframework.web.bind.annotation.RestController *) || " +
             "within(@org.springframework.stereotype.Controller *)")
     public Object logControllerMethod(ProceedingJoinPoint joinPoint) throws Throwable {
         long startTime = System.currentTimeMillis();
-        
-        String className = joinPoint.getTarget().getClass().getSimpleName();
+
+        String className  = joinPoint.getTarget().getClass().getSimpleName();
         String methodName = joinPoint.getSignature().getName();
         MethodSignature methodSignature = (MethodSignature) joinPoint.getSignature();
-        
-        // Récupérer l'annotation RequestMapping de la classe
-        String basePath = getClassRequestMapping(joinPoint.getTarget().getClass());
-        
-        // Récupérer l'annotation de la méthode (GetMapping, PostMapping, etc.)
-        HttpMethodInfo httpMethodInfo = getHttpMethodInfo(joinPoint.getTarget().getClass(), methodName, methodSignature.getParameterTypes());
-        
-        String fullPath = basePath + httpMethodInfo.path;
-        if (fullPath.isEmpty()) {
-            fullPath = "/" + className.replace("Controller", "").toLowerCase();
-        }
-        
-        // Logger l'entrée dans la méthode
-        logger.info("\n" + 
-                "╔════════════════════════════════════════════════════════════════╗\n" +
-                "║ CONTROLLER METHOD CALL                                       ║\n" +
-                "╠════════════════════════════════════════════════════════════════╣\n" +
-                "║ Class:    {:<50} ║\n" +
-                "║ Method:   {:<50} ║\n" +
-                "║ HTTP:     {:<50} ║\n" +
-                "║ Path:     {:<50} ║\n" +
-                "╚════════════════════════════════════════════════════════════════╝",
-                className, methodName, httpMethodInfo.httpMethod, fullPath);
-        
-        // Logger les paramètres
+
+        String basePath  = getClassRequestMapping(joinPoint.getTarget().getClass());
+        HttpMethodInfo httpInfo = getHttpMethodInfo(joinPoint.getTarget().getClass(), methodName, methodSignature.getParameterTypes());
+        String fullPath  = basePath + httpInfo.path;
+        if (fullPath.isEmpty()) fullPath = "/" + className.replace("Controller", "").toLowerCase();
+
+        logger.info("► CTRL  [{} {}]  {}.{}", httpInfo.httpMethod, fullPath, className, methodName);
+
+        // Logger les paramètres (masquer les mots de passe)
         Object[] args = joinPoint.getArgs();
         if (args != null && args.length > 0) {
-            logger.debug("Method parameters: {}", Arrays.toString(args));
+            String argsStr = Arrays.toString(args);
+            argsStr = argsStr.replaceAll("(?i)(password|motDePasse|mdp)[^,\\]]*", "$1=***");
+            logger.debug("   args: {}", argsStr);
         }
-        
+
         try {
             Object result = joinPoint.proceed();
             long duration = System.currentTimeMillis() - startTime;
-            
-            // Logger la sortie
-            logger.info("\n" + 
-                    "╔════════════════════════════════════════════════════════════════╗\n" +
-                    "║ CONTROLLER METHOD RETURN                                     ║\n" +
-                    "╠════════════════════════════════════════════════════════════════╣\n" +
-                    "║ Class:    {:<50} ║\n" +
-                    "║ Method:   {:<50} ║\n" +
-                    "║ Duration: {:<49}ms ║\n" +
-                    "║ Return:   {:<50} ║\n" +
-                    "╚════════════════════════════════════════════════════════════════╝",
-                    className, methodName, duration, 
+            logger.info("◄ CTRL  [{} {}]  {}ms  → {}",
+                    httpInfo.httpMethod, fullPath, duration,
                     result != null ? result.getClass().getSimpleName() : "void");
-            
             return result;
+
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
-            logger.error("\n" + 
-                    "╔════════════════════════════════════════════════════════════════╗\n" +
-                    "║ CONTROLLER METHOD EXCEPTION                                 ║\n" +
-                    "╠════════════════════════════════════════════════════════════════╣\n" +
-                    "║ Class:    {:<50} ║\n" +
-                    "║ Method:   {:<50} ║\n" +
-                    "║ Duration: {:<49}ms ║\n" +
-                    "║ Error:    {:<50} ║\n" +
-                    "╚════════════════════════════════════════════════════════════════╝",
-                    className, methodName, duration, e.getClass().getSimpleName() + ": " + e.getMessage());
-            logger.error("Full stack trace:", e);
+            logger.error("✗ CTRL  [{} {}]  {}ms  → {}: {}",
+                    httpInfo.httpMethod, fullPath, duration,
+                    e.getClass().getSimpleName(), e.getMessage());
+            logger.error("  Stack trace:", e);
             throw e;
         }
     }
 
     private String getClassRequestMapping(Class<?> clazz) {
-        RequestMapping classMapping = clazz.getAnnotation(RequestMapping.class);
-        if (classMapping != null && classMapping.value().length > 0) {
-            return classMapping.value()[0];
-        }
+        RequestMapping m = clazz.getAnnotation(RequestMapping.class);
+        if (m != null && m.value().length > 0) return m.value()[0];
         return "";
     }
 
-    private HttpMethodInfo getHttpMethodInfo(Class<?> clazz, String methodName, Class<?>[] parameterTypes) {
+    private HttpMethodInfo getHttpMethodInfo(Class<?> clazz, String methodName, Class<?>[] paramTypes) {
         try {
-            java.lang.reflect.Method method = clazz.getMethod(methodName, parameterTypes);
-            
-            // Vérifier GetMapping
-            GetMapping getMapping = method.getAnnotation(GetMapping.class);
-            if (getMapping != null) {
-                return new HttpMethodInfo("GET", getMapping.value().length > 0 ? getMapping.value()[0] : getMapping.path().length > 0 ? getMapping.path()[0] : "");
+            java.lang.reflect.Method method = clazz.getMethod(methodName, paramTypes);
+            GetMapping    gm = method.getAnnotation(GetMapping.class);    if (gm  != null) return new HttpMethodInfo("GET",    first(gm.value(),  gm.path()));
+            PostMapping   pm = method.getAnnotation(PostMapping.class);   if (pm  != null) return new HttpMethodInfo("POST",   first(pm.value(),  pm.path()));
+            PutMapping    pu = method.getAnnotation(PutMapping.class);    if (pu  != null) return new HttpMethodInfo("PUT",    first(pu.value(),  pu.path()));
+            PatchMapping  pa = method.getAnnotation(PatchMapping.class);  if (pa  != null) return new HttpMethodInfo("PATCH",  first(pa.value(),  pa.path()));
+            DeleteMapping dm = method.getAnnotation(DeleteMapping.class); if (dm  != null) return new HttpMethodInfo("DELETE", first(dm.value(),  dm.path()));
+            RequestMapping rm = method.getAnnotation(RequestMapping.class);
+            if (rm != null && rm.method().length > 0) {
+                return new HttpMethodInfo(rm.method()[0].name(), first(rm.value(), rm.path()));
             }
-            
-            // Vérifier PostMapping
-            PostMapping postMapping = method.getAnnotation(PostMapping.class);
-            if (postMapping != null) {
-                return new HttpMethodInfo("POST", postMapping.value().length > 0 ? postMapping.value()[0] : postMapping.path().length > 0 ? postMapping.path()[0] : "");
-            }
-            
-            // Vérifier PutMapping
-            PutMapping putMapping = method.getAnnotation(PutMapping.class);
-            if (putMapping != null) {
-                return new HttpMethodInfo("PUT", putMapping.value().length > 0 ? putMapping.value()[0] : putMapping.path().length > 0 ? putMapping.path()[0] : "");
-            }
-            
-            // Vérifier PatchMapping
-            PatchMapping patchMapping = method.getAnnotation(PatchMapping.class);
-            if (patchMapping != null) {
-                return new HttpMethodInfo("PATCH", patchMapping.value().length > 0 ? patchMapping.value()[0] : patchMapping.path().length > 0 ? patchMapping.path()[0] : "");
-            }
-            
-            // Vérifier DeleteMapping
-            DeleteMapping deleteMapping = method.getAnnotation(DeleteMapping.class);
-            if (deleteMapping != null) {
-                return new HttpMethodInfo("DELETE", deleteMapping.value().length > 0 ? deleteMapping.value()[0] : deleteMapping.path().length > 0 ? deleteMapping.path()[0] : "");
-            }
-            
-            // Vérifier RequestMapping sur la méthode
-            RequestMapping methodMapping = method.getAnnotation(RequestMapping.class);
-            if (methodMapping != null && methodMapping.method().length > 0) {
-                RequestMethod[] methods = methodMapping.method();
-                String path = methodMapping.value().length > 0 ? methodMapping.value()[0] : methodMapping.path().length > 0 ? methodMapping.path()[0] : "";
-                return new HttpMethodInfo(methods[0].name(), path);
-            }
-            
-        } catch (NoSuchMethodException e) {
-            logger.debug("Could not find method {}.{} for annotation inspection", clazz.getSimpleName(), methodName);
-        }
-        
-        return new HttpMethodInfo("UNKNOWN", "");
+        } catch (NoSuchMethodException ignored) {}
+        return new HttpMethodInfo("?", "");
+    }
+
+    private String first(String[] a, String[] b) {
+        if (a != null && a.length > 0) return a[0];
+        if (b != null && b.length > 0) return b[0];
+        return "";
     }
 
     private static class HttpMethodInfo {
-        String httpMethod;
-        String path;
-        
-        HttpMethodInfo(String httpMethod, String path) {
-            this.httpMethod = httpMethod;
-            this.path = path;
-        }
+        final String httpMethod, path;
+        HttpMethodInfo(String httpMethod, String path) { this.httpMethod = httpMethod; this.path = path; }
     }
 }
