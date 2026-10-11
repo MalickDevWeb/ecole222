@@ -28,7 +28,7 @@ public class UserJpaEntity {
     private String photoUrl;
     
     // Nouveaux champs pour User global (Migration V5)
-    @Column(name = "telephone")
+    @Column(name = "telephone", unique = true)
     private String telephone;
     
     @Column(name = "email_verified")
@@ -79,7 +79,9 @@ public class UserJpaEntity {
     
     // Nouveaux getters/setters
     public String getTelephone() { return telephone; }
-    public void setTelephone(String telephone) { this.telephone = telephone; }
+    public void setTelephone(String telephone) { 
+        this.telephone = (telephone != null && !telephone.trim().isEmpty()) ? telephone.trim() : null; 
+    }
     
     public Boolean getEmailVerified() { return emailVerified; }
     public void setEmailVerified(Boolean emailVerified) { this.emailVerified = emailVerified; }

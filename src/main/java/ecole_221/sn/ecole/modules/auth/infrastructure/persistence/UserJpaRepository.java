@@ -16,6 +16,7 @@ public interface UserJpaRepository extends JpaRepository<UserJpaEntity, String> 
     
     // Nouvelles méthodes pour les champs ajoutés
     Optional<UserJpaEntity> findByTelephone(String telephone);
+    boolean existsByTelephone(String telephone);
     List<UserJpaEntity> findByEmailVerified(Boolean emailVerified);
     List<UserJpaEntity> findByLanguage(String language);
     

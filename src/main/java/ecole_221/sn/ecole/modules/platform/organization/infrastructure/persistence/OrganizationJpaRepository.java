@@ -25,6 +25,15 @@ public interface OrganizationJpaRepository extends JpaRepository<OrganizationJpa
     
     @Query("SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END FROM OrganizationJpaEntity o WHERE o.email = :email")
     boolean existsByEmail(@Param("email") String email);
+
+    @Query("SELECT o FROM OrganizationJpaEntity o WHERE LOWER(o.slug) = LOWER(:slug)")
+    Optional<OrganizationJpaEntity> findBySlug(@Param("slug") String slug);
+
+    @Query("SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END FROM OrganizationJpaEntity o WHERE LOWER(o.slug) = LOWER(:slug)")
+    boolean existsBySlug(@Param("slug") String slug);
+
+    @Query("SELECT CASE WHEN COUNT(o) > 0 THEN true ELSE false END FROM OrganizationJpaEntity o WHERE o.phone = :phone")
+    boolean existsByPhone(@Param("phone") String phone);
     
     // Pour la résolution par subdomain/custom domain (à implémenter avec la table domains)
     // @Query("SELECT o FROM OrganizationJpaEntity o JOIN Domain d ON o.primaryDomainId = d.id WHERE d.name = :domainName")

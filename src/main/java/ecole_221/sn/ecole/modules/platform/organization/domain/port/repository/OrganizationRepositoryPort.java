@@ -67,4 +67,19 @@ public interface OrganizationRepositoryPort {
      * Vérifie si une organization existe avec cet email.
      */
     boolean existsByEmail(String email);
+
+    /**
+     * Trouve une organization par son slug.
+     */
+    Optional<Organization> findBySlug(String slug);
+
+    /**
+     * Vérifie si une organization existe avec ce slug.
+     */
+    boolean existsBySlug(String slug);
+
+    /**
+     * Vérifie si une organization existe avec ce téléphone.
+     */
+    boolean existsByPhone(String phone);
 }

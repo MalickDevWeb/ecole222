@@ -97,6 +97,24 @@ public class OrganizationRepositoryAdapter implements OrganizationRepositoryPort
     public boolean existsByEmail(String email) {
         return jpaRepository.existsByEmail(email);
     }
+
+    @Override
+    public Optional<Organization> findBySlug(String slug) {
+        if (slug == null || slug.isBlank()) return Optional.empty();
+        return jpaRepository.findBySlug(slug.trim()).map(this::toDomain);
+    }
+
+    @Override
+    public boolean existsBySlug(String slug) {
+        if (slug == null || slug.isBlank()) return false;
+        return jpaRepository.existsBySlug(slug.trim());
+    }
+
+    @Override
+    public boolean existsByPhone(String phone) {
+        if (phone == null || phone.isBlank()) return false;
+        return jpaRepository.existsByPhone(phone.trim());
+    }
     
     // Méthodes de conversion
     private OrganizationJpaEntity toEntity(Organization domain) {

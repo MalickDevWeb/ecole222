@@ -37,6 +37,8 @@ public class SecurityConfig {
         "/auth/logout",
         "/auth/register",
         "/register-school",
+        "/public/**",
+        "/v1/public/**",
         "/candidatures/settings",
         "/candidatures/submit",
         "/health",

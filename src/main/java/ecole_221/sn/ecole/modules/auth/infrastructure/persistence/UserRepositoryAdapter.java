@@ -80,6 +80,20 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
         logger.debug("Vérification de l'existence de l'utilisateur par email: {}", email);
         return jpaRepository.existsByEmail(email);
     }
+
+    @Override
+    public boolean existsByTelephone(String telephone) {
+        if (telephone == null || telephone.isBlank()) return false;
+        logger.debug("Vérification de l'existence de l'utilisateur par téléphone: {}", telephone);
+        return jpaRepository.existsByTelephone(telephone.trim());
+    }
+
+    @Override
+    public Optional<User> findByTelephone(String telephone) {
+        if (telephone == null || telephone.isBlank()) return Optional.empty();
+        logger.debug("Récupération de l'utilisateur par téléphone: {}", telephone);
+        return jpaRepository.findByTelephone(telephone.trim()).map(this::toUser);
+    }
     
     // ==================== MAPPERS JPA ↔ DOMAIN ====================
     

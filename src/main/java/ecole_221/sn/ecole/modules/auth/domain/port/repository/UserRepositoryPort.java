@@ -46,4 +46,14 @@ public interface UserRepositoryPort {
      * Vérifie si un utilisateur existe par email.
      */
     boolean existsByEmail(String email);
+
+    /**
+     * Vérifie si un utilisateur existe par téléphone.
+     */
+    boolean existsByTelephone(String telephone);
+
+    /**
+     * Récupère un utilisateur par téléphone.
+     */
+    Optional<User> findByTelephone(String telephone);
 }
