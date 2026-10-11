@@ -52,29 +52,27 @@ public class SuperAdminInitializer implements CommandLineRunner {
     @Override
     @Transactional
     public void run(String... args) {
-        String email = getEnv("SUPER_ADMIN_EMAIL",    DEFAULT_EMAIL);
+        // 1. Initialiser le SUPER_ADMIN
+        seedSuperAdmin();
 
-        // Vérifier si un SUPER_ADMIN existe déjà
-        if (userRepository.existsByEmail(email)) {
-            logger.info("✅ SUPER_ADMIN déjà présent en base (email: {}). Aucune action requise.", email);
+        // 2. Initialiser les comptes démo pour l'école par défaut (École 221)
+        seedDemoUsers();
+    }
+
+    private void seedSuperAdmin() {
+        String email = getEnv("SUPER_ADMIN_EMAIL", DEFAULT_EMAIL);
+
+        if (userRepository.existsByEmail(email) || !userRepository.findByRole(RoleUtilisateur.SUPER_ADMIN.value()).isEmpty()) {
+            logger.info("✅ SUPER_ADMIN déjà présent en base. Aucune action requise.");
             return;
         }
 
-        // Vérifier également s'il existe un user avec le rôle SUPER_ADMIN
-        if (!userRepository.findByRole(RoleUtilisateur.SUPER_ADMIN.value()).isEmpty()) {
-            logger.info("✅ Un compte SUPER_ADMIN existe déjà en base. Aucune action requise.");
-            return;
-        }
-
-        // Récupérer les credentials depuis les variables d'environnement
         String rawPassword = getEnv("SUPER_ADMIN_PASSWORD", DEFAULT_PASSWORD);
         String nom         = getEnv("SUPER_ADMIN_NOM",      DEFAULT_NOM);
         String prenom      = getEnv("SUPER_ADMIN_PRENOM",   DEFAULT_PRENOM);
 
-        // Encoder le mot de passe avec BCrypt
         String encodedPassword = passwordEncoder.encode(rawPassword);
 
-        // Construire l'entité JPA
         UserJpaEntity superAdmin = new UserJpaEntity(
             UUID.randomUUID().toString(),
             nom,
@@ -85,20 +83,42 @@ public class SuperAdminInitializer implements CommandLineRunner {
             DEFAULT_MATRICULE,
             null
         );
-        superAdmin.setEmailVerified(true);  // Le super admin est vérifié par défaut
+        superAdmin.setEmailVerified(true);
         superAdmin.setLanguage("fr");
         superAdmin.setTimezone("Africa/Dakar");
-
-        // Sauvegarder en base
         userRepository.save(superAdmin);
+        logger.warn("🚨 SUPER_ADMIN créé avec succès (email: {}) !", email);
+    }
 
-        // Log de sécurité — ne jamais afficher le mot de passe en clair
-        logger.warn("🚨 SUPER_ADMIN créé avec succès !");
-        logger.warn("   Email    : {}", email);
-        logger.warn("   Matricule: {}", DEFAULT_MATRICULE);
-        if (DEFAULT_PASSWORD.equals(rawPassword)) {
-            logger.warn("   ⚠️  MOT DE PASSE PAR DÉFAUT UTILISÉ — À CHANGER IMMÉDIATEMENT EN PRODUCTION !");
-            logger.warn("      Définissez la variable d'environnement SUPER_ADMIN_PASSWORD.");
+    private void seedDemoUsers() {
+        seedSingleUser("admin@ecole221.sn", "Test@Ecole221!", "Admin", "École 221", RoleUtilisateur.ADMIN.value(), "ADM-221-001");
+        seedSingleUser("admin221@gmail.com", "ecole221", "Admin", "École 221", RoleUtilisateur.ADMIN.value(), "ADM-221-002");
+        seedSingleUser("prof@ecole221.sn", "Test@Ecole221!", "Professeur", "Test", RoleUtilisateur.PROFESSEUR.value(), "PRF-221-001");
+        seedSingleUser("professeur221@gmail.com", "ecole221", "Professeur", "Test", RoleUtilisateur.PROFESSEUR.value(), "PRF-221-002");
+        seedSingleUser("etudiant@ecole221.sn", "Test@Ecole221!", "Étudiant", "Test", RoleUtilisateur.ETUDIANT.value(), "ETU-221-001");
+        seedSingleUser("etudiant221@gmail.com", "ecole221", "Étudiant", "Test", RoleUtilisateur.ETUDIANT.value(), "ETU-221-002");
+        seedSingleUser("vigil@ecole221.sn", "Test@Ecole221!", "Vigile", "Sécurité", RoleUtilisateur.VIGIL.value(), "VIG-221-001");
+        seedSingleUser("vigile221@gmail.com", "ecole221", "Vigile", "Sécurité", RoleUtilisateur.VIGIL.value(), "VIG-221-002");
+        seedSingleUser("parent221@gmail.com", "ecole221", "Diallo", "Mamadou", RoleUtilisateur.PARENT.value(), "PAR-221-001");
+    }
+
+    private void seedSingleUser(String email, String rawPassword, String nom, String prenom, String role, String matricule) {
+        if (!userRepository.existsByEmail(email)) {
+            UserJpaEntity user = new UserJpaEntity(
+                UUID.randomUUID().toString(),
+                nom,
+                prenom,
+                email,
+                passwordEncoder.encode(rawPassword),
+                role,
+                matricule,
+                null
+            );
+            user.setEmailVerified(true);
+            user.setLanguage("fr");
+            user.setTimezone("Africa/Dakar");
+            userRepository.save(user);
+            logger.info("✅ Compte démo initialisé : {} (rôle={})", email, role);
         }
     }
 

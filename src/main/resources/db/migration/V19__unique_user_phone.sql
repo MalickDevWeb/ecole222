@@ -6,3 +6,4 @@
 CREATE UNIQUE INDEX IF NOT EXISTS idx_users_telephone_unique 
 ON users(telephone) 
 WHERE telephone IS NOT NULL AND telephone <> '';
+
