@@ -89,10 +89,16 @@ public class OrganizationApplicationService {
 
         // 1. Unicité stricte de l'Email
         if (userRepositoryPort.existsByEmail(cleanEmail)) {
-            throw new IllegalArgumentException("L'adresse email (" + cleanEmail + ") est déjà utilisée par un compte administrateur.");
+            throw new ecole_221.sn.ecole.shared.error.AppException(
+                ecole_221.sn.ecole.shared.error.ErrorCode.USER_EMAIL_ALREADY_EXISTS, 
+                "L'adresse email (" + cleanEmail + ") est déjà utilisée par un compte administrateur."
+            );
         }
         if (organizationRepositoryPort.existsByEmail(cleanEmail)) {
-            throw new IllegalArgumentException("L'adresse email (" + cleanEmail + ") est déjà associée à un établissement.");
+            throw new ecole_221.sn.ecole.shared.error.AppException(
+                ecole_221.sn.ecole.shared.error.ErrorCode.TENANT_EMAIL_ALREADY_EXISTS, 
+                "L'adresse email (" + cleanEmail + ") est déjà associée à un établissement."
+            );
         }
 
         // 2. Unicité stricte du Téléphone
@@ -100,7 +106,10 @@ public class OrganizationApplicationService {
         if (request.getAdminPhone() != null && !request.getAdminPhone().trim().isBlank()) {
             cleanPhone = request.getAdminPhone().trim();
             if (userRepositoryPort.existsByTelephone(cleanPhone)) {
-                throw new IllegalArgumentException("Le numéro de téléphone (" + cleanPhone + ") est déjà associé à un compte administrateur.");
+                throw new ecole_221.sn.ecole.shared.error.AppException(
+                    ecole_221.sn.ecole.shared.error.ErrorCode.USER_PHONE_ALREADY_EXISTS, 
+                    "Le numéro de téléphone (" + cleanPhone + ") est déjà associé à un compte administrateur."
+                );
             }
         }
 
@@ -117,7 +126,10 @@ public class OrganizationApplicationService {
         slug = slug.trim().toLowerCase();
 
         if (organizationRepositoryPort.existsBySlug(slug)) {
-            throw new IllegalArgumentException("L'identifiant d'école / slug '" + slug + "' est déjà réservé. Veuillez en choisir un autre.");
+            throw new ecole_221.sn.ecole.shared.error.AppException(
+                ecole_221.sn.ecole.shared.error.ErrorCode.TENANT_SLUG_ALREADY_EXISTS, 
+                "L'identifiant d'école / slug '" + slug + "' est déjà réservé. Veuillez en choisir un autre."
+            );
         }
 
         // 4. Construction des settings avec la couleur primaire choisie

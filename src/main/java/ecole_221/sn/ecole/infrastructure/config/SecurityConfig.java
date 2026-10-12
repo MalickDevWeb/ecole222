@@ -61,8 +61,24 @@ public class SecurityConfig {
         "/admissions/**",
         "/notifications/**",
         "/audit/**",
+        // Dashboard étudiant — polling routes
+        "/meet/active",
+        "/schedule",
         // Finance endpoints pour tests
-        "/finance/**"
+        "/finance/**",
+        // Pointages & Émargements personnel
+        "/admin/attendance/**",
+        "/admin/attendance",
+        // Gestion du personnel & comptes
+        "/admin/staff/**",
+        "/admin/staff",
+        // Planning, Salles, Filières, Classes
+        "/planning/**",
+        // Étudiants, Utilisateurs admin et statistiques
+        "/admin/users",
+        "/admin/students/**",
+        "/admin/students",
+        "/admin/stats"
     };
 
     @Bean

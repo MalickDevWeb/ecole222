@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-// @RestController
+// @RestController  — désactivé : NotificationUseCaseImpl n'est pas encore un @Service
 // @RequestMapping("/notifications")
 // @CrossOrigin(origins = "*")
 // @Tag(name = "Notifications", description = "Centre de notifications - envoi, templates, hub")

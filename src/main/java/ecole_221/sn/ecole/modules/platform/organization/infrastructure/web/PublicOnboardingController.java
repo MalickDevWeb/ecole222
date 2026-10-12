@@ -27,18 +27,10 @@ public class PublicOnboardingController {
     }
 
     @PostMapping("/register-school")
-    public ResponseEntity<?> registerSchool(@RequestBody SchoolRegistrationRequest request) {
-        try {
-            Organization org = organizationService.registerSchool(request);
-            return ResponseEntity.ok(org);
-        } catch (IllegalArgumentException e) {
-            log.warn("[register-school] Validation rejetée : {}", e.getMessage());
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage(), "message", e.getMessage()));
-        } catch (Exception e) {
-            log.error("[register-school] Erreur interne lors de l'inscription de l'école", e);
-            String errorMsg = e.getMessage() != null ? e.getMessage() : "Une erreur inattendue est survenue";
-            return ResponseEntity.internalServerError().body(Map.of("error", errorMsg, "message", errorMsg));
-        }
+    public ResponseEntity<Organization> registerSchool(@RequestBody SchoolRegistrationRequest request) {
+        log.info("[register-school] Inscription demandée pour: {}", request.getSchoolName());
+        Organization org = organizationService.registerSchool(request);
+        return ResponseEntity.ok(org);
     }
 
     @GetMapping({"/public/tenants/{slug}", "/v1/public/tenants/{slug}"})

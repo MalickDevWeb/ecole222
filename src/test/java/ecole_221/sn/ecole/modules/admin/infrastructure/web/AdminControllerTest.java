@@ -25,14 +25,29 @@ class AdminControllerTest {
 
     private AdminUseCase adminUseCase;
     private ActionLogger actionLogger;
+    private ecole_221.sn.ecole.modules.auth.infrastructure.persistence.UserJpaRepository userJpaRepository;
+    private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository classeJpaRepository;
+    private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.RoomJpaRepository roomJpaRepository;
+    private ecole_221.sn.ecole.modules.professor.infrastructure.persistence.ScheduleSessionJpaRepository scheduleSessionJpaRepository;
     private MockMvc mockMvc;
 
     @BeforeEach
     void setUp() {
         adminUseCase = Mockito.mock(AdminUseCase.class);
         actionLogger = Mockito.mock(ActionLogger.class);
+        userJpaRepository = Mockito.mock(ecole_221.sn.ecole.modules.auth.infrastructure.persistence.UserJpaRepository.class);
+        classeJpaRepository = Mockito.mock(ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository.class);
+        roomJpaRepository = Mockito.mock(ecole_221.sn.ecole.modules.planning.infrastructure.persistence.RoomJpaRepository.class);
+        scheduleSessionJpaRepository = Mockito.mock(ecole_221.sn.ecole.modules.professor.infrastructure.persistence.ScheduleSessionJpaRepository.class);
         
-        AdminController controller = new AdminController(adminUseCase, actionLogger);
+        AdminController controller = new AdminController(
+            adminUseCase, 
+            actionLogger,
+            userJpaRepository,
+            classeJpaRepository,
+            roomJpaRepository,
+            scheduleSessionJpaRepository
+        );
         
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)

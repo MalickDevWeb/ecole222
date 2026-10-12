@@ -15,6 +15,10 @@ import ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort
 
 import ecole_221.sn.ecole.modules.auth.domain.model.UserFactory;
 import ecole_221.sn.ecole.modules.auth.domain.valueobject.RoleUtilisateur;
+import ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort;
+import ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationRepositoryPort;
+import ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationUser;
+import java.util.List;
 
 @Service
 public class LoginService implements LoginUseCase {
@@ -24,13 +28,19 @@ public class LoginService implements LoginUseCase {
     private final UserRepositoryPort userRepositoryPort;
     private final JwtService jwtService;
     private final PasswordEncoder passwordEncoder;
+    private final OrganizationUserRepositoryPort organizationUserRepositoryPort;
+    private final OrganizationRepositoryPort organizationRepositoryPort;
 
     public LoginService(UserRepositoryPort userRepositoryPort,
                         JwtService jwtService,
-                        PasswordEncoder passwordEncoder) {
+                        PasswordEncoder passwordEncoder,
+                        OrganizationUserRepositoryPort organizationUserRepositoryPort,
+                        OrganizationRepositoryPort organizationRepositoryPort) {
         this.userRepositoryPort = userRepositoryPort;
         this.jwtService         = jwtService;
         this.passwordEncoder    = passwordEncoder;
+        this.organizationUserRepositoryPort = organizationUserRepositoryPort;
+        this.organizationRepositoryPort = organizationRepositoryPort;
     }
 
     @Override
@@ -61,6 +71,7 @@ public class LoginService implements LoginUseCase {
 
         log.info("Connexion réussie pour : {} (rôle={})", command.getEmail(), user.getRole());
         String token = jwtService.generateToken(user);
+        String tenantSlug = resolveTenantSlug(user, command.getEmail());
 
         return new LoginResponseDto(
                 user.getId(),
@@ -68,8 +79,39 @@ public class LoginService implements LoginUseCase {
                 user.getPrenom(),
                 user.getEmail(),
                 user.getRole(),
-                token
+                token,
+                tenantSlug
         );
+    }
+
+    private String resolveTenantSlug(User user, String inputEmail) {
+        String email = (inputEmail != null ? inputEmail : user.getEmail()).trim().toLowerCase();
+
+        // 1. Détection via pattern <role>@<slug>.sn
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("^.+@([a-zA-Z0-9_-]+)\\.sn$");
+        java.util.regex.Matcher matcher = pattern.matcher(email);
+        if (matcher.matches()) {
+            return matcher.group(1);
+        }
+
+        // 2. Recherche par lien organization_users
+        try {
+            List<OrganizationUser> memberships = organizationUserRepositoryPort.findByUserId(user.getId());
+            if (memberships != null && !memberships.isEmpty()) {
+                String orgId = memberships.get(0).getOrganizationId();
+                if (orgId != null) {
+                    var orgOpt = organizationRepositoryPort.findById(orgId);
+                    if (orgOpt.isPresent()) {
+                        return orgOpt.get().getSlug();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Impossible de résoudre l'organisation pour l'utilisateur {} : {}", user.getId(), e.getMessage());
+        }
+
+        // 3. Fallback École 221
+        return "ecole221";
     }
 
     private User resolveOrCreateDemoUser(String email, String password) {
@@ -127,3 +169,4 @@ public class LoginService implements LoginUseCase {
             return newUser;
         }
     }
+}

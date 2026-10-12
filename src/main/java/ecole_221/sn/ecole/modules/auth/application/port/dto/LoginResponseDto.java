@@ -9,16 +9,22 @@ public class LoginResponseDto {
     private String email;
     private RoleUtilisateur role;
     private String token;
+    private String tenantSlug;
 
     public LoginResponseDto() {}
 
     public LoginResponseDto(String id, String nom, String prenom, String email, RoleUtilisateur role, String token) {
+        this(id, nom, prenom, email, role, token, null);
+    }
+
+    public LoginResponseDto(String id, String nom, String prenom, String email, RoleUtilisateur role, String token, String tenantSlug) {
         this.id = id;
         this.nom = nom;
         this.prenom = prenom;
         this.email = email;
         this.role = role;
         this.token = token;
+        this.tenantSlug = tenantSlug;
     }
 
     public String getId() { return id; }
@@ -33,4 +39,6 @@ public class LoginResponseDto {
     public void setRole(RoleUtilisateur role) { this.role = role; }
     public String getToken() { return token; }
     public void setToken(String token) { this.token = token; }
+    public String getTenantSlug() { return tenantSlug; }
+    public void setTenantSlug(String tenantSlug) { this.tenantSlug = tenantSlug; }
 }
