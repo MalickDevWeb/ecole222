@@ -233,4 +233,81 @@ public class CollaborationController {
         logger.info("Session vocale démarrée: {} pour le groupe {}", sessionId, groupId);
         return ResponseEntity.ok(res);
     }
+
+    // ==================== ATTENDANCES & WIKI COLLABORATIF ====================
+    private static final List<Map<String, Object>> collaborationAttendances = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final List<Map<String, Object>> wikiPages = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final List<Map<String, Object>> wikiNotes = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final List<Map<String, Object>> wikiAudits = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    @GetMapping("/attendances")
+    @Operation(summary = "Présences collaboration", description = "Retourne la liste des présences aux réunions de collaboration.")
+    public ResponseEntity<List<Map<String, Object>>> getCollaborationAttendances() {
+        return ResponseEntity.ok(collaborationAttendances);
+    }
+
+    @PostMapping("/attendances")
+    @Operation(summary = "Enregistrer présence réunion", description = "Enregistre une présence à une réunion de groupe.")
+    public ResponseEntity<Map<String, Object>> saveCollaborationAttendance(@RequestBody Map<String, Object> body) {
+        collaborationAttendances.add(body);
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+}
+
+@RestController
+@RequestMapping("/wiki")
+@CrossOrigin(origins = "*")
+@Tag(name = "Wiki", description = "Documentation collaborative, notes et logs d'audit")
+class WikiController {
+
+    private static final List<Map<String, Object>> pages = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final List<Map<String, Object>> notes = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final List<Map<String, Object>> audits = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    @GetMapping("/pages")
+    @Operation(summary = "Pages wiki", description = "Liste des pages du wiki collaboratif.")
+    public ResponseEntity<List<Map<String, Object>>> getWikiPages() {
+        return ResponseEntity.ok(pages);
+    }
+
+    @PostMapping("/pages")
+    @Operation(summary = "Sauvegarder page wiki", description = "Crée ou met à jour une page wiki.")
+    public ResponseEntity<Map<String, Object>> saveWikiPage(@RequestBody Map<String, Object> body) {
+        String id = (String) body.get("id");
+        if (id != null) {
+            pages.removeIf(p -> id.equals(p.get("id")));
+        }
+        pages.add(body);
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @GetMapping("/notes")
+    @Operation(summary = "Notes collaboratives", description = "Liste des notes partagées.")
+    public ResponseEntity<List<Map<String, Object>>> getNotes() {
+        return ResponseEntity.ok(notes);
+    }
+
+    @PostMapping("/notes")
+    @Operation(summary = "Sauvegarder note", description = "Crée ou met à jour une note collaborative.")
+    public ResponseEntity<Map<String, Object>> saveNote(@RequestBody Map<String, Object> body) {
+        String id = (String) body.get("id");
+        if (id != null) {
+            notes.removeIf(n -> id.equals(n.get("id")));
+        }
+        notes.add(body);
+        return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    @GetMapping("/audits")
+    @Operation(summary = "Audits wiki", description = "Historique d'audit des actions sur le wiki.")
+    public ResponseEntity<List<Map<String, Object>>> getAudits() {
+        return ResponseEntity.ok(audits);
+    }
+
+    @PostMapping("/audits")
+    @Operation(summary = "Sauvegarder audit", description = "Enregistre un événement d'audit.")
+    public ResponseEntity<Map<String, Object>> saveAudit(@RequestBody Map<String, Object> body) {
+        audits.add(body);
+        return ResponseEntity.ok(Map.of("success", true));
+    }
 }

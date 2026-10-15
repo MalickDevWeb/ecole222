@@ -78,7 +78,10 @@ public class SecurityConfig {
         "/admin/users",
         "/admin/students/**",
         "/admin/students",
-        "/admin/stats"
+        "/admin/stats",
+        // Collaboration & Wiki partagé
+        "/collaboration/**",
+        "/wiki/**"
     };
 
     @Bean
