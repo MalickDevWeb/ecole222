@@ -47,6 +47,22 @@ public class CollaborationController {
         return ResponseEntity.ok(result);
     }
 
+    @GetMapping("/students")
+    @Operation(summary = "Liste des étudiants", description = "Retourne la liste des étudiants pour la formation de groupes.")
+    public ResponseEntity<List<Map<String, Object>>> getStudents() {
+        List<Map<String, Object>> students = List.of(
+            Map.of("id", "stud-1", "name", "Amadou Diop", "email", "amadou.diop@ecole221.sn", "gpa", 3.8, "gender", "M"),
+            Map.of("id", "stud-2", "name", "Fatou Sow", "email", "fatou.sow@ecole221.sn", "gpa", 3.9, "gender", "F"),
+            Map.of("id", "stud-3", "name", "Ousmane Sy", "email", "ousmane.sy@ecole221.sn", "gpa", 2.7, "gender", "M"),
+            Map.of("id", "stud-4", "name", "Aissatou Diallo", "email", "aissatou.diallo@ecole221.sn", "gpa", 3.5, "gender", "F"),
+            Map.of("id", "stud-5", "name", "Cheikh Ndiaye", "email", "cheikh.ndiaye@ecole221.sn", "gpa", 3.1, "gender", "M"),
+            Map.of("id", "stud-6", "name", "Mariama Ba", "email", "mariama.ba@ecole221.sn", "gpa", 3.6, "gender", "F"),
+            Map.of("id", "stud-7", "name", "Boubacar Cisse", "email", "boubacar.cisse@ecole221.sn", "gpa", 2.9, "gender", "M"),
+            Map.of("id", "stud-8", "name", "Khadija Gueye", "email", "khadija.gueye@ecole221.sn", "gpa", 3.4, "gender", "F")
+        );
+        return ResponseEntity.ok(students);
+    }
+
     @PostMapping("/workgroups")
     @Operation(summary = "Créer un groupe", description = "Crée un nouveau groupe de travail (name, description).")
     public ResponseEntity<Map<String, Object>> createWorkgroup(@RequestBody Map<String, Object> body) {
