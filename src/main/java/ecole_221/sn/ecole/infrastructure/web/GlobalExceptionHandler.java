@@ -120,9 +120,8 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGeneralException(Exception ex) {
         log.error("[Unhandled Exception] Erreur serveur non interceptée", ex);
-        String msg = ex.getMessage() != null ? ex.getMessage() : "Une erreur interne est survenue.";
         return ResponseEntity
                 .internalServerError()
-                .body(ApiErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR, msg));
+                .body(ApiErrorResponse.of(ErrorCode.INTERNAL_SERVER_ERROR, "Une erreur interne inattendue est survenue. Veuillez réessayer plus tard."));
     }
 }
