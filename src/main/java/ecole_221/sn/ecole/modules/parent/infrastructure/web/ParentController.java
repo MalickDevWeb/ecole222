@@ -5,6 +5,7 @@ import ecole_221.sn.ecole.modules.parent.application.port.usecase.ParentUseCase;
 import ecole_221.sn.ecole.infrastructure.security.JwtService;
 import ecole_221.sn.ecole.modules.auth.domain.model.User;
 import ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort;
+import ecole_221.sn.ecole.modules.auth.domain.valueobject.RoleUtilisateur;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.server.ResponseStatusException;
 import io.swagger.v3.oas.annotations.Operation;
@@ -233,6 +234,36 @@ public class ParentController {
         logger.info("POST /parent/rdv - Demande RDV par: {}", parentId);
         String rdvId = parentUseCase.requestAppointment(parentId, request);
         return ResponseEntity.ok(Map.of("success", true, "rdvId", rdvId));
+    }
+
+    @GetMapping("/rdv")
+    @Operation(summary = "Liste des rendez-vous", description = "Retourne la liste des rendez-vous et visioconférences planifiés pour le parent")
+    public ResponseEntity<List<Map<String, Object>>> getAppointments(
+            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader) {
+        String parentId = extractParentIdFromToken(authHeader);
+        logger.info("GET /parent/rdv - Récupération rendez-vous parent: {}", parentId);
+        return ResponseEntity.ok(parentUseCase.getParentAppointments(parentId));
+    }
+
+    @GetMapping("/professeurs")
+    @Operation(summary = "Liste des professeurs", description = "Retourne la liste des professeurs pour la prise de rendez-vous")
+    public ResponseEntity<List<Map<String, Object>>> getProfesseurs(
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        List<User> profs = userRepositoryPort.findByRole(RoleUtilisateur.PROFESSEUR);
+        List<Map<String, Object>> result = new java.util.ArrayList<>(profs.stream().map(p -> {
+            Map<String, Object> map = new java.util.HashMap<String, Object>();
+            map.put("id", p.getId());
+            map.put("nom", p.getNom());
+            map.put("prenom", p.getPrenom());
+            map.put("email", p.getEmail());
+            map.put("displayName", "Dr. " + p.getNom() + " " + p.getPrenom() + " (" + p.getEmail() + ")");
+            return map;
+        }).toList());
+        if (result.isEmpty()) {
+            result.add(Map.of("id", "usr-002", "nom", "Sall", "prenom", "Moustapha", "email", "prof@bonsoir.sn", "displayName", "Dr. Sall — Algorithmique & Systèmes"));
+            result.add(Map.of("id", "usr-003", "nom", "Ndiaye", "prenom", "Awa", "email", "awa.ndiaye@bonsoir.sn", "displayName", "Prof. Ndiaye — Bases de Données"));
+        }
+        return ResponseEntity.ok(result);
     }
 
     // ==================== ENDPOINTS JUSTIFICATIFS ====================

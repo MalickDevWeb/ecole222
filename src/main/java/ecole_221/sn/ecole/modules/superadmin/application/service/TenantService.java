@@ -84,12 +84,22 @@ public class TenantService {
             throw new IllegalArgumentException("L'email de l'administrateur (" + command.adminEmail() + ") est déjà enregistré.");
         }
 
-        // 2. Créer l'établissement (statut PENDING par défaut)
+        // 2. Créer l'établissement (statut PENDING par défaut avec slug unique)
+        String slug = command.name().toLowerCase()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-+|-+$", "");
+        if (slug.isEmpty()) {
+            slug = "ecole-" + System.currentTimeMillis();
+        }
+        if (organizationRepositoryPort.existsBySlug(slug)) {
+            slug = slug + "-" + (int)(Math.random() * 9000 + 1000);
+        }
+
         Organization org = OrganizationFactory.create(
                 command.name(),
                 OrganizationType.ECOLE,
                 OrganizationStatus.PENDING,
-                null, // slug
+                slug,
                 command.country(),
                 command.city(),
                 command.address(),
@@ -205,6 +215,7 @@ public class TenantService {
         return new TenantDto(
                 org.getId(),
                 org.getName(),
+                org.getSlug(),
                 org.getType().value(),
                 org.getStatus().value(),
                 org.getCountry(),

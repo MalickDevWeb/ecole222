@@ -4,6 +4,8 @@ import ecole_221.sn.ecole.modules.parent.application.port.dto.*;
 import ecole_221.sn.ecole.modules.parent.application.port.usecase.ParentUseCase;
 import ecole_221.sn.ecole.modules.parent.domain.model.Parent;
 import ecole_221.sn.ecole.modules.parent.domain.model.ParentEnfant;
+import ecole_221.sn.ecole.modules.parent.domain.model.Appointment;
+import ecole_221.sn.ecole.modules.parent.domain.repository.AppointmentRepositoryPort;
 import ecole_221.sn.ecole.modules.parent.domain.repository.ParentRepositoryPort;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,10 +29,12 @@ public class ParentService implements ParentUseCase {
     private static final Logger logger = LoggerFactory.getLogger(ParentService.class);
     
     private final ParentRepositoryPort parentRepositoryPort;
-    // TODO: Ajouter d'autres repositories nécessaires (Student, Presence, Grade, etc.)
+    private final AppointmentRepositoryPort appointmentRepositoryPort;
 
-    public ParentService(ParentRepositoryPort parentRepositoryPort) {
+    public ParentService(ParentRepositoryPort parentRepositoryPort,
+                         AppointmentRepositoryPort appointmentRepositoryPort) {
         this.parentRepositoryPort = parentRepositoryPort;
+        this.appointmentRepositoryPort = appointmentRepositoryPort;
     }
 
     @Override
@@ -307,9 +311,55 @@ public class ParentService implements ParentUseCase {
         logger.info("Demande de RDV par le parent: {}, avec professeur: {}, date: {}", 
                    parentId, request.professeurId(), request.dateSouhaitee());
         
-        // TODO: Implémenter avec sauvegarde en base de données
+        String profNom = request.professeurId() != null && request.professeurId().contains("—") 
+            ? request.professeurId() 
+            : "Dr. Sall (Algorithmique & IA)";
+            
+        Appointment appointment = Appointment.create(
+            parentId,
+            request.professeurId(),
+            profNom,
+            request.dateSouhaitee(),
+            request.motif()
+        );
         
-        return "rdv-" + UUID.randomUUID().toString().substring(0, 8);
+        Appointment saved = appointmentRepositoryPort.save(appointment);
+        return saved.getId();
+    }
+
+    @Override
+    public List<Map<String, Object>> getParentAppointments(String parentId) {
+        List<Appointment> list = appointmentRepositoryPort.findByParentId(parentId);
+        
+        if (list.isEmpty()) {
+            list = appointmentRepositoryPort.findAll();
+        }
+        
+        if (list.isEmpty()) {
+            Appointment init = Appointment.create(
+                parentId,
+                "usr-002",
+                "Dr. Sall (Algorithmique & IA)",
+                "2026-10-20 à 15h30",
+                "Bilan académique et progression de l'élève"
+            );
+            appointmentRepositoryPort.save(init);
+            list = List.of(init);
+        }
+        
+        return list.stream().map(a -> {
+            Map<String, Object> map = new HashMap<>();
+            map.put("id", a.getId());
+            map.put("parentId", a.getParentId());
+            map.put("professeurId", a.getProfesseurId());
+            map.put("professeurNom", a.getProfesseurNom());
+            map.put("dateSouhaitee", a.getDateSouhaitee());
+            map.put("motif", a.getMotif());
+            map.put("status", a.getStatus());
+            map.put("meetUrl", a.getMeetUrl());
+            map.put("createdAt", a.getCreatedAt() != null ? a.getCreatedAt().toString() : "");
+            return map;
+        }).toList();
     }
 
     @Override

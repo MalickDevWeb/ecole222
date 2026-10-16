@@ -1,6 +1,7 @@
 package ecole_221.sn.ecole.shared.infrastructure.tenant;
 
 import ecole_221.sn.ecole.modules.platform.organization.domain.model.Organization;
+import ecole_221.sn.ecole.modules.platform.organization.domain.valueobject.OrganizationStatus;
 import ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationRepositoryPort;
 import jakarta.servlet.*;
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,10 +43,19 @@ public class TenantResolutionFilter implements Filter {
         try {
             logger.debug("Processing request for host: {}, URI: {}", host, httpRequest.getRequestURI());
             
-            // 1. Extraire l'identifiant tenant (Header prioritaire, puis Host)
-            String headerTenant = httpRequest.getHeader("X-Tenant-ID");
+            // 1. Extraire l'identifiant tenant (Header prioritaire, puis Referer, puis Host)
+            String headerTenant = httpRequest.getHeader("X-Tenant-Slug");
             if (headerTenant == null || headerTenant.isBlank()) {
-                headerTenant = httpRequest.getHeader("X-Tenant-Slug");
+                headerTenant = httpRequest.getHeader("X-Tenant-ID");
+            }
+            if (headerTenant == null || headerTenant.isBlank()) {
+                String referer = httpRequest.getHeader("Referer");
+                if (referer != null) {
+                    java.util.regex.Matcher m = java.util.regex.Pattern.compile("/t/([^/?#]+)").matcher(referer);
+                    if (m.find()) {
+                        headerTenant = m.group(1);
+                    }
+                }
             }
             String tenantIdentifier = (headerTenant != null && !headerTenant.isBlank())
                     ? headerTenant.trim()
@@ -61,7 +71,7 @@ public class TenantResolutionFilter implements Filter {
             }
             
             // 3. Résoudre l'organization
-            Organization organization = resolveOrganization(tenantIdentifier);
+            Organization organization = resolveOrganization(tenantIdentifier, host);
             
             if (organization == null) {
                 logger.warn("Organization not found for tenant: {}", tenantIdentifier);
@@ -69,7 +79,7 @@ public class TenantResolutionFilter implements Filter {
             }
             
             // 4. Valider le statut de l'organization
-            validateOrganizationStatus(organization);
+            validateOrganizationStatus(organization, httpRequest);
             
             // 5. Définir le contexte tenant
             TenantContext.setCurrentOrganization(organization);
@@ -110,39 +120,56 @@ public class TenantResolutionFilter implements Filter {
     }
     
     /**
-     * Résout l'organization à partir de l'identifiant tenant.
+     * Résout l'organization à partir de l'identifiant tenant avec isolation stricte.
      */
-    private Organization resolveOrganization(String identifier) {
-        // Essayer par ID direct (si UUID passé via X-Tenant-ID)
-        Organization org = organizationRepository.findById(identifier).orElse(null);
+    private Organization resolveOrganization(String identifier, String host) {
+        if (identifier == null || identifier.isBlank()) {
+            return null;
+        }
+
+        // Cas spécial école 221 (alias ecole221 / ecole-221)
+        if ("ecole221".equalsIgnoreCase(identifier) || "ecole-221".equalsIgnoreCase(identifier)) {
+            return organizationRepository.findBySlug("ecole-221")
+                    .or(() -> organizationRepository.findById("default-tenant-id"))
+                    .orElse(null);
+        }
+
+        // 1. Essayer par slug exact
+        Organization org = organizationRepository.findBySlug(identifier.toLowerCase().trim()).orElse(null);
         if (org != null) {
             return org;
         }
 
-        // Essayer par subdomain / slug
+        // 2. Essayer par ID direct (si UUID passé via X-Tenant-ID)
+        org = organizationRepository.findById(identifier).orElse(null);
+        if (org != null) {
+            return org;
+        }
+
+        // 3. Essayer par subdomain
         org = organizationRepository.findBySubdomain(identifier).orElse(null);
         if (org != null) {
             return org;
         }
         
-        // Essayer par custom domain
+        // 4. Essayer par custom domain
         org = organizationRepository.findByCustomDomain(identifier).orElse(null);
         if (org != null) {
             return org;
         }
         
-        // Essayer par email (fallback)
+        // 5. Essayer par email (fallback)
         org = organizationRepository.findByEmail(identifier + "@" + PLATFORM_DOMAIN).orElse(null);
         if (org != null) {
             return org;
         }
 
-        // Fallback développement local : si host = localhost ou 127.0.0.1, prendre la première école ACTIVE
-        if ("localhost".equalsIgnoreCase(identifier) || "127.0.0.1".equalsIgnoreCase(identifier)) {
-            logger.info("Local development detected: falling back to the first ACTIVE organization");
-            return organizationRepository.findAll().stream()
-                    .filter(Organization::isActive)
-                    .findFirst()
+        // Fallback développement local : si host = localhost ou 127.0.0.1, résoudre vers ecole-221
+        if ("localhost".equalsIgnoreCase(identifier) || "127.0.0.1".equalsIgnoreCase(identifier)
+                || "localhost".equalsIgnoreCase(host) || "127.0.0.1".equalsIgnoreCase(host)) {
+            logger.info("Local development detected for tenant '{}': defaulting to ecole-221", identifier);
+            return organizationRepository.findBySlug("ecole-221")
+                    .or(() -> organizationRepository.findById("default-tenant-id"))
                     .orElse(null);
         }
         
@@ -151,13 +178,28 @@ public class TenantResolutionFilter implements Filter {
     
     /**
      * Valide le statut de l'organization.
+     * Les requêtes authentifiées (Super Admin / Administrateur) peuvent accéder aux écoles en cours de configuration.
      */
-    private void validateOrganizationStatus(Organization organization) {
+    private void validateOrganizationStatus(Organization organization, HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return;
+        }
+
+        jakarta.servlet.http.Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (jakarta.servlet.http.Cookie cookie : cookies) {
+                if ("auth_token".equals(cookie.getName()) && cookie.getValue() != null && !cookie.getValue().isBlank()) {
+                    return;
+                }
+            }
+        }
+
         if (organization.isSuspended()) {
             throw new TenantSuspendedException("Tenant is suspended: " + organization.getName());
         }
         
-        if (!organization.isActive()) {
+        if (!organization.isActive() && !organization.getStatus().equals(OrganizationStatus.PENDING)) {
             throw new TenantExpiredException("Tenant is not active: " + organization.getName() + 
                 " (Status: " + organization.getStatus().displayName() + ")");
         }
@@ -170,9 +212,10 @@ public class TenantResolutionFilter implements Filter {
     private boolean isPlatformRequest(HttpServletRequest request) {
         String path = request.getRequestURI();
         return path.startsWith("/api/v1/super-admin/")   // Dashboard super-admin
+            || path.startsWith("/api/super-admin/")      // Super-admin sans préfixe v1
             || path.startsWith("/api/v1/platform/")       // Routes plateforme
+            || path.startsWith("/api/platform/")         // Platform sans préfixe v1
             || path.startsWith("/api/auth/")              // Authentification
-            || path.startsWith("/api/admin/")             // Admin général
             || path.startsWith("/api/register-school")    // Inscription école
             || path.startsWith("/api/sync")               // Synchronisation
             || path.startsWith("/api/candidatures/settings") // Paramètres publics

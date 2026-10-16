@@ -1,7 +1,12 @@
 package ecole_221.sn.ecole.modules.auth.application.port.command;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
+
 public class LoginCommand {
+    @JsonAlias({"identifiant", "username", "login"})
     private String email;
+
+    @JsonAlias({"motDePasse", "pass"})
     private String password;
 
     public LoginCommand() {}

@@ -41,7 +41,7 @@ class TenantControllerTest {
 
     private TenantDto createDummyDto(String id, String name, String status) {
         return new TenantDto(
-                id, name, "ECOLE", status, "Senegal", "Dakar", "Fann", "+221770000000",
+                id, name, "ecole-test", "ECOLE", status, "Senegal", "Dakar", "Fann", "+221770000000",
                 "contact@test.com", "www.test.com", null, LocalDateTime.now(), LocalDateTime.now(), null, null
         );
     }

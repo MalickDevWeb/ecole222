@@ -41,15 +41,31 @@ public class PublicOnboardingController {
 
         // Cas spécial Ecole 221
         if ("ecole221".equalsIgnoreCase(slug) || "ecole-221".equalsIgnoreCase(slug)) {
-            return ResponseEntity.ok(Map.of(
-                "id", "ecole-221-id",
-                "name", "École 221",
-                "slug", "ecole221",
-                "branding", Map.of(
-                    "primaryColor", "#B3181C",
-                    "logoUrl", "/myschool-icon.png"
-                )
-            ));
+            return organizationService.getOrganizationBySlug("ecole-221")
+                .map(org -> {
+                    Map<String, Object> branding = new HashMap<>();
+                    String primaryColor = "#B3181C";
+                    if (org.getSettings() != null && org.getSettings().containsKey("primaryColor")) {
+                        primaryColor = String.valueOf(org.getSettings().get("primaryColor"));
+                    }
+                    branding.put("primaryColor", primaryColor);
+                    branding.put("logoUrl", org.getLogo() != null ? org.getLogo() : "/myschool-icon.png");
+                    return ResponseEntity.ok(Map.of(
+                        "id", org.getId(),
+                        "name", org.getName(),
+                        "slug", "ecole-221",
+                        "branding", branding
+                    ));
+                })
+                .orElseGet(() -> ResponseEntity.ok(Map.of(
+                    "id", "default-tenant-id",
+                    "name", "École 221",
+                    "slug", "ecole-221",
+                    "branding", Map.of(
+                        "primaryColor", "#B3181C",
+                        "logoUrl", "/myschool-icon.png"
+                    )
+                )));
         }
 
         return organizationService.getOrganizationBySlug(slug)

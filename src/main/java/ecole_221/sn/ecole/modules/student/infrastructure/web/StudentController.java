@@ -13,6 +13,7 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -31,6 +32,9 @@ import java.util.Map;
 public class StudentController {
 
     private static final Logger logger = LoggerFactory.getLogger(StudentController.class);
+
+    @Autowired(required = false)
+    private ecole_221.sn.ecole.modules.collaboration.infrastructure.persistence.MeetJpaRepository meetJpaRepository;
 
     private final StudentUseCase studentUseCase;
     private final ecole_221.sn.ecole.modules.student.infrastructure.persistence.CourseDetailRepository courseDetailRepository;
@@ -171,6 +175,35 @@ public class StudentController {
         studentUseCase.submitReaction(sessionId, request.type().name());
         
         return ResponseEntity.ok(StudentMapper.toReactionResponseDto(sessionId, request.type()));
+    }
+
+    @PostMapping("/live-sessions")
+    @Operation(summary = "Démarrer une session live", description = "Enregistre une session live démarrée par un enseignant.")
+    public ResponseEntity<Map<String, Object>> startLiveSession(@RequestBody Map<String, Object> body) {
+        String id = "session-" + System.currentTimeMillis();
+        String title = (String) body.getOrDefault("title", (String) body.getOrDefault("courseName", "Session Live"));
+        String link = (String) body.getOrDefault("meetUrl", body.get("link"));
+        String time = (String) body.getOrDefault("time", java.time.LocalTime.now().toString().substring(0, 5));
+        
+        if (meetJpaRepository != null) {
+            ecole_221.sn.ecole.modules.collaboration.infrastructure.persistence.MeetJpaEntity meet = 
+                new ecole_221.sn.ecole.modules.collaboration.infrastructure.persistence.MeetJpaEntity(
+                    id, title, link, time, true
+                );
+            meetJpaRepository.save(meet);
+        }
+        logger.info("POST /student/live-sessions - Live session créée: {} (titre: {}, lien: {})", id, title, link);
+        return ResponseEntity.ok(Map.of("success", true, "id", id, "title", title, "meetUrl", link != null ? link : ""));
+    }
+
+    @DeleteMapping("/live-sessions/{id}")
+    @Operation(summary = "Arrêter une session live", description = "Supprime ou termine une session live.")
+    public ResponseEntity<Map<String, Object>> stopLiveSession(@PathVariable String id) {
+        if (meetJpaRepository != null) {
+            meetJpaRepository.deleteById(id);
+        }
+        logger.info("DELETE /student/live-sessions/{} - Session arrêtée", id);
+        return ResponseEntity.ok(Map.of("success", true, "message", "Session arrêtée avec succès"));
     }
 
     // ==================== GRADES ====================

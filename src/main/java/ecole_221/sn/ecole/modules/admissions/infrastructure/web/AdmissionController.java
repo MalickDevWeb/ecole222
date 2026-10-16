@@ -175,4 +175,82 @@ public class AdmissionController {
         admissionUseCase.generateMatricules();
         return ResponseEntity.ok(Map.of("success", true, "message", "Matricules générées avec succès"));
     }
+
+    // ==================== ENDPOINT CANDIDATURE PORTAL DB ====================
+    private static final List<Map<String, Object>> portalCandidates = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final List<Map<String, Object>> portalCampaigns = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final List<Map<String, Object>> portalAuditLogs = new java.util.concurrent.CopyOnWriteArrayList<>();
+    private static final List<Map<String, Object>> portalMessages = new java.util.concurrent.CopyOnWriteArrayList<>();
+
+    static {
+        portalCampaigns.add(Map.of(
+            "id", "camp-1",
+            "title", "Licence Informatique & Génie Logiciel (L1/L2/L3)",
+            "code", "LICENCE",
+            "state", "Ouverte",
+            "deadline", "30 Octobre 2026",
+            "fees", 25000,
+            "requirements", List.of("Baccalauréat Scientifique ou Technique", "Bulletins de Terminale"),
+            "imageUrl", "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80"
+        ));
+        portalCampaigns.add(Map.of(
+            "id", "camp-2",
+            "title", "Master Cloud Computing & DevOps (M1/M2)",
+            "code", "MASTER",
+            "state", "Ouverte",
+            "deadline", "15 Novembre 2026",
+            "fees", 35000,
+            "requirements", List.of("Licence Informatique ou équivalent", "Relevés de notes universitaires"),
+            "imageUrl", "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=600&q=80"
+        ));
+    }
+
+    @GetMapping("/db")
+    @Operation(summary = "Base admissions globale", description = "Retourne les campagnes, candidats, messages et audits pour le portail candidat")
+    public ResponseEntity<Map<String, Object>> getAdmissionsDb() {
+        return ResponseEntity.ok(Map.of(
+            "candidates", portalCandidates,
+            "campaigns", portalCampaigns,
+            "auditLogs", portalAuditLogs,
+            "messages", portalMessages
+        ));
+    }
+
+    @PostMapping("/db")
+    @Operation(summary = "Mettre à jour la base admissions", description = "Synchronise les modifications du portail candidat")
+    public ResponseEntity<Map<String, Object>> saveAdmissionsDb(@RequestBody Map<String, Object> body) {
+        if (body.containsKey("candidates") && body.get("candidates") instanceof List<?> list) {
+            portalCandidates.clear();
+            for (Object item : list) {
+                if (item instanceof Map<?, ?> m) {
+                    portalCandidates.add((Map<String, Object>) m);
+                }
+            }
+        }
+        if (body.containsKey("campaigns") && body.get("campaigns") instanceof List<?> list) {
+            portalCampaigns.clear();
+            for (Object item : list) {
+                if (item instanceof Map<?, ?> m) {
+                    portalCampaigns.add((Map<String, Object>) m);
+                }
+            }
+        }
+        if (body.containsKey("auditLogs") && body.get("auditLogs") instanceof List<?> list) {
+            portalAuditLogs.clear();
+            for (Object item : list) {
+                if (item instanceof Map<?, ?> m) {
+                    portalAuditLogs.add((Map<String, Object>) m);
+                }
+            }
+        }
+        if (body.containsKey("messages") && body.get("messages") instanceof List<?> list) {
+            portalMessages.clear();
+            for (Object item : list) {
+                if (item instanceof Map<?, ?> m) {
+                    portalMessages.add((Map<String, Object>) m);
+                }
+            }
+        }
+        return ResponseEntity.ok(Map.of("success", true));
+    }
 }

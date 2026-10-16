@@ -9,6 +9,7 @@ import java.time.LocalDateTime;
 public record TenantDto(
         String id,
         String name,
+        String slug,
         String type,
         String status,
         String country,

@@ -17,8 +17,8 @@ import java.time.LocalDateTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
-// @Service
-// @Transactional
+@Service
+@Transactional
 public class NotificationUseCaseImpl implements NotificationUseCase {
     
     private static final Logger logger = LoggerFactory.getLogger(NotificationUseCaseImpl.class);
@@ -227,14 +227,32 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
     }
 
     private Notification toNotification(NotificationDto dto) {
+        String id = (dto.id() != null && !dto.id().isBlank()) ? dto.id() : UUID.randomUUID().toString();
+        String type = "INFO";
+        if (dto.type() != null) {
+            String t = dto.type().toUpperCase();
+            if (t.contains("WARN")) type = "WARNING";
+            else if (t.contains("ERR")) type = "ERROR";
+            else if (t.contains("SUCC")) type = "SUCCESS";
+        }
+        ReadStatus readStatus = ReadStatus.UNREAD;
+        if (dto.readStatus() != null && dto.readStatus().equalsIgnoreCase("READ")) {
+            readStatus = ReadStatus.READ;
+        }
+        LocalDateTime createdAt;
+        try {
+            createdAt = (dto.createdAt() != null && !dto.createdAt().isBlank()) ? LocalDateTime.parse(dto.createdAt()) : LocalDateTime.now();
+        } catch (Exception e) {
+            createdAt = LocalDateTime.now();
+        }
         return NotificationFactory.reconstruct(
-            dto.id(),
+            id,
             dto.recipientId(),
             dto.title(),
             dto.content(),
-            new NotificationType(dto.type()),
-            new ReadStatus(dto.readStatus()),
-            LocalDateTime.parse(dto.createdAt())
+            new NotificationType(type),
+            readStatus,
+            createdAt
         );
     }
 }

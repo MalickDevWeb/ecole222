@@ -39,6 +39,7 @@ public interface ParentUseCase {
     
     // Rendez-vous
     String requestAppointment(String parentId, AppointmentRequestDto request);
+    java.util.List<java.util.Map<String, Object>> getParentAppointments(String parentId);
     
     // Justificatifs
     String justifyAbsence(String presenceId, String parentId, String motif, String fileUrl);

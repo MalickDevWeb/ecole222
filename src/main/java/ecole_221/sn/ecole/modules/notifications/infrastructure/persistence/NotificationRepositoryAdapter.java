@@ -18,7 +18,7 @@ import java.util.stream.Collectors;
  * Adaptateur de repository pour le module Notifications.
  * Implémente NotificationRepositoryPort en utilisant les repositories JPA existants.
  */
-// @Component
+@Component
 public class NotificationRepositoryAdapter implements NotificationRepositoryPort {
     
     private static final Logger logger = LoggerFactory.getLogger(NotificationRepositoryAdapter.class);
