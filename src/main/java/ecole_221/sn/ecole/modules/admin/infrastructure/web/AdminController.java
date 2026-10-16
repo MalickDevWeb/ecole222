@@ -106,9 +106,16 @@ public class AdminController {
 
     @PostMapping("/candidatures/settings")
     @Operation(summary = "Mettre a jour parametres candidature", description = "Active ou desactive le systeme de candidature.")
-    public ResponseEntity<Map<String, Object>> updateCandidaturesSettings(@RequestBody Map<String, Boolean> body) {
-        logger.info("POST /admin/candidatures/settings - Mise a jour parametres");
-        boolean enabled = body.getOrDefault("enabled", false);
+    public ResponseEntity<Map<String, Object>> updateCandidaturesSettings(@RequestBody Map<String, Object> body) {
+        logger.info("POST /admin/candidatures/settings - Mise a jour parametres: {}", body);
+        boolean enabled = false;
+        if (body != null) {
+            if (body.containsKey("enabled")) {
+                enabled = Boolean.parseBoolean(String.valueOf(body.get("enabled")));
+            } else if (body.containsKey("ouvert")) {
+                enabled = Boolean.parseBoolean(String.valueOf(body.get("ouvert")));
+            }
+        }
         adminUseCase.updateCandidaturesSettings(enabled);
         return ResponseEntity.ok(Map.of("success", true, "candidaturesEnabled", enabled));
     }
