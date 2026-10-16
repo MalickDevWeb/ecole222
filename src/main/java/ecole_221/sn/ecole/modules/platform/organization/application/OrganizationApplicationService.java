@@ -55,6 +55,26 @@ public class OrganizationApplicationService {
         return organizationRepositoryPort.findBySlug(slug.trim().toLowerCase());
     }
 
+    @Transactional(readOnly = true)
+    public boolean isEmailAvailable(String email) {
+        if (email == null || email.isBlank()) return true;
+        String clean = email.trim().toLowerCase();
+        return !userRepositoryPort.existsByEmail(clean) && !organizationRepositoryPort.existsByEmail(clean);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isPhoneAvailable(String phone) {
+        if (phone == null || phone.isBlank()) return true;
+        String clean = normalizePhone(phone.trim());
+        return !userRepositoryPort.existsByTelephone(clean);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isSlugAvailable(String slug) {
+        if (slug == null || slug.isBlank()) return true;
+        return !organizationRepositoryPort.existsBySlug(slug.trim().toLowerCase());
+    }
+
     @Transactional
     public Organization suspendOrganization(String id) {
         Organization org = organizationRepositoryPort.findById(id)
@@ -104,11 +124,11 @@ public class OrganizationApplicationService {
         // 2. Unicité stricte du Téléphone
         String cleanPhone = null;
         if (request.getAdminPhone() != null && !request.getAdminPhone().trim().isBlank()) {
-            cleanPhone = request.getAdminPhone().trim();
+            cleanPhone = normalizePhone(request.getAdminPhone().trim());
             if (userRepositoryPort.existsByTelephone(cleanPhone)) {
                 throw new ecole_221.sn.ecole.shared.error.AppException(
                     ecole_221.sn.ecole.shared.error.ErrorCode.USER_PHONE_ALREADY_EXISTS, 
-                    "Le numéro de téléphone (" + cleanPhone + ") est déjà associé à un compte administrateur."
+                    "Ce numéro de téléphone est déjà associé à un compte existant."
                 );
             }
         }
@@ -159,7 +179,20 @@ public class OrganizationApplicationService {
 
         // 6. Création du compte administrateur initial de l'école
         String matricule = "ADM-" + System.currentTimeMillis();
-        String tempPassword = passwordEncoder.encode(cleanEmail + "221!");
+        String rawPassword;
+        if (request.getAdminPassword() != null && !request.getAdminPassword().isBlank()) {
+            if (request.getAdminPassword().length() < 8) {
+                throw new IllegalArgumentException("Le mot de passe administrateur doit comporter au moins 8 caractères.");
+            }
+            if (request.getAdminPasswordConfirm() != null && !request.getAdminPasswordConfirm().isBlank()
+                    && !request.getAdminPassword().equals(request.getAdminPasswordConfirm())) {
+                throw new IllegalArgumentException("Les deux mots de passe saisis ne correspondent pas.");
+            }
+            rawPassword = request.getAdminPassword();
+        } else {
+            rawPassword = cleanEmail + "221!";
+        }
+        String finalPassword = passwordEncoder.encode(rawPassword);
         String nom = request.getAdminLastName() != null && !request.getAdminLastName().isBlank()
                 ? request.getAdminLastName().trim() : "Directeur";
         String prenom = request.getAdminFirstName() != null && !request.getAdminFirstName().isBlank()
@@ -169,7 +202,7 @@ public class OrganizationApplicationService {
                 nom,
                 prenom,
                 cleanEmail,
-                tempPassword,
+                finalPassword,
                 matricule,
                 RoleUtilisateur.fromString("ADMIN"),
                 null,       // photoUrl
@@ -201,5 +234,23 @@ public class OrganizationApplicationService {
         
         org.validate(); // Fait passer de PENDING à ACTIVE
         return organizationRepositoryPort.save(org);
+    }
+
+    private String normalizePhone(String raw) {
+        if (raw == null) return null;
+        String cleaned = raw.replaceAll("[\\s.\\-_()]", "");
+        if (cleaned.startsWith("00")) {
+            cleaned = "+" + cleaned.substring(2);
+        }
+        if (cleaned.matches("^[73]\\d{8}$")) {
+            return "+221" + cleaned;
+        }
+        if (cleaned.matches("^221\\d{9}$")) {
+            return "+" + cleaned;
+        }
+        if (!cleaned.startsWith("+") && !cleaned.isEmpty()) {
+            return "+" + cleaned;
+        }
+        return cleaned;
     }
 }

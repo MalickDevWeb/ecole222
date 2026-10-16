@@ -19,6 +19,12 @@ public class SchoolRegistrationRequest {
     /** Couleur primaire de l'établissement (ex: "#ef8427") */
     private String primaryColor;
 
+    @JsonAlias("password")
+    private String adminPassword;
+
+    @JsonAlias("confirmPassword")
+    private String adminPasswordConfirm;
+
     // Getters and Setters
     public String getSchoolName() { return schoolName; }
     public void setSchoolName(String schoolName) { this.schoolName = schoolName; }
@@ -44,6 +50,12 @@ public class SchoolRegistrationRequest {
 
     public String getPrimaryColor() { return primaryColor; }
     public void setPrimaryColor(String primaryColor) { this.primaryColor = primaryColor; }
+
+    public String getAdminPassword() { return adminPassword; }
+    public void setAdminPassword(String adminPassword) { this.adminPassword = adminPassword; }
+
+    public String getAdminPasswordConfirm() { return adminPasswordConfirm; }
+    public void setAdminPasswordConfirm(String adminPasswordConfirm) { this.adminPasswordConfirm = adminPasswordConfirm; }
 }
 
 

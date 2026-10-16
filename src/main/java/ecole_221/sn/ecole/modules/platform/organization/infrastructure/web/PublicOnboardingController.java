@@ -15,6 +15,8 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.HashMap;
 import java.util.Map;
 
+import org.springframework.web.bind.annotation.RequestParam;
+
 @RestController
 public class PublicOnboardingController {
 
@@ -31,6 +33,24 @@ public class PublicOnboardingController {
         log.info("[register-school] Inscription demandée pour: {}", request.getSchoolName());
         Organization org = organizationService.registerSchool(request);
         return ResponseEntity.ok(org);
+    }
+
+    @GetMapping({"/public/check-availability", "/v1/public/check-availability"})
+    public ResponseEntity<Map<String, Boolean>> checkAvailability(
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String phone,
+            @RequestParam(required = false) String slug) {
+        Map<String, Boolean> res = new HashMap<>();
+        if (email != null && !email.isBlank()) {
+            res.put("emailAvailable", organizationService.isEmailAvailable(email));
+        }
+        if (phone != null && !phone.isBlank()) {
+            res.put("phoneAvailable", organizationService.isPhoneAvailable(phone));
+        }
+        if (slug != null && !slug.isBlank()) {
+            res.put("slugAvailable", organizationService.isSlugAvailable(slug));
+        }
+        return ResponseEntity.ok(res);
     }
 
     @GetMapping({"/public/tenants/{slug}", "/v1/public/tenants/{slug}"})
