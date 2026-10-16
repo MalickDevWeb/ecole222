@@ -59,6 +59,7 @@ public class SecurityConfig {
         "/finance/**",
         "/dashboard/**",
         "/admissions/**",
+        "/v1/admissions/**",
         "/notifications/**",
         "/audit/**",
         // Dashboard étudiant — polling routes

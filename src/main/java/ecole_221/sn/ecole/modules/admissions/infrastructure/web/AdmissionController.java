@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/admissions")
+@RequestMapping({"/admissions", "/v1/admissions"})
 @CrossOrigin(origins = "*")
 @Tag(name = "Admissions", description = "Gestion des admissions - candidats, workflow, paramètres")
 public class AdmissionController {
