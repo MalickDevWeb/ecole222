@@ -82,7 +82,9 @@ public class SecurityConfig {
         "/admin/stats",
         // Collaboration & Wiki partagé
         "/collaboration/**",
-        "/wiki/**"
+        "/wiki/**",
+        // Synchronisation offline / online
+        "/sync/**"
     };
 
     @Bean
