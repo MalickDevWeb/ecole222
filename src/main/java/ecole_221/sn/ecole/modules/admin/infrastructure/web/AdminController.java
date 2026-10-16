@@ -36,6 +36,9 @@ public class AdminController {
     @Autowired(required = false)
     private ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaRepository courseJpaRepository;
 
+    @Autowired(required = false)
+    private ecole_221.sn.ecole.modules.admin.application.service.AdminStaffService adminStaffService;
+
     private final AdminUseCase adminUseCase;
     private final ActionLogger actionLogger;
 
@@ -364,59 +367,20 @@ public class AdminController {
 
     @GetMapping("/staff")
     @Operation(summary = "Liste des membres du personnel", description = "Retourne tous les membres du personnel réels enregistrés en base.")
-    public ResponseEntity<List<Map<String, Object>>> getStaffMembers() {
-        logger.info("GET /admin/staff - Récupération du personnel depuis PostgreSQL");
-        List<Map<String, Object>> staffList = userJpaRepository.findAll().stream()
-            .filter(u -> u.getRole() != null && !"ETUDIANT".equalsIgnoreCase(u.getRole()))
-            .map(u -> {
-                Map<String, Object> m = new HashMap<String, Object>();
-                m.put("id", u.getId());
-                m.put("firstName", u.getPrenom() != null ? u.getPrenom() : "");
-                m.put("lastName", u.getNom() != null ? u.getNom() : "");
-                m.put("email", u.getEmail());
-                m.put("phone", u.getTelephone() != null ? u.getTelephone() : "");
-                m.put("role", u.getRole());
-                m.put("status", "Actif");
-                return m;
-            })
-            .collect(java.util.stream.Collectors.toList());
-        return ResponseEntity.ok(staffList);
+    public ResponseEntity<?> getStaffMembers() {
+        if (adminStaffService != null) {
+            return ResponseEntity.ok(adminStaffService.getStaffMembers());
+        }
+        return ResponseEntity.ok(List.of());
     }
 
     @PostMapping("/staff")
     @Operation(summary = "Créer un membre du personnel", description = "Crée et persiste un nouveau collaborateur dans la base PostgreSQL.")
-    public ResponseEntity<Map<String, Object>> createStaffMember(@RequestBody Map<String, Object> body) {
-        logger.info("POST /admin/staff - Création collaborateur: {} {}", body.get("firstName"), body.get("lastName"));
-        String id = (String) body.get("id");
-        if (id == null || id.isBlank()) {
-            id = "EMP-2026-" + UUID.randomUUID().toString().substring(0, 6);
+    public ResponseEntity<?> createStaffMember(@RequestBody Map<String, Object> body) {
+        if (adminStaffService != null) {
+            return adminStaffService.createStaffMember(body);
         }
-        String firstName = (String) body.getOrDefault("firstName", "");
-        String lastName = (String) body.getOrDefault("lastName", "");
-        String email = (String) body.get("email");
-        if (email == null || email.isBlank()) {
-            email = (firstName + "." + lastName).toLowerCase().replaceAll("[^a-z0-9]", ".") + "@ecole221.sn";
-        }
-        String phone = (String) body.getOrDefault("phone", "");
-        String role = (String) body.getOrDefault("role", "SECRETAIRE");
-
-        UserJpaEntity entity = new UserJpaEntity();
-        entity.setId(id);
-        entity.setPrenom(firstName);
-        entity.setNom(lastName);
-        entity.setEmail(email);
-        entity.setTelephone(phone);
-        entity.setRole(role);
-        entity.setMatricule(id);
-        userJpaRepository.save(entity);
-
-        actionLogger.logAdminAction("CREATE_STAFF", "ADMIN", id, "Collaborateur créé en base: " + firstName + " " + lastName);
-        
-        Map<String, Object> member = new HashMap<>(body);
-        member.put("id", id);
-        member.put("email", email);
-        member.put("status", "Actif");
-        return ResponseEntity.ok(member);
+        return ResponseEntity.ok(body);
     }
 
     @PutMapping("/staff/{id}")
