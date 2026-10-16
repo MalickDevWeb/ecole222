@@ -84,7 +84,9 @@ public class SecurityConfig {
         "/collaboration/**",
         "/wiki/**",
         // Synchronisation offline / online
-        "/sync/**"
+        "/sync/**",
+        // Upload multimédia Cloudinary public pour admissions & documents
+        "/media/**"
     };
 
     @Bean
