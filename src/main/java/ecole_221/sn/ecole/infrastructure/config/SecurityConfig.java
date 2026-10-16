@@ -65,8 +65,6 @@ public class SecurityConfig {
         // Dashboard étudiant — polling routes
         "/meet/active",
         "/schedule",
-        // Finance endpoints pour tests
-        "/finance/**",
         // Pointages & Émargements personnel
         "/admin/attendance/**",
         "/admin/attendance",
