@@ -49,7 +49,9 @@ public class PublicOnboardingController {
                         primaryColor = String.valueOf(org.getSettings().get("primaryColor"));
                     }
                     branding.put("primaryColor", primaryColor);
-                    branding.put("logoUrl", org.getLogo() != null ? org.getLogo() : "/myschool-icon.png");
+                    if (org.getLogo() != null && !org.getLogo().isBlank()) {
+                        branding.put("logoUrl", org.getLogo());
+                    }
                     return ResponseEntity.ok(Map.of(
                         "id", org.getId(),
                         "name", org.getName(),
@@ -62,8 +64,7 @@ public class PublicOnboardingController {
                     "name", "École 221",
                     "slug", "ecole-221",
                     "branding", Map.of(
-                        "primaryColor", "#B3181C",
-                        "logoUrl", "/myschool-icon.png"
+                        "primaryColor", "#B3181C"
                     )
                 )));
         }
