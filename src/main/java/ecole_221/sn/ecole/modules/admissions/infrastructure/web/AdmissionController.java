@@ -15,15 +15,21 @@ import java.util.Map;
 
 @RestController
 @RequestMapping({"/admissions", "/v1/admissions"})
-@CrossOrigin(origins = "*")
 @Tag(name = "Admissions", description = "Gestion des admissions - candidats, workflow, paramètres")
 public class AdmissionController {
     
     private static final Logger logger = LoggerFactory.getLogger(AdmissionController.class);
     private final AdmissionUseCase admissionUseCase;
+    private final ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository;
     
     public AdmissionController(AdmissionUseCase admissionUseCase) {
+        this(admissionUseCase, null);
+    }
+
+    public AdmissionController(AdmissionUseCase admissionUseCase, 
+                               ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository) {
         this.admissionUseCase = admissionUseCase;
+        this.candidateJpaRepository = candidateJpaRepository;
     }
     
     // ==================== ENDPOINTS CANDIDATS ====================
@@ -206,10 +212,43 @@ public class AdmissionController {
     }
 
     @GetMapping("/db")
-    @Operation(summary = "Base admissions globale", description = "Retourne les campagnes, candidats, messages et audits pour le portail candidat")
+    @Operation(summary = "Base admissions globale", description = "Retourne les campagnes, candidats, messages et audits synchronisés avec PostgreSQL")
     public ResponseEntity<Map<String, Object>> getAdmissionsDb() {
+        java.util.List<Map<String, Object>> candidatesList = new java.util.ArrayList<>();
+        java.util.List<ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity> entities = 
+            candidateJpaRepository != null ? candidateJpaRepository.findAll() : null;
+
+        if (entities != null && !entities.isEmpty()) {
+            for (ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity e : entities) {
+                Map<String, Object> c = new java.util.HashMap<>();
+                c.put("id", e.getId());
+                c.put("name", e.getFullName() != null ? e.getFullName() : (e.getFirstName() + " " + e.getLastName()).trim());
+                c.put("email", e.getEmail() != null ? e.getEmail() : "");
+                c.put("course", e.getCourseChoice() != null ? e.getCourseChoice() : "Licence Informatique");
+                c.put("type", (e.getCourseChoice() != null && e.getCourseChoice().contains("Master")) ? "MASTER" : "LICENCE");
+                c.put("step", e.getCurrentStep() != null ? e.getCurrentStep() : "new");
+                c.put("registrationFeePaid", Boolean.TRUE.equals(e.getRegistrationFeePaid()));
+                c.put("docs", Map.of(
+                    "idCard", Boolean.TRUE.equals(e.getIdCardUploaded()),
+                    "diploma", Boolean.TRUE.equals(e.getDiplomaUploaded()),
+                    "transcripts", true
+                ));
+                Map<String, Object> details = new java.util.HashMap<>();
+                details.put("cniNumber", "CNI-" + e.getId());
+                details.put("cniUrl", "https://res.cloudinary.com/qudmvipg/image/upload/v1792170944/file-f82d806f.png");
+                details.put("cniStatus", "verified");
+                details.put("paymentMethod", "WAVE");
+                details.put("paymentTransactionRef", e.getRegistrationFeeReference() != null ? e.getRegistrationFeeReference() : "WAVE-SN-7382");
+                details.put("paymentStatus", Boolean.TRUE.equals(e.getRegistrationFeePaid()) ? "approved" : "pending");
+                c.put("details", details);
+                candidatesList.add(c);
+            }
+        } else {
+            candidatesList.addAll(portalCandidates);
+        }
+
         return ResponseEntity.ok(Map.of(
-            "candidates", portalCandidates,
+            "candidates", candidatesList,
             "campaigns", portalCampaigns,
             "auditLogs", portalAuditLogs,
             "messages", portalMessages
@@ -217,13 +256,42 @@ public class AdmissionController {
     }
 
     @PostMapping("/db")
-    @Operation(summary = "Mettre à jour la base admissions", description = "Synchronise les modifications du portail candidat")
+    @Operation(summary = "Mettre à jour la base admissions", description = "Synchronise les modifications du portail candidat avec PostgreSQL")
     public ResponseEntity<Map<String, Object>> saveAdmissionsDb(@RequestBody Map<String, Object> body) {
         if (body.containsKey("candidates") && body.get("candidates") instanceof List<?> list) {
             portalCandidates.clear();
             for (Object item : list) {
                 if (item instanceof Map<?, ?> m) {
-                    portalCandidates.add((Map<String, Object>) m);
+                    Map<String, Object> map = (Map<String, Object>) m;
+                    portalCandidates.add(map);
+
+                    String id = String.valueOf(map.getOrDefault("id", ""));
+                    if (!id.isBlank() && candidateJpaRepository != null) {
+                        String name = String.valueOf(map.getOrDefault("name", ""));
+                        String email = String.valueOf(map.getOrDefault("email", ""));
+                        String course = String.valueOf(map.getOrDefault("course", ""));
+                        String step = String.valueOf(map.getOrDefault("step", "new"));
+                        boolean paid = Boolean.parseBoolean(String.valueOf(map.getOrDefault("registrationFeePaid", false)));
+
+                        ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity entity = 
+                            candidateJpaRepository.findById(id).orElseGet(() -> {
+                                ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity ne = 
+                                    new ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity();
+                                ne.setId(id);
+                                return ne;
+                            });
+
+                        entity.setFullName(name);
+                        String[] parts = name.split("\\s+", 2);
+                        entity.setFirstName(parts[0]);
+                        entity.setLastName(parts.length > 1 ? parts[1] : parts[0]);
+                        entity.setEmail(email);
+                        entity.setCourseChoice(course);
+                        entity.setCurrentStep(step);
+                        entity.setRegistrationFeePaid(paid);
+                        entity.setUpdatedAt(java.time.LocalDateTime.now());
+                        candidateJpaRepository.save(entity);
+                    }
                 }
             }
         }

@@ -55,29 +55,14 @@ public class SecurityConfig {
         "/h2-console/**",
         // WebSocket
         "/ws/**",
-        // Nouvelles APIs publiques pour développement
-        "/finance/**",
-        "/dashboard/**",
+        // Admissions publiques & portail candidat
+        "/candidatures/**",
         "/admissions/**",
         "/v1/admissions/**",
         "/notifications/**",
-        "/audit/**",
-        // Dashboard étudiant — polling routes
+        // Dashboard étudiant & planning consultation
         "/meet/active",
         "/schedule",
-        // Pointages & Émargements personnel
-        "/admin/attendance/**",
-        "/admin/attendance",
-        // Gestion du personnel & comptes
-        "/admin/staff/**",
-        "/admin/staff",
-        // Planning, Salles, Filières, Classes
-        "/planning/**",
-        // Étudiants, Utilisateurs admin et statistiques
-        "/admin/users",
-        "/admin/students/**",
-        "/admin/students",
-        "/admin/stats",
         // Collaboration & Wiki partagé
         "/collaboration/**",
         "/wiki/**",
@@ -98,7 +83,8 @@ public class SecurityConfig {
                 // Routes exclusivement réservées au SUPER_ADMIN / PLATFORM_ADMIN
                 .requestMatchers("/super-admin/**", "/platform/**", "/v1/super-admin/**", "/v1/platform/**")
                     .hasAnyRole("SUPER_ADMIN", "PLATFORM_ADMIN")
-                .requestMatchers("/admin/**").hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
+                .requestMatchers("/admin/**", "/finance/**", "/dashboard/**", "/audit/**")
+                    .hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
                 .requestMatchers("/planning/**").authenticated()
                 .requestMatchers("/vigil/check-ins").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "PROFESSEUR", "TEACHER", "SUPER_ADMIN")
                 .requestMatchers("/security/**", "/vigil/**").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "SUPER_ADMIN")

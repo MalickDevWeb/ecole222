@@ -44,14 +44,22 @@ public class UploadMediaService implements UploadMediaUseCase {
         mediaRepositoryPort.save(uploadedFile);
 
         if (userId != null && !userId.isBlank()) {
-            Optional<User> userOpt = userRepositoryPort.findById(userId);
-            if (userOpt.isPresent()) {
-                User user = userOpt.get();
-                user.setPhotoUrl(uploadedFile.getUrl());
-                userRepositoryPort.save(user);
-                System.out.println(">>> Photo de l'utilisateur " + userId + " mise à jour : " + uploadedFile.getUrl());
+            org.springframework.security.core.Authentication auth = 
+                org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+            boolean isAuthorized = auth != null && auth.isAuthenticated() && !"anonymousUser".equals(auth.getName()) &&
+                (auth.getName().equalsIgnoreCase(userId) || 
+                 auth.getAuthorities().stream().anyMatch(a -> a.getAuthority().contains("ADMIN")));
+
+            if (isAuthorized) {
+                Optional<User> userOpt = userRepositoryPort.findById(userId);
+                if (userOpt.isPresent()) {
+                    User user = userOpt.get();
+                    user.setPhotoUrl(uploadedFile.getUrl());
+                    userRepositoryPort.save(user);
+                    System.out.println(">>> Photo de l'utilisateur " + userId + " mise à jour : " + uploadedFile.getUrl());
+                }
             } else {
-                System.out.println("[WARN] Utilisateur " + userId + " introuvable pour l'association d'image.");
+                System.out.println("[SECURITY-WARN] Mise à jour photo refusée pour " + userId + " (non authentifié ou droits insuffisants)");
             }
         }
 

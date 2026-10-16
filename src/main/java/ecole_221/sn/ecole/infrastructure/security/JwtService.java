@@ -20,6 +20,13 @@ public class JwtService {
     @Value("${jwt.secret:ecole221-super-secret-key-must-be-at-least-32-chars}")
     private String secretKey;
 
+    @jakarta.annotation.PostConstruct
+    public void validateSecret() {
+        if ("ecole221-super-secret-key-must-be-at-least-32-chars".equals(secretKey)) {
+            System.err.println("[SECURITY-CRITICAL] Utilisation de la clé JWT par défaut non sécurisée. Définissez JWT_SECRET en production !");
+        }
+    }
+
     public String extractUsername(String token) {
         return extractClaim(token, Claims::getSubject);
     }
