@@ -26,6 +26,7 @@ public class AdmissionController {
         this(admissionUseCase, null);
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
     public AdmissionController(AdmissionUseCase admissionUseCase, 
                                ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository) {
         this.admissionUseCase = admissionUseCase;
