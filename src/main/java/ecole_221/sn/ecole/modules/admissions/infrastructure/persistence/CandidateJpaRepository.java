@@ -12,7 +12,7 @@ public interface CandidateJpaRepository extends JpaRepository<CandidateJpaEntity
     List<CandidateJpaEntity> findByCurrentStep(String currentStep);
     List<CandidateJpaEntity> findByAdmissionStatus(String admissionStatus);
     
-    @Query("SELECT c FROM CandidateJpaEntity c WHERE c.registrationFeePaid = true AND c.admissionStatus = 'pending'")
+    @Query("SELECT c FROM CandidateJpaEntity c WHERE c.registrationFeePaid = true AND c.admissionStatus = 'EN_ATTENTE'")
     List<CandidateJpaEntity> findPaidPendingCandidates();
     
     @Query("SELECT c FROM CandidateJpaEntity c WHERE c.currentStep = :step ORDER BY c.submittedAt DESC")

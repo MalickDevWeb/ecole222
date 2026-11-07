@@ -1,5 +1,6 @@
 package ecole_221.sn.ecole.modules.admin.infrastructure.web;
 
+import ecole_221.sn.ecole.modules.admissions.domain.valueobject.CandidateStatus;
 import ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity;
 import ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -93,7 +94,7 @@ public class CandidaturesController {
                 entity.setAdditionalInfo("{\"paymentMethod\":\"" + modePaiement + "\"}");
                 entity.setSubmittedAt(LocalDateTime.now());
                 entity.setCurrentStep("new");
-                entity.setAdmissionStatus("pending");
+                entity.setAdmissionStatus(CandidateStatus.EN_ATTENTE.name());
 
                 candidateJpaRepository.save(entity);
                 logger.info("Candidature {} persistée avec succès en PostgreSQL", candidatureId);
@@ -166,7 +167,8 @@ public class CandidaturesController {
     public ResponseEntity<Map<String, Object>> updateCandidatureStatut(
             @PathVariable String id, 
             @RequestBody Map<String, String> body) {
-        String newStatut = body.get("statut");
+        // Validation + normalisation : « ACCEPTE », « VALIDE »… → ACCEPTED ; valeur inconnue → 400 (BUG-QA-01)
+        String newStatut = CandidateStatus.from(body.get("statut")).name();
         if (candidateJpaRepository != null) {
             candidateJpaRepository.findById(id).ifPresent(e -> {
                 e.setAdmissionStatus(newStatut);

@@ -3,6 +3,7 @@ package ecole_221.sn.ecole.modules.finance.application.service;
 import ecole_221.sn.ecole.modules.finance.application.port.usecase.GetExpenseUseCase;
 import ecole_221.sn.ecole.modules.finance.domain.model.Expense;
 import ecole_221.sn.ecole.modules.finance.domain.port.repository.ExpenseRepositoryPort;
+import ecole_221.sn.ecole.modules.finance.domain.port.ExpenseCategoryCatalog;
 import ecole_221.sn.ecole.modules.finance.domain.valueobject.ExpenseCategory;
 import ecole_221.sn.ecole.modules.finance.domain.valueobject.ExpenseStatus;
 import org.slf4j.Logger;
@@ -22,9 +23,11 @@ public class GetExpenseService implements GetExpenseUseCase {
     private static final Logger logger = LoggerFactory.getLogger(GetExpenseService.class);
     
     private final ExpenseRepositoryPort expenseRepositoryPort;
+    private final ExpenseCategoryCatalog categoryCatalog;
     
-    public GetExpenseService(ExpenseRepositoryPort expenseRepositoryPort) {
+    public GetExpenseService(ExpenseRepositoryPort expenseRepositoryPort, ExpenseCategoryCatalog categoryCatalog) {
         this.expenseRepositoryPort = expenseRepositoryPort;
+        this.categoryCatalog = categoryCatalog;
     }
     
     @Override
@@ -42,7 +45,7 @@ public class GetExpenseService implements GetExpenseUseCase {
     @Override
     public List<Expense> getByCategory(String category) {
         logger.debug("Récupération des dépenses par catégorie: {}", category);
-        ExpenseCategory expenseCategory = new ExpenseCategory(category);
+        ExpenseCategory expenseCategory = categoryCatalog.resolve(category);
         return expenseRepositoryPort.findByCategory(expenseCategory);
     }
     
@@ -68,7 +71,7 @@ public class GetExpenseService implements GetExpenseUseCase {
     @Override
     public Long getTotalPaidByCategory(String category) {
         logger.debug("Calcul du total des dépenses payées pour la catégorie: {}", category);
-        ExpenseCategory expenseCategory = new ExpenseCategory(category);
+        ExpenseCategory expenseCategory = categoryCatalog.resolve(category);
         return expenseRepositoryPort.totalPaidByCategory(expenseCategory);
     }
 }

@@ -60,7 +60,7 @@ public class CandidateJpaEntity {
     private String registrationFeeReference;
     
     @Column(name = "admission_status")
-    private String admissionStatus; // 'pending', 'accepted', 'rejected', 'waitlist'
+    private String admissionStatus; // clé CandidateStatus (EN_ATTENTE, ACCEPTED, REJECTED, EN_COURS, FINALISE)
     
     @Column(name = "rejection_reason")
     private String rejectionReason;
@@ -93,7 +93,7 @@ public class CandidateJpaEntity {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         this.currentStep = "new";
-        this.admissionStatus = "pending";
+        this.admissionStatus = "EN_ATTENTE"; // clé canonique (cf. CandidateStatus.from)
         this.registrationFeePaid = false;
     }
 
