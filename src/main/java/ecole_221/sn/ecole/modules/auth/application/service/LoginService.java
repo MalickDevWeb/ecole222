@@ -81,14 +81,7 @@ public class LoginService implements LoginUseCase {
     private String resolveTenantSlug(User user, String inputEmail) {
         String email = (inputEmail != null ? inputEmail : user.getEmail()).trim().toLowerCase();
 
-        // 1. Détection via pattern <role>@<slug>.sn
-        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("^.+@([a-zA-Z0-9_-]+)\\.sn$");
-        java.util.regex.Matcher matcher = pattern.matcher(email);
-        if (matcher.matches()) {
-            return matcher.group(1);
-        }
-
-        // 2. Recherche par lien organization_users
+        // 1. Appartenance réelle (organization_users) — prioritaire (SEC-003)
         try {
             List<OrganizationUser> memberships = organizationUserRepositoryPort.findByUserId(user.getId());
             if (memberships != null && !memberships.isEmpty()) {
@@ -102,6 +95,13 @@ public class LoginService implements LoginUseCase {
             }
         } catch (Exception e) {
             log.warn("Impossible de résoudre l'organisation pour l'utilisateur {} : {}", user.getId(), e.getMessage());
+        }
+
+        // 2. À défaut : déduction depuis l'email <role>@<slug>.sn (comptes historiques sans appartenance)
+        java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("^.+@([a-zA-Z0-9_-]+)\\.sn$");
+        java.util.regex.Matcher matcher = pattern.matcher(email);
+        if (matcher.matches()) {
+            return matcher.group(1);
         }
 
         // 3. Fallback École 221
