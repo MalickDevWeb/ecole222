@@ -7,6 +7,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AnonymousAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -27,7 +28,8 @@ import java.util.Set;
  * <p><b>Phase de transition</b> (décision du 2026-11-07) : organization_users est encore
  * incomplète (élèves, professeurs… créés sans appartenance). Un utilisateur SANS AUCUNE
  * appartenance garde temporairement l'ancien comportement, journalisé « SEC-003 TRANSITION ».
- * Dès que la reprise des données est faite, supprimer cette exception ({@link #legacyAllowed}).</p>
+ * Après la reprise des données ({@code ./orchestrator.sh backfill-memberships --apply}), activer
+ * {@code ecole.security.tenant-membership.strict=true} : l'exception est alors supprimée (403).</p>
  */
 @Component
 public class TenantMembershipInterceptor implements HandlerInterceptor {
@@ -36,9 +38,12 @@ public class TenantMembershipInterceptor implements HandlerInterceptor {
     private static final Set<String> PLATFORM_ROLES = Set.of("ROLE_SUPER_ADMIN", "ROLE_PLATFORM_ADMIN");
 
     private final OrganizationUserRepositoryPort memberships;
+    private final boolean strict;
 
-    public TenantMembershipInterceptor(OrganizationUserRepositoryPort memberships) {
+    public TenantMembershipInterceptor(OrganizationUserRepositoryPort memberships,
+                                       @Value("${ecole.security.tenant-membership.strict:false}") boolean strict) {
         this.memberships = memberships;
+        this.strict = strict;
     }
 
     @Override
@@ -68,6 +73,11 @@ public class TenantMembershipInterceptor implements HandlerInterceptor {
 
     /** Transition : utilisateur sans appartenance enregistrée (données historiques incomplètes). */
     private boolean legacyAllowed(String userId, String organizationId, HttpServletRequest request) {
+        if (strict) {
+            log.warn("SEC-003 REFUS (strict) : utilisateur {} sans appartenance, école {} ({} {})",
+                    userId, organizationId, request.getMethod(), request.getRequestURI());
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès refusé : vous n'êtes pas membre de cet établissement.");
+        }
         log.warn("SEC-003 TRANSITION : utilisateur {} sans appartenance, accès à l'école {} non vérifié ({} {})",
                 userId, organizationId, request.getMethod(), request.getRequestURI());
         return true;
