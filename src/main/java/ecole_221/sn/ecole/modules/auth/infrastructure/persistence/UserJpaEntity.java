@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
+// SEC-003 : tout compte créé dans le contexte d'une école en devient membre
+@jakarta.persistence.EntityListeners(ecole_221.sn.ecole.shared.infrastructure.tenant.UserMembershipListener.class)
 public class UserJpaEntity {
 
     @Id

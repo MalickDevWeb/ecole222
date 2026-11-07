@@ -27,7 +27,7 @@ class TenantMembershipInterceptorTest {
 
     private static final String SCHOOL_A = "org-a";
     private final OrganizationUserRepositoryPort memberships = mock(OrganizationUserRepositoryPort.class);
-    private final TenantMembershipInterceptor interceptor = new TenantMembershipInterceptor(memberships);
+    private final TenantMembershipInterceptor interceptor = new TenantMembershipInterceptor(memberships, false);
     private final MockHttpServletRequest request = new MockHttpServletRequest("GET", "/finance/expenses");
 
     @BeforeEach
@@ -73,6 +73,15 @@ class TenantMembershipInterceptorTest {
         User u = login(RoleUtilisateur.ETUDIANT);
         when(memberships.findByUserId(u.getId())).thenReturn(List.of());
         assertThat(pass()).isTrue();
+    }
+
+    @Test
+    void mode_strict_utilisateur_sans_appartenance_refuse_403() {
+        User u = login(RoleUtilisateur.ETUDIANT);
+        when(memberships.findByUserId(u.getId())).thenReturn(List.of());
+        TenantMembershipInterceptor strict = new TenantMembershipInterceptor(memberships, true);
+        assertThatThrownBy(() -> strict.preHandle(request, new MockHttpServletResponse(), new Object()))
+                .isInstanceOf(ResponseStatusException.class);
     }
 
     @Test
