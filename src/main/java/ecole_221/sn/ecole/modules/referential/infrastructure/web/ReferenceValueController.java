@@ -22,8 +22,8 @@ import java.util.stream.Collectors;
 
 /**
  * Référentiels paramétrables : lecture pour tout utilisateur connecté, écriture ADMIN / SUPER_ADMIN.
- * Les droits sont vérifiés dans {@link ReferenceCommandService} (les @PreAuthorize ne sont pas
- * actifs dans ce projet : @EnableMethodSecurity absent).
+ * Les droits sont vérifiés dans {@link ReferenceCommandService} (règle qui dépend de la liste et de
+ * l'école : elle ne s'exprime pas en simple @PreAuthorize).
  */
 @RestController
 @RequestMapping("/v1/referentiels")
