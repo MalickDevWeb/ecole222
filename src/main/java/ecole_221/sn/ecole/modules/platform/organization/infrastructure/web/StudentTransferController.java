@@ -30,7 +30,7 @@ public class StudentTransferController {
      * Échoue si l'élève est déjà actif dans une autre école (Règle Mono-École).
      */
     @PostMapping("/{studentId}/enroll")
-    @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'PLATFORM_ADMIN', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'PLATFORM_ADMIN', 'ADMIN')")
     public ResponseEntity<Map<String, Object>> enrollStudent(
             @PathVariable("studentId") String studentId,
             @RequestBody Map<String, String> body) {
@@ -62,7 +62,7 @@ public class StudentTransferController {
      * Déclenche la procédure complète de transfert d'un élève.
      */
     @PostMapping("/{studentId}/transfer")
-    @PreAuthorize("hasAnyAuthority('SUPER_ADMIN', 'PLATFORM_ADMIN', 'ADMIN')")
+    @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'PLATFORM_ADMIN', 'ADMIN')")
     public ResponseEntity<Map<String, Object>> transferStudent(
             @PathVariable("studentId") String studentId,
             @RequestBody Map<String, String> body) {
