@@ -88,7 +88,7 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
             candidateDto.prenom(),
             candidateDto.email(),
             candidateDto.telephone(),
-            CandidateStatus.valueOf(candidateDto.statut()),
+            CandidateStatus.from(candidateDto.statut()),
             candidateDto.note(),
             candidateDto.filiereDemandee()
         );
@@ -185,10 +185,11 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
         List<CandidateJpaEntity> allCandidates = candidateRepository.findAll();
         
         stats.put("total", allCandidates.size());
-        stats.put("new", candidateRepository.countByAdmissionStatus("pending"));
-        stats.put("accepted", candidateRepository.countByAdmissionStatus("accepted"));
-        stats.put("rejected", candidateRepository.countByAdmissionStatus("rejected"));
-        stats.put("waitlist", candidateRepository.countByAdmissionStatus("waitlist"));
+        stats.put("new", candidateRepository.countByAdmissionStatus(CandidateStatus.EN_ATTENTE.name()));
+        stats.put("accepted", candidateRepository.countByAdmissionStatus(CandidateStatus.ACCEPTED.name()));
+        stats.put("rejected", candidateRepository.countByAdmissionStatus(CandidateStatus.REJECTED.name()));
+        stats.put("inProgress", candidateRepository.countByAdmissionStatus(CandidateStatus.EN_COURS.name()));
+        stats.put("finalized", candidateRepository.countByAdmissionStatus(CandidateStatus.FINALISE.name()));
         stats.put("paid", candidateRepository.findPaidPendingCandidates().size());
         
         // Par cours
@@ -215,11 +216,11 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
         logger.info("Traitement automatique des admissions");
         
         // Logique de traitement automatique basée sur les scores
-        List<CandidateJpaEntity> pendingCandidates = candidateRepository.findByAdmissionStatus("pending");
+        List<CandidateJpaEntity> pendingCandidates = candidateRepository.findByAdmissionStatus(CandidateStatus.EN_ATTENTE.name());
         
         for (CandidateJpaEntity candidate : pendingCandidates) {
             if (candidate.getTotalScore() != null && candidate.getTotalScore() >= 12.0) {
-                candidate.setAdmissionStatus("accepted");
+                candidate.setAdmissionStatus(CandidateStatus.ACCEPTED.name());
                 candidateRepository.save(candidate);
                 logger.info("Candidat accepté automatiquement: {}", candidate.getFullName());
             }
@@ -246,7 +247,7 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
     public void generateMatricules() {
         logger.info("Génération des matricules pour les candidats acceptés");
         
-        List<CandidateJpaEntity> acceptedCandidates = candidateRepository.findByAdmissionStatus("accepted");
+        List<CandidateJpaEntity> acceptedCandidates = candidateRepository.findByAdmissionStatus(CandidateStatus.ACCEPTED.name());
         
         for (CandidateJpaEntity candidate : acceptedCandidates) {
             // Logique de génération de matricule
@@ -282,7 +283,7 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
                 dto.prenom(),
                 dto.email(),
                 dto.telephone(),
-                CandidateStatus.valueOf(dto.statut()),
+                CandidateStatus.from(dto.statut()),
                 dto.note(),
                 dto.filiereDemandee()
             );
@@ -292,7 +293,7 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
                 dto.prenom(),
                 dto.email(),
                 dto.telephone(),
-                CandidateStatus.valueOf(dto.statut()),
+                CandidateStatus.from(dto.statut()),
                 dto.note(),
                 dto.filiereDemandee()
             );

@@ -7,6 +7,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.core.annotation.Order;
+import org.springframework.core.env.Environment;
+import org.springframework.core.env.Profiles;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
@@ -23,7 +25,7 @@ import java.util.UUID;
  * <p><b>Variables d'environnement :</b></p>
  * <ul>
  *   <li>{@code SUPER_ADMIN_EMAIL}    — Email du super admin (défaut : superadmin@ecole221.sn)</li>
- *   <li>{@code SUPER_ADMIN_PASSWORD} — Mot de passe (défaut : SuperAdmin@221! — À CHANGER EN PROD !)</li>
+ *   <li>{@code SUPER_ADMIN_PASSWORD} — Mot de passe (OBLIGATOIRE, aucun défaut : sans lui le compte n'est pas créé)</li>
  *   <li>{@code SUPER_ADMIN_NOM}      — Nom (défaut : Super)</li>
  *   <li>{@code SUPER_ADMIN_PRENOM}   — Prénom (défaut : Admin)</li>
  * </ul>
@@ -36,17 +38,19 @@ public class SuperAdminInitializer implements CommandLineRunner {
 
     // Valeurs par défaut — à surcharger via variables d'environnement en production
     private static final String DEFAULT_EMAIL    = "superadmin@ecole221.sn";
-    private static final String DEFAULT_PASSWORD = "SuperAdmin@221!";
     private static final String DEFAULT_NOM      = "Super";
     private static final String DEFAULT_PRENOM   = "Admin";
     private static final String DEFAULT_MATRICULE = "SA-221-0001";
 
     private final UserJpaRepository userRepository;
     private final PasswordEncoder   passwordEncoder;
+    private final Environment       environment;
 
-    public SuperAdminInitializer(UserJpaRepository userRepository, PasswordEncoder passwordEncoder) {
+    public SuperAdminInitializer(UserJpaRepository userRepository, PasswordEncoder passwordEncoder,
+                                 Environment environment) {
         this.userRepository  = userRepository;
         this.passwordEncoder = passwordEncoder;
+        this.environment     = environment;
     }
 
     @Override
@@ -55,8 +59,12 @@ public class SuperAdminInitializer implements CommandLineRunner {
         // 1. Initialiser le SUPER_ADMIN
         seedSuperAdmin();
 
-        // 2. Initialiser les comptes démo pour l'école par défaut (École 221)
-        seedDemoUsers();
+        // 2. Comptes démo (mots de passe faibles) : jamais en production
+        if (environment.acceptsProfiles(Profiles.of("prod"))) {
+            logger.info("Profil prod actif : comptes démo non créés.");
+        } else {
+            seedDemoUsers();
+        }
     }
 
     private void seedSuperAdmin() {
@@ -67,7 +75,11 @@ public class SuperAdminInitializer implements CommandLineRunner {
             return;
         }
 
-        String rawPassword = getEnv("SUPER_ADMIN_PASSWORD", DEFAULT_PASSWORD);
+        String rawPassword = getEnv("SUPER_ADMIN_PASSWORD", null);
+        if (rawPassword == null) {
+            logger.error("❌ SUPER_ADMIN_PASSWORD non défini : SUPER_ADMIN non créé. Ajoutez-le dans backend/.env.");
+            return;
+        }
         String nom         = getEnv("SUPER_ADMIN_NOM",      DEFAULT_NOM);
         String prenom      = getEnv("SUPER_ADMIN_PRENOM",   DEFAULT_PRENOM);
 
