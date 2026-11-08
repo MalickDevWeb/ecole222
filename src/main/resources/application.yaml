@@ -73,7 +73,9 @@ spring:
       url: ${REDIS_URL:rediss://default:gQAAAAAAArCqAAIgcDExMDg4N2E5MjkwZjM0YTEwOWE1ODRmNzU3ODI4ZmJmNA@crisp-tortoise-176298.upstash.io:6379}
       ssl:
         enabled: true
-      timeout: 60000ms
+      # Court : si Redis tombe, le cache est contourné (RedisConfig) au lieu de bloquer chaque requête
+      timeout: ${REDIS_TIMEOUT:2s}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
       lettuce:
         pool:
           max-active: 8
