@@ -69,18 +69,14 @@ public class SecurityConfig {
         "/candidatures/settings",
         "/admissions/settings", "/v1/admissions/settings",
         // APP-SEC-15 : indicateur hors ligne appelé sans compte (OfflineSyncToast)
-        "/sync/check",
-        // TEMPORAIRE (carte APP-TL-10) : le portail télécharge toute la base des admissions
-        "/admissions/db", "/v1/admissions/db"
+        "/sync/check"
     };
 
     /** Écritures publiques du portail candidat (APP-SEC-12). */
     static final String[] PORTAIL_CANDIDAT_ECRITURE = {
         "/candidatures/submit",
         // APP-SEC-15 : pièces du dossier de candidature envoyées sans compte (cloudinaryUpload.ts)
-        "/media/upload",
-        // TEMPORAIRE (carte APP-TL-10)
-        "/admissions/db", "/v1/admissions/db"
+        "/media/upload"
     };
 
     @Bean
