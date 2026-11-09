@@ -66,6 +66,15 @@ public class GlobalExceptionHandler {
                 .body(ApiErrorResponse.of(ErrorCode.COURSE_NOT_FOUND, ex.getMessage()));
     }
 
+    /** Fichier refusé (vide, trop volumineux, format ou contenu non conforme) : 400 et non 500. */
+    @ExceptionHandler(ecole_221.sn.ecole.modules.media.domain.exception.InvalidFileException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidFile(RuntimeException ex) {
+        log.warn("[Invalid File] {}", ex.getMessage());
+        return ResponseEntity
+                .status(ErrorCode.VALIDATION_ERROR.getHttpStatus())
+                .body(ApiErrorResponse.of(ErrorCode.VALIDATION_ERROR, ex.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
         Map<String, Object> details = new HashMap<>();

@@ -41,7 +41,8 @@ public class UploadController {
     )
     public ResponseEntity<UploadedFile> uploadFile(
             @Parameter(description = "Fichier à uploader") @RequestParam("file") MultipartFile file,
-            @Parameter(description = "Identifiant de l'utilisateur (optionnel)") @RequestParam(value = "userId", required = false) String userId)
+            @Parameter(description = "Identifiant de l'utilisateur (optionnel)") @RequestParam(value = "userId", required = false) String userId,
+            jakarta.servlet.http.HttpServletRequest request)
             throws IOException {
         if (file == null || file.isEmpty()) {
             throw new InvalidFileException("Le fichier sélectionné est vide.");
@@ -56,9 +57,20 @@ public class UploadController {
             throw new InvalidFileException("Format non autorisé (" + contentType + "). Seuls PDF, PNG, JPG et WEBP sont acceptés.");
         }
 
+        // APP-SEC-15 : le type déclaré par le client ne suffit pas — signature réelle du contenu
+        byte[] contenu = file.getBytes();
+        if (!signatureConforme(contenu, contentType.toLowerCase())) {
+            throw new InvalidFileException("Le contenu du fichier ne correspond pas à son format déclaré (" + contentType + ").");
+        }
+        // APP-SEC-15 : route publique (portail candidat) → débit limité pour les visiteurs sans compte
+        if (!authentifie() && !LIMITEUR.autoriser(adresse(request))) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, "Trop d'envois : réessayez plus tard.");
+        }
+
         String fileName = file.getOriginalFilename();
         UploadedFile uploadedFile = uploadMediaUseCase.upload(
-                file.getBytes(),
+                contenu,
                 fileName,
                 contentType,
                 userId
@@ -68,5 +80,83 @@ public class UploadController {
             "Upload fichier sécurisé: " + fileName + " (" + contentType + ", " + file.getSize() + " octets)");
 
         return ResponseEntity.ok(uploadedFile);
+    }
+
+    /** 20 envois par heure et par adresse pour les visiteurs sans compte (APP-SEC-15). */
+    static final LimiteurEnvois LIMITEUR = new LimiteurEnvois(20, java.time.Duration.ofHours(1));
+
+    static boolean signatureConforme(byte[] b, String type) {
+        if (b == null || b.length < 12) {
+            return false;
+        }
+        return switch (type) {
+            case "application/pdf" -> commencePar(b, 0x25, 0x50, 0x44, 0x46);                 // %PDF
+            case "image/png" -> commencePar(b, 0x89, 0x50, 0x4E, 0x47);                        // \x89PNG
+            case "image/jpeg", "image/jpg" -> commencePar(b, 0xFF, 0xD8, 0xFF);
+            case "image/gif" -> commencePar(b, 0x47, 0x49, 0x46, 0x38);                        // GIF8
+            case "image/webp" -> commencePar(b, 0x52, 0x49, 0x46, 0x46)                        // RIFF....WEBP
+                    && b[8] == 0x57 && b[9] == 0x45 && b[10] == 0x42 && b[11] == 0x50;
+            default -> false;
+        };
+    }
+
+    private static boolean commencePar(byte[] b, int... octets) {
+        for (int i = 0; i < octets.length; i++) {
+            if ((b[i] & 0xFF) != octets[i]) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean authentifie() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.isAuthenticated()
+                && !(auth instanceof org.springframework.security.authentication.AnonymousAuthenticationToken);
+    }
+
+    /**
+     * Adresse du client : derrière le proxy de Render, getRemoteAddr() est celle du proxy (tous les
+     * candidats partageraient le même quota) → premier X-Forwarded-For. Limite connue : en-tête
+     * falsifiable, le quota peut être contourné ; à remplacer par server.forward-headers-strategy
+     * (application.yaml, en cours de modification par le Tech Lead).
+     */
+    static String adresse(jakarta.servlet.http.HttpServletRequest request) {
+        if (request == null) {
+            return "inconnue";
+        }
+        String xff = request.getHeader("X-Forwarded-For");
+        if (xff != null && !xff.isBlank()) {
+            return xff.split(",")[0].trim();
+        }
+        return request.getRemoteAddr();
+    }
+
+    /** Fenêtre glissante simple, en mémoire (une instance ; suffisant pour limiter les abus du portail). */
+    static final class LimiteurEnvois {
+        private final int max;
+        private final java.time.Duration fenetre;
+        private final java.util.concurrent.ConcurrentHashMap<String, java.util.Deque<Long>> envois = new java.util.concurrent.ConcurrentHashMap<>();
+
+        LimiteurEnvois(int max, java.time.Duration fenetre) {
+            this.max = max;
+            this.fenetre = fenetre;
+        }
+
+        boolean autoriser(String cle) {
+            long maintenant = System.currentTimeMillis();
+            long limite = maintenant - fenetre.toMillis();
+            java.util.Deque<Long> d = envois.computeIfAbsent(cle, k -> new java.util.ArrayDeque<>());
+            synchronized (d) {
+                while (!d.isEmpty() && d.peekFirst() < limite) {
+                    d.pollFirst();
+                }
+                if (d.size() >= max) {
+                    return false;
+                }
+                d.addLast(maintenant);
+                return true;
+            }
+        }
     }
 }
