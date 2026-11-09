@@ -56,6 +56,16 @@ public class GlobalExceptionHandler {
                 .body(ApiErrorResponse.of(ErrorCode.TENANT_NOT_FOUND, ex.getMessage()));
     }
 
+    /** Cours introuvable : 404 (et non 500), quel que soit le module qui lève l'exception. */
+    @ExceptionHandler({ecole_221.sn.ecole.partage.exception.CourseNotFoundException.class,
+            ecole_221.sn.ecole.modules.professor.domain.exception.CourseNotFoundException.class})
+    public ResponseEntity<ApiErrorResponse> handleCourseNotFound(RuntimeException ex) {
+        log.warn("[Course Not Found] {}", ex.getMessage());
+        return ResponseEntity
+                .status(ErrorCode.COURSE_NOT_FOUND.getHttpStatus())
+                .body(ApiErrorResponse.of(ErrorCode.COURSE_NOT_FOUND, ex.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
         Map<String, Object> details = new HashMap<>();
