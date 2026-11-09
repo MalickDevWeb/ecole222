@@ -414,15 +414,22 @@ public class AdminController {
     public ResponseEntity<Map<String, Object>> createPromotion(@RequestBody Map<String, Object> body) {
         String name = texte(body.get("name"));
         if (name == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le nom de la promotion est obligatoire.");
+        String niveau = texte(body.get("level"));
+        if (niveau == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le niveau de la promotion est obligatoire (ex. L1, M2).");
+        String filiere = texte(body.get("filiere"));
+        if (filiere == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La filière de la promotion est obligatoire.");
+        // mêmes règles que le modèle Classe du planning (sinon la classe fait échouer GET /planning/classes)
+        int capacite = entier(premier(texte(body.get("capacity")), texte(body.get("capaciteMax"))));
+        if (capacite <= 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La capacité de la promotion doit être un nombre positif.");
         boolean existe = classeJpaRepository.findAll().stream()
                 .anyMatch(c -> name.equalsIgnoreCase(c.getName() != null ? c.getName() : c.getNom()));
         if (existe) throw new ResponseStatusException(HttpStatus.CONFLICT, "Une promotion porte déjà ce nom.");
         ClasseJpaEntity c = new ClasseJpaEntity();
         c.setId("cls-" + UUID.randomUUID());
         c.setName(name);
-        c.setFiliereId(texte(body.get("filiere")));
-        c.setLevel(texte(body.get("level")));
-        c.setCapacity(entier(texte(body.get("capacity"))));
+        c.setFiliereId(filiere);
+        c.setLevel(niveau);
+        c.setCapacity(capacite);
         classeJpaRepository.save(c);   // organization_id posé par @TenantId
         logger.info("POST /admin/promotions - Promotion créée: {} ({})", c.getId(), name);
         actionLogger.logAdminAction("CREATE_PROMOTION", "ADMIN", c.getId(), "Promotion créée : " + name);

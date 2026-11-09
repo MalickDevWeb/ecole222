@@ -220,7 +220,6 @@ public class TenantResolutionFilter implements Filter {
             || path.startsWith("/api/auth/")              // Authentification
             || path.startsWith("/api/register-school")    // Inscription école
             || path.startsWith("/api/sync")               // Synchronisation
-            || path.startsWith("/api/candidatures/settings") // Paramètres publics
             || path.startsWith("/api/public/")            // Routes publiques
             || path.startsWith("/swagger-ui")             // Documentation
             || path.startsWith("/v3/api-docs");           // OpenAPI

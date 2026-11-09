@@ -75,6 +75,30 @@ public class GlobalExceptionHandler {
                 .body(ApiErrorResponse.of(ErrorCode.RESOURCE_NOT_FOUND, "Route inexistante."));
     }
 
+    /**
+     * Requête mal formée (paramètre obligatoire absent, valeur de mauvais type, corps JSON illisible) :
+     * 400 avec un message en français. Avant : 500 « erreur interne » (balayage des routes du 2026-11-09).
+     */
+    @ExceptionHandler({org.springframework.web.bind.MissingServletRequestParameterException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+            org.springframework.http.converter.HttpMessageNotReadableException.class,
+            org.springframework.web.bind.MissingRequestHeaderException.class})
+    public ResponseEntity<ApiErrorResponse> handleRequeteMalFormee(Exception ex) {
+        String message;
+        if (ex instanceof org.springframework.web.bind.MissingServletRequestParameterException m) {
+            message = "Paramètre obligatoire manquant : " + m.getParameterName() + ".";
+        } else if (ex instanceof org.springframework.web.method.annotation.MethodArgumentTypeMismatchException m) {
+            message = "Valeur invalide pour le paramètre « " + m.getName() + " ».";
+        } else if (ex instanceof org.springframework.web.bind.MissingRequestHeaderException m) {
+            message = "En-tête obligatoire manquant : " + m.getHeaderName() + ".";
+        } else {
+            message = "Corps de requête illisible ou mal formé.";
+        }
+        log.debug("[Bad Request] {}", ex.getMessage());
+        return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                .body(ApiErrorResponse.of(ErrorCode.VALIDATION_ERROR, message));
+    }
+
     /** Stockage indisponible : 503 explicite (APP-BE-05), jamais de faux succès. */
     @ExceptionHandler(ecole_221.sn.ecole.modules.media.domain.exception.StockageIndisponibleException.class)
     public ResponseEntity<ApiErrorResponse> handleStockageIndisponible(RuntimeException ex) {
