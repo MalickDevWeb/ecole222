@@ -46,4 +46,30 @@ class ParentServiceEnfantsTest {
         assertEquals("ETU-42", enfants.get(0).matricule());
         assertTrue(enfants.stream().noneMatch(e -> "usr-001".equals(e.id()) || "Aminata".equals(e.prenom())));
     }
+
+    @Test
+    void notesReellesSansValeurInventee() {
+        Mockito.when(parents.findNotesByEnfantId("e42")).thenReturn(List.of(
+                new ecole_221.sn.ecole.modules.parent.domain.model.NoteEnfant("g1", "c1", "Algorithmique", "prof1", 16.5, 15.0),
+                new ecole_221.sn.ecole.modules.parent.domain.model.NoteEnfant("g2", "c2", null, null, 12.0, null)));
+        User prof = Mockito.mock(User.class);
+        Mockito.when(prof.getPrenom()).thenReturn("Awa");
+        Mockito.when(prof.getNom()).thenReturn("Ndiaye");
+        Mockito.when(comptes.findById("prof1")).thenReturn(Optional.of(prof));
+
+        var notes = service.getChildGrades("e42");
+        assertEquals(2, notes.size());
+        assertEquals("Algorithmique", notes.get(0).module());
+        assertEquals("Awa Ndiaye", notes.get(0).professeur());
+        assertEquals(15.6, notes.get(0).moyenne());
+        assertNull(notes.get(0).mention(), "aucun barème de mention validé : rien d'inventé");
+        assertEquals("c2", notes.get(1).module(), "cours inconnu : identifiant plutôt qu'un nom inventé");
+        assertNull(notes.get(1).moyenne(), "moyenne seulement si CC et examen saisis");
+    }
+
+    @Test
+    void enfantSansNoteAucuneNote() {
+        Mockito.when(parents.findNotesByEnfantId("e0")).thenReturn(List.of());
+        assertTrue(service.getChildGrades("e0").isEmpty());
+    }
 }

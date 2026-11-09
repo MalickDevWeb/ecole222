@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface GradeJpaRepository extends JpaRepository<GradeJpaEntity, String> {
     Optional<GradeJpaEntity> findByStudentIdAndCourseId(String studentId, String courseId);
     List<GradeJpaEntity> findByCourseId(String courseId);
+    List<GradeJpaEntity> findByStudentId(String studentId);
 }
