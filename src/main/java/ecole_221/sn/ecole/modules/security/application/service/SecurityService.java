@@ -123,7 +123,7 @@ public class SecurityService implements SecurityUseCase {
     public Map<String, Object> getCheckpointStatus() {
         Map<String, String> assignment = adminRepository.getGateAssignment();
         Map<String, Object> status = new HashMap<>();
-        status.put("gate", assignment.getOrDefault("gate", "Porte Principale"));
+        status.put("gate", assignment.getOrDefault("gate", "Non configuré"));   // plus de portail inventé
         status.put("guard", assignment.getOrDefault("guard", "Non assigné"));   // plus de gardien inventé
         status.put("totalScansToday", journalEcole().size());
         status.put("status", "ACTIVE");
