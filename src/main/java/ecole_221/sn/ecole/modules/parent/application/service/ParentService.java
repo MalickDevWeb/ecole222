@@ -125,14 +125,30 @@ public class ParentService implements ParentUseCase {
     @Override
     public List<GradeDto> getChildGrades(String enfantId) {
         logger.info("Récupération des notes pour l'enfant: {}", enfantId);
-        
-        // TODO: Implémenter avec données réelles depuis GradeRepository
-        
-        // Calculer la mention pour chaque note
-        return List.of(
-            new GradeDto("g1", "Algorithmique Avancée", "Dr. Sall", 15.5, 14.0, 14.6, "Bien", 6),
-            new GradeDto("g2", "Base de Données", "Prof. Ndiaye", 16.0, 13.5, 14.5, "Bien", 5)
-        );
+        // APP-BE-19 : notes réellement saisies par les professeurs (table grades) — plus de notes inventées.
+        // Moyenne = formule du module professeur (40 % CC + 60 % examen), seulement si les deux notes existent.
+        // Mention et ECTS : aucun barème validé → null (rien d'inventé).
+        return parentRepositoryPort.findNotesByEnfantId(enfantId).stream().map(n -> new GradeDto(
+                n.id(),
+                n.coursNom() != null ? n.coursNom() : n.coursId(),
+                nomProfesseur(n.professeurId()),
+                n.cc(),
+                n.examen(),
+                (n.cc() != null && n.examen() != null)
+                        ? ecole_221.sn.ecole.modules.professor.application.port.dto.GradeDto.calculateFinalGrade(n.cc(), n.examen())
+                        : null,
+                null,
+                null
+        )).toList();
+    }
+
+    private String nomProfesseur(String professeurId) {
+        if (professeurId == null || userRepositoryPort == null) {
+            return null;
+        }
+        return userRepositoryPort.findById(professeurId)
+                .map(u -> ((u.getPrenom() == null ? "" : u.getPrenom() + " ") + (u.getNom() == null ? "" : u.getNom())).trim())
+                .orElse(null);
     }
 
     @Override

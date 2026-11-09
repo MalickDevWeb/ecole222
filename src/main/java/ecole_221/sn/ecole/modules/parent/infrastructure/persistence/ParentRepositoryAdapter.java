@@ -23,12 +23,33 @@ public class ParentRepositoryAdapter implements ParentRepositoryPort {
 
     private final ParentJpaRepository parentJpaRepository;
     private final ParentEnfantJpaRepository parentEnfantJpaRepository;
+    private final ecole_221.sn.ecole.modules.professor.infrastructure.persistence.GradeJpaRepository gradeJpaRepository;
+    private final ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaRepository courseJpaRepository;
 
     public ParentRepositoryAdapter(
             ParentJpaRepository parentJpaRepository,
-            ParentEnfantJpaRepository parentEnfantJpaRepository) {
+            ParentEnfantJpaRepository parentEnfantJpaRepository,
+            ecole_221.sn.ecole.modules.professor.infrastructure.persistence.GradeJpaRepository gradeJpaRepository,
+            ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaRepository courseJpaRepository) {
         this.parentJpaRepository = parentJpaRepository;
         this.parentEnfantJpaRepository = parentEnfantJpaRepository;
+        this.gradeJpaRepository = gradeJpaRepository;
+        this.courseJpaRepository = courseJpaRepository;
+    }
+
+    // ==================== Notes réelles (APP-BE-19) ====================
+
+    @Override
+    public List<ecole_221.sn.ecole.modules.parent.domain.model.NoteEnfant> findNotesByEnfantId(String enfantId) {
+        return gradeJpaRepository.findByStudentId(enfantId).stream().map(g -> {
+            var cours = g.getCourseId() == null ? java.util.Optional.<ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaEntity>empty()
+                    : courseJpaRepository.findById(g.getCourseId());
+            return new ecole_221.sn.ecole.modules.parent.domain.model.NoteEnfant(
+                    g.getId(), g.getCourseId(),
+                    cours.map(c -> c.getName()).orElse(null),
+                    cours.map(c -> c.getProfId()).orElse(null),
+                    g.getCc(), g.getExamen());
+        }).toList();
     }
 
     // ==================== Parent operations ====================
