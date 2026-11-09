@@ -32,7 +32,8 @@ public class PublicOnboardingController {
     public ResponseEntity<Organization> registerSchool(@RequestBody SchoolRegistrationRequest request) {
         log.info("[register-school] Inscription demandée pour: {}", request.getSchoolName());
         Organization org = organizationService.registerSchool(request);
-        return ResponseEntity.ok(org);
+        // US-02 [FEAT-001-SC-03] : création → 201 Created (relevé OBS-01, Agent 05)
+        return ResponseEntity.status(201).body(org);
     }
 
     @GetMapping({"/public/check-availability", "/v1/public/check-availability"})
