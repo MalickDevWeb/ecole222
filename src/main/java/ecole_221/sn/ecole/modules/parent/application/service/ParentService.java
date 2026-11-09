@@ -293,24 +293,11 @@ public class ParentService implements ParentUseCase {
 
     @Override
     public List<Map<String, Object>> getParentAppointments(String parentId) {
+        // APP-SEC-14 : uniquement les rendez-vous du parent connecté.
+        // Avant : liste vide → findAll() (rendez-vous de TOUTES les familles), puis création
+        // en base d'un faux rendez-vous « Dr. Sall » si la table était vide.
         List<Appointment> list = appointmentRepositoryPort.findByParentId(parentId);
-        
-        if (list.isEmpty()) {
-            list = appointmentRepositoryPort.findAll();
-        }
-        
-        if (list.isEmpty()) {
-            Appointment init = Appointment.create(
-                parentId,
-                "usr-002",
-                "Dr. Sall (Algorithmique & IA)",
-                "2026-10-20 à 15h30",
-                "Bilan académique et progression de l'élève"
-            );
-            appointmentRepositoryPort.save(init);
-            list = List.of(init);
-        }
-        
+
         return list.stream().map(a -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", a.getId());
