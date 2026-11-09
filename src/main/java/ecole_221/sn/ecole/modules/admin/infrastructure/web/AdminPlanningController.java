@@ -14,7 +14,6 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/admin/planning")
-@CrossOrigin(origins = "*")
 @Tag(name = "Admin Planning", description = "Planification Admin — salles, filieres, classes, crenaux horaires")
 public class AdminPlanningController {
 

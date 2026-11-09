@@ -13,7 +13,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/common")
-@CrossOrigin(origins = "*")
 @Tag(name = "Common", description = "Endpoints communs - health check, notifications système")
 public class CommonController {
     private static final Logger logger = LoggerFactory.getLogger(CommonController.class);

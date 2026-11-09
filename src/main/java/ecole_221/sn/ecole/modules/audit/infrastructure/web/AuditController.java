@@ -15,7 +15,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/audit")
-@CrossOrigin(origins = "*")
 @Tag(name = "Audit", description = "Journal d'audit et événements de sécurité")
 public class AuditController {
     

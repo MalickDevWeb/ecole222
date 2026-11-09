@@ -15,7 +15,6 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@CrossOrigin(origins = "*")
 public class SecurityController {
     private static final Logger logger = LoggerFactory.getLogger(SecurityController.class);
 

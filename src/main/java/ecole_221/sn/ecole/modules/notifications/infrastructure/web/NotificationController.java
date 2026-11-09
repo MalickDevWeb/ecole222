@@ -15,7 +15,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping({"/v1/notifications", "/api/v1/notifications"})
-@CrossOrigin(origins = "*")
 @Tag(name = "Notifications", description = "Centre de notifications - envoi, templates, hub")
 public class NotificationController {
     

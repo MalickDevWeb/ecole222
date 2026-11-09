@@ -18,7 +18,6 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@CrossOrigin(origins = "*")
 @Tag(name = "Professor", description = "Espace professeur — quiz, présences, emploi du temps")
 public class ProfExtraController {
     private static final Logger logger = LoggerFactory.getLogger(ProfExtraController.class);

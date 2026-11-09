@@ -27,7 +27,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/student")
-@CrossOrigin(origins = "*")
 @Tag(name = "Student", description = "Espace etudiant — profil, dashboard, presences, sessions live")
 public class StudentController {
 
