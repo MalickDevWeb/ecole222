@@ -19,7 +19,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/planning")
-@CrossOrigin(origins = "*")
 @Tag(name = "Planning", description = "Gestion du planning - salles, créneaux, filières, classes")
 public class PlanningController {
     

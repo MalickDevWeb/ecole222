@@ -16,7 +16,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/collaboration")
-@CrossOrigin(origins = "*")
 @Tag(name = "Collaboration", description = "Collaboration — groupes de travail, documents, tâches, messages, réunions")
 public class CollaborationController {
     private static final Logger logger = LoggerFactory.getLogger(CollaborationController.class);
@@ -272,7 +271,6 @@ public class CollaborationController {
 
 @RestController
 @RequestMapping("/wiki")
-@CrossOrigin(origins = "*")
 @Tag(name = "Wiki", description = "Documentation collaborative, notes et logs d'audit")
 class WikiController {
 

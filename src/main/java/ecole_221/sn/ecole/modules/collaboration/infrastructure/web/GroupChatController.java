@@ -16,7 +16,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/collaboration/groupchat")
-@CrossOrigin(origins = "*")
 public class GroupChatController {
     
     private static final Logger logger = LoggerFactory.getLogger(GroupChatController.class);

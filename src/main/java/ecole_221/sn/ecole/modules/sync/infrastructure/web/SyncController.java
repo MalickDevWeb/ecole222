@@ -14,7 +14,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/sync")
-@CrossOrigin(origins = "*")
 public class SyncController {
     private static final Logger logger = LoggerFactory.getLogger(SyncController.class);
 

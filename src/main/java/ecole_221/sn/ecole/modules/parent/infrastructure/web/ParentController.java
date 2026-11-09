@@ -25,7 +25,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/parent")
-@CrossOrigin(origins = "*")
 @Tag(name = "Parent", description = "Gestion des parents - enfants, stats, messages, paiements")
 public class ParentController {
 

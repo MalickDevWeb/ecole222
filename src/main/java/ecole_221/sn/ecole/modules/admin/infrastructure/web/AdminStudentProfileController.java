@@ -11,7 +11,6 @@ import java.util.concurrent.ConcurrentHashMap;
 
 @RestController
 @RequestMapping("/admin")
-@CrossOrigin(origins = "*")
 public class AdminStudentProfileController {
 
     private static final Logger logger = LoggerFactory.getLogger(AdminStudentProfileController.class);

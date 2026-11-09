@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@CrossOrigin(origins = "*")
 @Tag(name = "Professor", description = "Espace professeur — cours, notes, devoirs, leçons, modules, quiz")
 public class ProfessorController {
     private static final Logger logger = LoggerFactory.getLogger(ProfessorController.class);

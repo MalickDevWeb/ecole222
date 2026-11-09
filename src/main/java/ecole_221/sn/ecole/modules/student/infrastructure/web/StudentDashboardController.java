@@ -25,7 +25,6 @@ import java.util.Map;
  * {@link StudentUseCase} ; jamais de repository direct.</p>
  */
 @RestController
-@CrossOrigin(origins = "*")
 @Tag(name = "StudentDashboard", description = "Routes courtes utilisées par le dashboard étudiant")
 public class StudentDashboardController {
 
