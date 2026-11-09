@@ -6,7 +6,10 @@ import ecole_221.sn.ecole.modules.admin.application.port.usecase.AdminUseCase;
 import ecole_221.sn.ecole.modules.admin.application.service.ComptesEcoleService;
 import ecole_221.sn.ecole.modules.admin.domain.port.repository.AdminRepositoryPort;
 import ecole_221.sn.ecole.modules.admin.domain.valueobject.StatutFrais;
+import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaEntity;
+import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaRepository;
 import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.PointagePersonnelJpaRepository;
+import ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaEntity;
 import ecole_221.sn.ecole.modules.auth.infrastructure.persistence.UserJpaEntity;
 import ecole_221.sn.ecole.modules.auth.infrastructure.persistence.UserJpaRepository;
 import ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository;
@@ -55,6 +58,7 @@ class AdminControllerTest {
     private AdminRepositoryPort adminRepository;
     private ClasseJpaRepository classes;
     private ScheduleSessionJpaRepository seances;
+    private InscriptionClasseJpaRepository inscriptions;
     private final PasswordEncoder encodeur = new BCryptPasswordEncoder(4);
     private Organization ecole;
     private MockMvc mockMvc;
@@ -68,10 +72,11 @@ class AdminControllerTest {
         adminRepository = Mockito.mock(AdminRepositoryPort.class);
         classes = Mockito.mock(ClasseJpaRepository.class);
         seances = Mockito.mock(ScheduleSessionJpaRepository.class);
+        inscriptions = Mockito.mock(InscriptionClasseJpaRepository.class);
         ComptesEcoleService comptesEcole = new ComptesEcoleService(comptes, appartenances, encodeur);
 
         AdminController controller = new AdminController(adminUseCase, actionLogger, comptesEcole, adminRepository,
-                classes, seances, Mockito.mock(PointagePersonnelJpaRepository.class));
+                classes, seances, Mockito.mock(PointagePersonnelJpaRepository.class), inscriptions);
         mockMvc = MockMvcBuilders.standaloneSetup(controller)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
@@ -296,6 +301,41 @@ class AdminControllerTest {
                 .andExpect(jsonPath("$.status").value("Suspendu"))
                 .andExpect(jsonPath("$.qrStatus").value("SUSPENDU"));
         assertEquals("SUSPENDED", l.getStatus());
+    }
+
+    @Test
+    void eleveCreeDansSaClasseEtListeAvecElle() throws Exception {
+        ClasseJpaEntity l1 = new ClasseJpaEntity();
+        l1.setId("cls-1");
+        l1.setName("L1 GL");
+        Mockito.when(classes.findById("cls-1")).thenReturn(Optional.of(l1));
+        Mockito.when(comptes.findFirstByMatricule(anyString())).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/admin/students").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Awa Fall\",\"email\":\"awa@exemple.sn\",\"classeId\":\"cls-1\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.classeId").value("cls-1"))
+                .andExpect(jsonPath("$.classe").value("L1 GL"));
+        ArgumentCaptor<InscriptionClasseJpaEntity> ins = ArgumentCaptor.forClass(InscriptionClasseJpaEntity.class);
+        Mockito.verify(inscriptions).save(ins.capture());
+        assertEquals("cls-1", ins.getValue().getClasseId());
+
+        // relecture : la classe persiste (avant : ignorée, l'élève disparaissait de la classe au rechargement)
+        Mockito.when(appartenances.findByOrganizationIdAndRole(ecole.getId(), "ETUDIANT"))
+                .thenReturn(List.of(lien("e1", "ETUDIANT", "ACTIVE")));
+        Mockito.when(comptes.findAllById(List.of("e1"))).thenReturn(List.of(compte("e1", "Awa", "Fall", "awa@a.sn")));
+        Mockito.when(classes.findAll()).thenReturn(List.of(l1));
+        Mockito.when(inscriptions.findAll()).thenReturn(List.of(new InscriptionClasseJpaEntity("i1", "e1", "cls-1")));
+        mockMvc.perform(get("/admin/students"))
+                .andExpect(jsonPath("$[0].classe").value("L1 GL"));
+    }
+
+    @Test
+    void classeDUneAutreEcoleRefuseeAvantCreation() throws Exception {
+        mockMvc.perform(post("/admin/students").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Awa Fall\",\"email\":\"awa@exemple.sn\",\"classeId\":\"cls-autre\"}"))
+                .andExpect(status().isBadRequest());
+        Mockito.verify(comptes, Mockito.never()).save(any());
     }
 
     @Test

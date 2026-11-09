@@ -13,6 +13,8 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext;
 
 @RestController
 public class SecurityController {
@@ -21,7 +23,8 @@ public class SecurityController {
     private final SecurityUseCase securityUseCase;
     private final StudentUseCase studentUseCase;
     private final ActionLogger actionLogger;
-    private volatile Map<String, Object> lastScan = null;
+    /** Dernier scan PAR ÉCOLE (avant : un seul champ partagé entre toutes les écoles). */
+    private final Map<String, Map<String, Object>> derniersScans = new ConcurrentHashMap<>();
 
     public SecurityController(SecurityUseCase securityUseCase, StudentUseCase studentUseCase, ActionLogger actionLogger) {
         this.securityUseCase = securityUseCase;
@@ -120,65 +123,76 @@ public class SecurityController {
 
     @PostMapping("/vigil/scan")
     public ResponseEntity<Map<String, Object>> scanVigilBadge(@RequestBody Map<String, String> body) {
-        String payload = body.getOrDefault("badgeId", "");
-        
-        boolean isValid = false;
-        String matricule = "Inconnu";
-        String message = "Format de badge invalide ou non reconnu.";
-        
+        // Plus d'acceptation « à l'aveugle » des préfixes SN-/badge- ni d'assiduité / statut de frais inventés :
+        // le badge est résolu par SecurityService.processBadgeScan vers un compte RÉEL membre de l'école courante.
+        String payload = body == null || body.get("badgeId") == null ? "" : body.get("badgeId").trim();
+        String identifiant = payload;
+        Map<String, Object> result = new HashMap<>();
+        boolean isValid;
+        String message;
+        String statutFrais = null;
+        String owner = "Inconnu";
+
+        boolean jetonRefuse = false;
         if (payload.startsWith("STU_SECURE:")) {
             String[] parts = payload.split(":");
-            if (parts.length == 4) {
-                matricule = parts[1];
+            identifiant = parts.length > 1 ? parts[1] : "";
+            if (parts.length != 4) {
+                jetonRefuse = true;
+            } else {
                 try {
-                    long minuteEpoch = Long.parseLong(parts[2]);
-                    isValid = studentUseCase.validateQrToken(matricule, minuteEpoch, parts[3]);
-                    message = isValid
-                        ? "Badge étudiant vérifié avec succès. Jeton cryptographique valide."
-                        : "Token QR expiré ou invalide.";
+                    jetonRefuse = !studentUseCase.validateQrToken(parts[1], Long.parseLong(parts[2]), parts[3]);
                 } catch (NumberFormatException ex) {
-                    message = "Minute du badge invalide.";
+                    jetonRefuse = true;
                 }
             }
-        } else if (payload.startsWith("SN-")) {
-            matricule = payload;
-            isValid = true;
-            message = "Saisie manuelle du matricule validée.";
-        } else if (payload.startsWith("badge-")) {
-            matricule = payload;
-            isValid = true;
-            message = "Ancien format de badge accepté.";
         }
 
-        Map<String, Object> result = new HashMap<>();
-        result.put("badgeOwner", isValid ? "Étudiant " + matricule : "Inconnu");
-        result.put("studentId", matricule);
+        if (payload.isEmpty()) {
+            isValid = false;
+            message = "Badge vide : aucun identifiant scanné.";
+        } else if (jetonRefuse) {
+            isValid = false;
+            message = "Token QR expiré ou invalide.";
+        } else {
+            Map<String, Object> scan = securityUseCase.processBadgeScan(identifiant);
+            isValid = Boolean.TRUE.equals(scan.get("accessGranted"));
+            message = String.valueOf(scan.getOrDefault("message", ""));
+            Object frais = scan.get("statutFrais");
+            statutFrais = frais == null ? null : frais.toString();
+            Object nom = scan.get("studentName");
+            owner = nom == null || nom.toString().isBlank() ? "Inconnu" : nom.toString();
+        }
+
+        result.put("badgeOwner", owner);
+        result.put("studentId", identifiant.isEmpty() ? null : identifiant);
         result.put("statut", isValid ? "Autorisé" : "Refusé");
         result.put("message", message);
-        result.put("assiduite", "95%");
-        result.put("statutFrais", isValid ? "À Jour" : "Inconnu");
-        result.put("zone", "Portail Principal");
+        result.put("assiduite", null);          // aucune source d'assiduité fiable ici : pas de valeur inventée
+        result.put("statutFrais", statutFrais); // null si inconnu ; « Non renseigné » si jamais saisi
+        result.put("zone", null);               // aucun point de passage configuré n'est transmis par le scanner
         result.put("time", LocalDateTime.now().toString());
-        
-        actionLogger.logSecurityAction("VIGIL_SCAN", matricule, "Portail Principal", 
-            "Scan vigil: " + (isValid ? "AUTORISÉ" : "REFUSÉ") + " - " + message);
-        
-        lastScan = result;
-        if (isValid) {
-            securityUseCase.processBadgeScan(matricule);
-        }
 
+        actionLogger.logSecurityAction("VIGIL_SCAN", identifiant, "Portail",
+            "Scan vigil: " + (isValid ? "AUTORISÉ" : "REFUSÉ") + " - " + message);
+
+        derniersScans.put(ecoleCourante(), result);
         return ResponseEntity.ok(result);
     }
 
     @GetMapping("/vigil/last-scan")
     public ResponseEntity<Map<String, Object>> getLastScan() {
-        if (lastScan == null) {
+        Map<String, Object> dernier = derniersScans.get(ecoleCourante());
+        if (dernier == null) {
             Map<String, Object> empty = new HashMap<>();
             empty.put("statut", "Refusé");
             empty.put("message", "Aucun scan récent");
             return ResponseEntity.ok(empty);
         }
-        return ResponseEntity.ok(lastScan);
+        return ResponseEntity.ok(dernier);
+    }
+
+    private static String ecoleCourante() {
+        return TenantContext.getCurrentOrganizationId().orElse("sans-ecole");
     }
 }

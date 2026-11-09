@@ -121,16 +121,42 @@ public class ProfExtraController {
             }
             
             logger.debug("Processing {} attendance records", records.size());
+            // Validation de TOUTE la feuille avant écriture. Avant : date « 2026-07-20 » et cours « course-1 »
+            // inventés quand ils manquaient → présences rattachées à un faux jour / un faux cours.
+            for (int i = 0; i < records.size(); i++) {
+                Map<String, Object> r = records.get(i);
+                String ligne = records.size() > 1 ? " (ligne " + (i + 1) + ")" : "";
+                if (r == null) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Présence vide" + ligne + ".");
+                }
+                for (String[] champ : new String[][]{{"date", "la date"}, {"courseId", "le cours"},
+                        {"studentId", "l'étudiant"}, {"status", "le statut"}}) {
+                    Object v = r.get(champ[0]);
+                    if (v == null || v.toString().isBlank()) {
+                        throw new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.BAD_REQUEST,
+                            "Champ obligatoire manquant : " + champ[1] + ligne + ".");
+                    }
+                }
+                try {
+                    java.time.LocalDate.parse(r.get("date").toString().trim());
+                } catch (java.time.format.DateTimeParseException ex) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST,
+                        "Date invalide (format attendu AAAA-MM-JJ)" + ligne + " : " + r.get("date"));
+                }
+            }
             for (Map<String, Object> record : records) {
-                String date = record.getOrDefault("date", "2026-07-20").toString();
-                String courseId = record.getOrDefault("courseId", "course-1").toString();
+                String date = record.get("date").toString().trim();
+                String courseId = record.get("courseId").toString().trim();
                 logger.debug("Submitting attendance: date={}, courseId={}, studentId={}, status={}",
                     date, courseId, record.get("studentId"), record.get("status"));
                 professorUseCase.submitAttendance(
                     date,
-                    (String) record.get("studentId"),
-                    (String) record.get("studentName"),
-                    (String) record.get("status"),
+                    record.get("studentId").toString(),
+                    record.get("studentName") == null ? null : record.get("studentName").toString(),
+                    record.get("status").toString(),
                     courseId
                 );
             }

@@ -15,6 +15,8 @@ import ecole_221.sn.ecole.modules.admin.application.service.ComptesEcoleService;
 import ecole_221.sn.ecole.modules.admin.application.service.ComptesEcoleService.CompteCree;
 import ecole_221.sn.ecole.modules.admin.domain.port.repository.AdminRepositoryPort;
 import ecole_221.sn.ecole.modules.admin.domain.valueobject.StatutFrais;
+import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaEntity;
+import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaRepository;
 import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.PointagePersonnelJpaEntity;
 import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.PointagePersonnelJpaRepository;
 import ecole_221.sn.ecole.infrastructure.logging.ActionLogger;
@@ -65,6 +67,7 @@ public class AdminController {
     private final ClasseJpaRepository classeJpaRepository;
     private final ScheduleSessionJpaRepository scheduleSessionJpaRepository;
     private final PointagePersonnelJpaRepository pointages;
+    private final InscriptionClasseJpaRepository inscriptions;
 
     public AdminController(AdminUseCase adminUseCase,
                            ActionLogger actionLogger,
@@ -72,7 +75,8 @@ public class AdminController {
                            AdminRepositoryPort adminRepository,
                            ClasseJpaRepository classeJpaRepository,
                            ScheduleSessionJpaRepository scheduleSessionJpaRepository,
-                           PointagePersonnelJpaRepository pointages) {
+                           PointagePersonnelJpaRepository pointages,
+                           InscriptionClasseJpaRepository inscriptions) {
         this.adminUseCase = adminUseCase;
         this.actionLogger = actionLogger;
         this.comptesEcole = comptesEcole;
@@ -80,6 +84,7 @@ public class AdminController {
         this.classeJpaRepository = classeJpaRepository;
         this.scheduleSessionJpaRepository = scheduleSessionJpaRepository;
         this.pointages = pointages;
+        this.inscriptions = inscriptions;
     }
 
     @PostMapping("/gates/assign")
@@ -202,17 +207,45 @@ public class AdminController {
     public ResponseEntity<Map<String, Object>> addStudent(@RequestBody Map<String, String> body) {
         String[] nom = noms(body);
         logger.info("POST /admin/students - Création d'un élève");
+        ClasseJpaEntity classe = classeDeLEcole(premier(body.get("classeId"), body.get("promotion_id")));   // 400 avant toute création
         CompteCree cree = comptesEcole.creer(nom[0], nom[1], body.get("email"),
                 premier(body.get("telephone"), body.get("phoneParent")), body.get("matricule"), "ETUDIANT",
                 body.get("password"));
         UserJpaEntity u = cree.compte();
         actionLogger.logAdminAction("ADD_STUDENT", "ADMIN", u.getId(), "Élève créé : " + u.getEmail());
+        if (classe != null) {
+            inscriptions.save(new InscriptionClasseJpaEntity(UUID.randomUUID().toString(), u.getId(), classe.getId()));
+        }
 
-        Map<String, Object> response = eleve(u, "ACTIVE");
+        Map<String, Object> response = eleve(u, "ACTIVE", classe == null ? null : Map.of(u.getId(), classe));
         if (cree.motDePasseProvisoire() != null) {
             response.put("motDePasseProvisoire", cree.motDePasseProvisoire());
         }
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PutMapping("/students/{id}/classe")
+    @Operation(summary = "Affecter un élève à une classe", description = "Affecte l'élève à une classe de l'école ({\"classeId\": \"…\"}) ; classeId null = retirer l'affectation.")
+    public ResponseEntity<Map<String, Object>> affecterClasse(@PathVariable("id") String id, @RequestBody Map<String, String> body) {
+        comptesEcole.membre(id, "ETUDIANT");   // 404 si l'élève n'est pas de cette école
+        ClasseJpaEntity classe = classeDeLEcole(body == null ? null : body.get("classeId"));
+        List<InscriptionClasseJpaEntity> existantes = inscriptions.findByUserId(id);
+        if (classe == null) {
+            inscriptions.deleteAll(existantes);
+        } else if (existantes.isEmpty()) {
+            inscriptions.save(new InscriptionClasseJpaEntity(UUID.randomUUID().toString(), id, classe.getId()));
+        } else {
+            InscriptionClasseJpaEntity i = existantes.get(0);
+            i.setClasseId(classe.getId());
+            inscriptions.save(i);
+            if (existantes.size() > 1) inscriptions.deleteAll(existantes.subList(1, existantes.size()));
+        }
+        actionLogger.logAdminAction("ASSIGN_CLASS", "ADMIN", id, "Classe : " + (classe == null ? "aucune" : nomClasse(classe)));
+        Map<String, Object> res = new HashMap<>();
+        res.put("id", id);
+        res.put("classeId", classe == null ? null : classe.getId());
+        res.put("classe", classe == null ? null : nomClasse(classe));
+        return ResponseEntity.ok(res);
     }
 
     @DeleteMapping("/students/{id}")
@@ -220,6 +253,7 @@ public class AdminController {
     public ResponseEntity<Map<String, Object>> deleteStudent(@PathVariable("id") String id) {
         logger.info("DELETE /admin/students/{} - Retrait de l'élève", id);
         comptesEcole.retirer(id, "ETUDIANT");
+        inscriptions.deleteAll(inscriptions.findByUserId(id));
         actionLogger.logAdminAction("DELETE_STUDENT", "ADMIN", id, "Élève retiré de l'école : " + id);
         return ResponseEntity.ok(Map.of("success", true, "id", id));
     }
@@ -410,11 +444,30 @@ public class AdminController {
     }
 
     private List<Map<String, Object>> eleves() {
-        return comptesEcole.membres("ETUDIANT").stream().map(e -> eleve(e.getKey(), e.getValue().getStatus())).toList();
+        Map<String, ClasseJpaEntity> classesParId = new HashMap<>();
+        classeJpaRepository.findAll().forEach(c -> classesParId.put(c.getId(), c));   // @TenantId
+        Map<String, ClasseJpaEntity> classeParEleve = new HashMap<>();
+        inscriptions.findAll().forEach(i -> {                                        // @TenantId
+            ClasseJpaEntity c = classesParId.get(i.getClasseId());
+            if (c != null) classeParEleve.put(i.getUserId(), c);
+        });
+        return comptesEcole.membres("ETUDIANT").stream()
+                .map(e -> eleve(e.getKey(), e.getValue().getStatus(), classeParEleve)).toList();
     }
 
-    /** Fiche élève : uniquement des champs réels ; classe / moyenne / présence n'ont pas encore de source → absents. */
-    private Map<String, Object> eleve(UserJpaEntity s, String statutAppartenance) {
+    /** Classe de l'école désignée par son identifiant ; null si non fourni ; 400 si inconnue dans cette école. */
+    private ClasseJpaEntity classeDeLEcole(String classeId) {
+        if (classeId == null || classeId.isBlank()) return null;
+        return classeJpaRepository.findById(classeId.trim())   // @TenantId : une classe d'une autre école est introuvable
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, "Classe inconnue dans cet établissement."));
+    }
+
+    private static String nomClasse(ClasseJpaEntity c) {
+        return c.getName() != null ? c.getName() : c.getNom();
+    }
+
+    /** Fiche élève : uniquement des champs réels ; moyenne / présence n'ont pas encore de source → absents. */
+    private Map<String, Object> eleve(UserJpaEntity s, String statutAppartenance, Map<String, ClasseJpaEntity> classeParEleve) {
         Map<String, Object> map = new HashMap<>();
         map.put("id", s.getId());
         map.put("name", ComptesEcoleService.nomComplet(s));
@@ -424,6 +477,9 @@ public class AdminController {
         map.put("email", s.getEmail());
         map.put("telephone", s.getTelephone());
         map.put("photoUrl", s.getPhotoUrl());
+        ClasseJpaEntity classe = classeParEleve == null ? null : classeParEleve.get(s.getId());
+        map.put("classeId", classe == null ? null : classe.getId());
+        map.put("classe", classe == null ? null : nomClasse(classe));
         StatutFrais frais = adminRepository.getStudentStatus(s.getId());
         String libelle = frais == null ? null : frais.getDisplayName();   // null = non renseigné
         map.put("statutFrais", libelle);

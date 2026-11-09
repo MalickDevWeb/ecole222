@@ -11,6 +11,7 @@ public class Filiere {
     private final String id;
     private String code;
     private String name;
+    private String description;
     
     // Constructeur package-private (accessible par Factory dans le même package)
     Filiere(String id, String code, String name) {
@@ -23,6 +24,8 @@ public class Filiere {
     public String getId() { return id; }
     public String getCode() { return code; }
     public String getName() { return name; }
+    public String getDescription() { return description; }
+    void setDescription(String description) { this.description = description; }
     
     // Comportements métier
     public void updateCode(String newCode) {

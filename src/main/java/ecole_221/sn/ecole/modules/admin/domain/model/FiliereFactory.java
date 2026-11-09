@@ -19,6 +19,13 @@ public class FiliereFactory {
     /**
      * Reconstruit une filière existante (pour la persistance).
      */
+    /** Reconstruit une filière avec sa description réellement saisie (peut être null). */
+    public static Filiere reconstruct(String id, String code, String name, String description) {
+        Filiere f = new Filiere(id, code, name);
+        f.setDescription(description);
+        return f;
+    }
+
     public static Filiere reconstruct(String id, String code, String name) {
         return new Filiere(id, code, name);
     }
