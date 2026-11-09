@@ -66,6 +66,15 @@ public class GlobalExceptionHandler {
                 .body(ApiErrorResponse.of(ErrorCode.COURSE_NOT_FOUND, ex.getMessage()));
     }
 
+    /** Route inexistante : 404 (avant : 500 « erreur interne » via le gestionnaire générique). */
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoResource(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        log.debug("[Not Found] {}", ex.getMessage());
+        return ResponseEntity
+                .status(ErrorCode.RESOURCE_NOT_FOUND.getHttpStatus())
+                .body(ApiErrorResponse.of(ErrorCode.RESOURCE_NOT_FOUND, "Route inexistante."));
+    }
+
     /** Stockage indisponible : 503 explicite (APP-BE-05), jamais de faux succès. */
     @ExceptionHandler(ecole_221.sn.ecole.modules.media.domain.exception.StockageIndisponibleException.class)
     public ResponseEntity<ApiErrorResponse> handleStockageIndisponible(RuntimeException ex) {
