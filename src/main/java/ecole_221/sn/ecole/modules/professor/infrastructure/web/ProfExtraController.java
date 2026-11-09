@@ -169,6 +169,7 @@ public class ProfExtraController {
         
         logger.info("POST /professor/schedule/{}/cancel - reason={}", sessionId, request.reason());
         try {
+            verifierSeanceDuProfesseur(professorUseCase, sessionId);
             professorUseCase.cancelScheduleSession(sessionId, request.reason());
             logger.info("Session {} cancelled with reason: {}", sessionId, request.reason());
             return ResponseEntity.ok(ProfessorMapper.createSuccessResponse(
@@ -189,6 +190,7 @@ public class ProfExtraController {
         logger.info("POST /professor/schedule/{}/reschedule - day={}, time={}, room={}", 
             sessionId, request.day(), request.time(), request.room());
         try {
+            verifierSeanceDuProfesseur(professorUseCase, sessionId);
             professorUseCase.rescheduleScheduleSession(sessionId, request.day(), request.time(), request.room());
             logger.info("Session {} rescheduled to {} at {} in {}", 
                 sessionId, request.day(), request.time(), request.room());
@@ -208,5 +210,29 @@ public class ProfExtraController {
             return user.getId();
         }
         return null;
+    }
+
+    private static final java.util.Set<String> ROLES_ADMIN =
+            java.util.Set.of("ROLE_ADMIN", "ROLE_ADMINISTRATOR", "ROLE_SUPER_ADMIN", "ROLE_PLATFORM_ADMIN");
+
+    /**
+     * Un professeur ne peut annuler / reporter que SES séances (relevé par l'Agent 06, APP-SEC-16).
+     * Les administrateurs de l'école gardent la main sur toutes les séances.
+     */
+    static void verifierSeanceDuProfesseur(
+            ecole_221.sn.ecole.modules.professor.application.port.usecase.ProfessorUseCase useCase, String sessionId) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getAuthorities().stream().anyMatch(a -> ROLES_ADMIN.contains(a.getAuthority()))) {
+            return;
+        }
+        String profId = utilisateurConnecte();
+        if (profId == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
+        boolean sienne = useCase.getSchedule(profId).stream().anyMatch(m -> sessionId.equals(m.get("id")));
+        if (!sienne) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "Cette séance n'est pas la vôtre");
+        }
     }
 }

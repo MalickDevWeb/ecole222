@@ -18,6 +18,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /** APP-BE-16 : l'identité du professeur vient de l'authentification, jamais d'un identifiant codé en dur ni d'un paramètre. */
@@ -68,5 +69,29 @@ class ProfessorIdentityTest {
         mockMvc.perform(get("/professor/schedule")).andExpect(status().isUnauthorized());
         mockMvc.perform(get("/professor/planning")).andExpect(status().isUnauthorized());
         verify(useCase, never()).getSchedule(anyString());
+    }
+
+    // APP-SEC-16 : annuler / reporter uniquement ses propres séances
+    @Test
+    void annulerLaSeanceDunCollegueRefuse() throws Exception {
+        connecter("prof-42");
+        Mockito.when(useCase.getSchedule("prof-42")).thenReturn(List.of(java.util.Map.of("id", "s-a-moi")));
+        mockMvc.perform(post("/professor/schedule/s-collegue/cancel")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"reason\":\"x\"}"))
+                .andExpect(status().isForbidden());
+        mockMvc.perform(post("/professor/planning/s-collegue/cancel")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"reason\":\"x\"}"))
+                .andExpect(status().isForbidden());
+        verify(useCase, never()).cancelScheduleSession(anyString(), anyString());
+    }
+
+    @Test
+    void annulerSaPropreSeanceAutorise() throws Exception {
+        connecter("prof-42");
+        Mockito.when(useCase.getSchedule("prof-42")).thenReturn(List.of(java.util.Map.of("id", "s-a-moi")));
+        mockMvc.perform(post("/professor/schedule/s-a-moi/cancel")
+                        .contentType(org.springframework.http.MediaType.APPLICATION_JSON).content("{\"reason\":\"maladie\"}"))
+                .andExpect(status().isOk());
+        verify(useCase).cancelScheduleSession("s-a-moi", "maladie");
     }
 }
