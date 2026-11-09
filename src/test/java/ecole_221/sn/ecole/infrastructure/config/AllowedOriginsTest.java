@@ -17,8 +17,15 @@ class AllowedOriginsTest {
     }
 
     @Test
-    void plusAucuneIpDuReseauLocal() {
-        assertTrue(AllowedOrigins.PAR_DEFAUT.stream().noneMatch(o -> o.contains("192.168.")));
+    void reseauLocalSeulementPourLeServeurDeDeveloppement() {
+        org.springframework.web.cors.CorsConfiguration c = new org.springframework.web.cors.CorsConfiguration();
+        c.setAllowedOriginPatterns(AllowedOrigins.PAR_DEFAUT);
+        c.setAllowCredentials(true);
+        assertNotNull(c.checkOrigin("http://192.168.1.239:5173"), "Vite ouvert depuis le réseau local");
+        assertNotNull(c.checkOrigin("http://10.0.0.12:5173"));
+        assertNull(c.checkOrigin("http://192.168.1.239:8080"), "autre port du réseau local refusé");
+        assertNull(c.checkOrigin("https://evil.example"));
+        assertNotNull(c.checkOrigin("https://papa-221.vercel.app"));
     }
 
     @Test

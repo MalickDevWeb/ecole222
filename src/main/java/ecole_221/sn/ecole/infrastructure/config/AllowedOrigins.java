@@ -17,6 +17,10 @@ public final class AllowedOrigins {
     /** Valeur utilisée quand CORS_ALLOWED_ORIGINS n'est pas définie. */
     static final List<String> PAR_DEFAUT = List.of(
             "http://localhost:*", "http://127.0.0.1:*",
+            // Serveur de développement Vite ouvert depuis le réseau local (ex. http://192.168.1.239:5173) :
+            // limité au port 5173, qu'aucun frontend de production n'utilise. Correction d'une régression
+            // d'APP-SEC-04 (inscription d'école refusée en 403 « Invalid CORS request »).
+            "http://192.168.*.*:5173", "http://10.*.*.*:5173",
             "https://papa-221.vercel.app"
     );
 
