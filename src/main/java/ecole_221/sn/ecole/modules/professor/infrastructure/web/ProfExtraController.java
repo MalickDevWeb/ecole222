@@ -147,8 +147,13 @@ public class ProfExtraController {
     @Operation(summary = "Emploi du temps du jour", description = "Retourne les sessions planifiées pour le professeur aujourd'hui.")
     public ResponseEntity<List<ScheduleDto>> getTodaySchedule() {
         logger.info("GET /professor/schedule - fetching today's schedule");
+        // APP-BE-16 : l'emploi du temps est celui du professeur authentifié (plus d'identifiant codé en dur)
+        String profId = utilisateurConnecte();
+        if (profId == null) {
+            return ResponseEntity.status(401).build();
+        }
         try {
-            List<Map<String, Object>> schedule = professorUseCase.getSchedule("usr-002");
+            List<Map<String, Object>> schedule = professorUseCase.getSchedule(profId);
             logger.debug("Retrieved {} schedule sessions", schedule.size());
             return ResponseEntity.ok(ProfessorMapper.toScheduleDtoList(schedule));
         } catch (Exception e) {
@@ -195,5 +200,14 @@ public class ProfExtraController {
             logger.error("Error rescheduling session {}: {}", sessionId, e.getMessage());
             throw e;
         }
+    }
+
+    /** Identifiant de l'utilisateur authentifié, ou null si la requête n'est pas authentifiée. */
+    static String utilisateurConnecte() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof User user) {
+            return user.getId();
+        }
+        return null;
     }
 }

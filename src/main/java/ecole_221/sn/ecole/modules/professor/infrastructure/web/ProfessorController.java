@@ -46,10 +46,13 @@ public class ProfessorController {
     @GetMapping("/professor/courses")
     @Operation(summary = "Liste des cours", description = "Retourne les cours assignés à un professeur avec pagination.")
     public ResponseEntity<PageResponseDto<CourseDto>> getCourses(
-            @Parameter(description = "Identifiant du professeur") @RequestParam(value = "profId", defaultValue = "usr-002") String profId,
             @Parameter(description = "Numéro de la page") @RequestParam(value = "page", defaultValue = "0") int page,
             @Parameter(description = "Taille de la page") @RequestParam(value = "size", defaultValue = "10") int size) {
-        
+        // APP-BE-16 : les cours sont ceux du professeur authentifié
+        String profId = ProfExtraController.utilisateurConnecte();
+        if (profId == null) {
+            return ResponseEntity.status(401).build();
+        }
         logger.info("GET /professor/courses - profId={}, page={}, size={}", profId, page, size);
         try {
             PageResult<Course> pageResult =
@@ -126,7 +129,7 @@ public class ProfessorController {
             Map<String, Object> gradeMap = professorUseCase.getGrade(studentId, courseId);
             logger.debug("Grade saved successfully for student {} in course {}", studentId, courseId);
             
-            actionLogger.logProfessorAction("SAVE_GRADE", "usr-002", "Professeur", courseId, 
+            actionLogger.logProfessorAction("SAVE_GRADE", auteur(), "Professeur", courseId, 
                 "Note enregistrée pour étudiant " + studentId + " : CC=" + body.get("cc") + ", Examen=" + body.get("examen"));
             
             return ResponseEntity.ok(ProfessorMapper.toGradeDto(gradeMap));
@@ -256,9 +259,13 @@ public class ProfessorController {
     }
 
     @GetMapping("/professor/planning")
-    @Operation(summary = "Planning professeur", description = "Retourne le planning du professeur.")
-    public ResponseEntity<List<Map<String, Object>>> getSchedule(
-            @Parameter(description = "Identifiant du professeur") @RequestParam(value = "profId", defaultValue = "usr-002") String profId) {
+    @Operation(summary = "Planning professeur", description = "Retourne le planning du professeur authentifié.")
+    public ResponseEntity<List<Map<String, Object>>> getSchedule() {
+        // APP-BE-16 : plus de paramètre profId (un professeur ne lit que son propre planning)
+        String profId = ProfExtraController.utilisateurConnecte();
+        if (profId == null) {
+            return ResponseEntity.status(401).build();
+        }
         logger.info("GET /professor/planning - profId={}", profId);
         try {
             List<Map<String, Object>> schedule = professorUseCase.getSchedule(profId);
@@ -278,7 +285,7 @@ public class ProfessorController {
         logger.info("POST /professor/planning/{}/cancel - reason={}", sessionId, body.get("reason"));
         try {
             professorUseCase.cancelScheduleSession(sessionId, body.get("reason"));
-            actionLogger.logProfessorAction("CANCEL_COURSE", "usr-002", "Professeur", sessionId, 
+            actionLogger.logProfessorAction("CANCEL_COURSE", auteur(), "Professeur", sessionId, 
                 "Cours annulé: " + body.get("reason"));
             return ResponseEntity.ok(Map.of("success", true, "sessionId", sessionId));
         } catch (Exception e) {
@@ -296,7 +303,7 @@ public class ProfessorController {
             sessionId, body.get("day"), body.get("time"), body.get("room"));
         try {
             professorUseCase.rescheduleScheduleSession(sessionId, body.get("day"), body.get("time"), body.get("room"));
-            actionLogger.logProfessorAction("RESCHEDULE_COURSE", "usr-002", "Professeur", sessionId, 
+            actionLogger.logProfessorAction("RESCHEDULE_COURSE", auteur(), "Professeur", sessionId, 
                 "Cours reprogrammé: " + body.get("day") + " " + body.get("time"));
             return ResponseEntity.ok(Map.of("success", true, "sessionId", sessionId));
         } catch (Exception e) {
@@ -332,9 +339,9 @@ public class ProfessorController {
                 courseId, 
                 (String) body.get("content"), 
                 (Boolean) body.get("isUrgent"),
-                "usr-002" // Default professor ID, should be taken from authentication
+                auteur()
             );
-            actionLogger.logProfessorAction("CREATE_REMINDER", "usr-002", "Professeur", courseId, 
+            actionLogger.logProfessorAction("CREATE_REMINDER", auteur(), "Professeur", courseId, 
                 "Rappel créé: " + body.get("content"));
             return ResponseEntity.ok(Map.of("success", true, "id", "rem-" + System.currentTimeMillis()));
         } catch (Exception e) {
@@ -356,5 +363,11 @@ public class ProfessorController {
             logger.error("Error fetching quizzes for module {}: {}", moduleId, e.getMessage());
             throw e;
         }
+    }
+
+    /** Auteur réel de l'action pour le journal d'audit (APP-BE-16). */
+    private static String auteur() {
+        String id = ProfExtraController.utilisateurConnecte();
+        return id != null ? id : "anonyme";
     }
 }
