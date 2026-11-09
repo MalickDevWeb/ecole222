@@ -101,4 +101,35 @@ class ParentControllerTest {
         mockMvc.perform(get("/parent/enfants/child-autre/stats")).andExpect(status().is4xxClientError());
         Mockito.verify(parentUseCase, Mockito.never()).getChildStats("child-autre");
     }
+
+    // APP-SEC-17 : professeurs proposés aux parents = professeurs actifs de l'école courante uniquement
+    @Test
+    void professeursDeLEcoleCouranteSeulement() throws Exception {
+        var comptes = Mockito.mock(UserRepositoryPort.class);
+        var appart = Mockito.mock(ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort.class);
+        var ecole = ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationFactory.create("A",
+                ecole_221.sn.ecole.modules.platform.organization.domain.valueobject.OrganizationType.ECOLE, "a@exemple.sn");
+        User prof = UserFactory.reconstructSimple("prof-a", "Ba", "Fatou", "fatou@a.sn", "a", "P-1", RoleUtilisateur.PROFESSEUR, null);
+        Mockito.when(appart.findByOrganizationIdAndRole(ecole.getId(), "PROFESSEUR")).thenReturn(List.of(
+                ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationUserFactory.create("prof-a", ecole.getId(), "PROFESSEUR")));
+        Mockito.when(comptes.findById("prof-a")).thenReturn(java.util.Optional.of(prof));
+        MockMvc mvc = MockMvcBuilders.standaloneSetup(new ParentController(parentUseCase, Mockito.mock(JwtService.class), comptes, appart)).build();
+        try {
+            ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.setCurrentOrganization(ecole);
+            mvc.perform(get("/parent/professeurs"))
+                    .andExpect(status().isOk())
+                    .andExpect(jsonPath("$.length()").value(1))
+                    .andExpect(jsonPath("$[0].displayName").value("Fatou Ba"));
+            Mockito.verify(comptes, Mockito.never()).findByRole(Mockito.any());
+        } finally {
+            ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.clear();
+        }
+    }
+
+    @Test
+    void aucunProfesseurInventeSiListeVide() throws Exception {
+        mockMvc.perform(get("/parent/professeurs"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.length()").value(0));
+    }
 }
