@@ -138,10 +138,10 @@ public class AdminStudentProfileController {
                 Map.of("year", "2023-09", "title", "Candidature & Admission",
                         "desc", "Dossier accepté", "status", "COMPLETED")
         ));
-        profile.put("payments", List.of(
-                Map.of("label", "Inscription Administrative", "amount", "250,000 FCFA",
-                        "date", "15/09/2023", "method", "Orange Money", "status", "PAYÉ", "receiptNumber", "REC-2023-001")
-        ));
+        // APP-BE-04 : aucun paiement fictif (plus de reçu REC-2023-001 ni de « Orange Money » inventé).
+        // Les paiements réels ne sont pas encore branchés sur ce profil → liste vide + statut explicite.
+        profile.put("payments", List.of());
+        profile.put("paymentsStatus", "non_disponible");
         profile.put("extra", Map.of(
                 "sante", "O+,Aucune allergie connue",
                 "bourses", "Aucune bourse",

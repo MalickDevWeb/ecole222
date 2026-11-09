@@ -19,6 +19,7 @@ import java.util.Map;
 public class AdmissionController {
     
     private static final Logger logger = LoggerFactory.getLogger(AdmissionController.class);
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
     private final AdmissionUseCase admissionUseCase;
     private final ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository;
     
@@ -232,14 +233,17 @@ public class AdmissionController {
                 c.put("docs", Map.of(
                     "idCard", Boolean.TRUE.equals(e.getIdCardUploaded()),
                     "diploma", Boolean.TRUE.equals(e.getDiplomaUploaded()),
-                    "transcripts", true
+                    // APP-BE-04 : aucune donnée réelle sur les relevés → jamais « true » en dur
+                    "transcripts", false
                 ));
                 Map<String, Object> details = new java.util.HashMap<>();
                 details.put("cniNumber", "CNI-" + e.getId());
-                details.put("cniUrl", "https://res.cloudinary.com/qudmvipg/image/upload/v1792170944/file-f82d806f.png");
-                details.put("cniStatus", "verified");
-                details.put("paymentMethod", "WAVE");
-                details.put("paymentTransactionRef", e.getRegistrationFeeReference() != null ? e.getRegistrationFeeReference() : "WAVE-SN-7382");
+                // APP-BE-04 : plus d'URL CNI fictive ni de statut « verified » inventé
+                details.put("cniUrl", null);
+                details.put("cniStatus", "unknown");
+                // APP-BE-04 : moyen et référence de paiement réels uniquement, sinon null (jamais de fausse transaction)
+                details.put("paymentMethod", readPaymentMethod(e.getAdditionalInfo()));
+                details.put("paymentTransactionRef", blankToNull(e.getRegistrationFeeReference()));
                 details.put("paymentStatus", Boolean.TRUE.equals(e.getRegistrationFeePaid()) ? "approved" : "pending");
                 c.put("details", details);
                 candidatesList.add(c);
@@ -254,6 +258,27 @@ public class AdmissionController {
             "auditLogs", portalAuditLogs,
             "messages", portalMessages
         ));
+    }
+
+    /** Lit la clé « paymentMethod » du JSON additionalInfo ; null si absente, vide ou JSON illisible. */
+    static String readPaymentMethod(String additionalInfo) {
+        if (additionalInfo == null || additionalInfo.isBlank()) {
+            return null;
+        }
+        try {
+            com.fasterxml.jackson.databind.JsonNode node = JSON.readTree(additionalInfo).get("paymentMethod");
+            if (node == null || node.isNull() || !node.isValueNode()) {
+                return null;
+            }
+            return blankToNull(node.asText());
+        } catch (Exception ex) {
+            logger.warn("additionalInfo illisible pour la lecture du moyen de paiement");
+            return null;
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return (value == null || value.isBlank()) ? null : value;
     }
 
     @PostMapping("/db")

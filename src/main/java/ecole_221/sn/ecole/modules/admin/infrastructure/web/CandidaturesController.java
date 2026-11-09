@@ -1,5 +1,7 @@
 package ecole_221.sn.ecole.modules.admin.infrastructure.web;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import ecole_221.sn.ecole.modules.admissions.domain.valueobject.CandidateStatus;
 import ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity;
 import ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository;
@@ -20,6 +22,7 @@ import java.util.concurrent.ConcurrentHashMap;
 @Tag(name = "Candidatures", description = "Gestion des paramètres et soumissions de candidature")
 public class CandidaturesController {
     private static final Logger logger = LoggerFactory.getLogger(CandidaturesController.class);
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final CandidateJpaRepository candidateJpaRepository;
     private static final Map<String, Object> settings = new ConcurrentHashMap<>();
@@ -83,15 +86,16 @@ public class CandidaturesController {
                 String telephone = String.valueOf(body.getOrDefault("telephone", ""));
                 String filiere = String.valueOf(body.getOrDefault("filiere", ""));
                 boolean fraisPayes = Boolean.parseBoolean(String.valueOf(body.getOrDefault("fraisPayes", false)));
-                String modePaiement = String.valueOf(body.getOrDefault("modePaiement", "WAVE"));
-                String refPaiement = String.valueOf(body.getOrDefault("referencePaiement", ""));
+                // APP-BE-04 : aucun moyen de paiement par défaut (plus de « WAVE ») ; absent ou vide → null
+                String modePaiement = textOrNull(body.get("modePaiement"));
+                String refPaiement = textOrNull(body.get("referencePaiement"));
 
                 CandidateJpaEntity entity = new CandidateJpaEntity(candidatureId, prenom, nom, email, telephone, filiere);
                 entity.setRegistrationFeePaid(fraisPayes);
                 entity.setRegistrationFeeReference(refPaiement);
                 entity.setIdCardUploaded(true);
                 entity.setDiplomaUploaded(true);
-                entity.setAdditionalInfo("{\"paymentMethod\":\"" + modePaiement + "\"}");
+                entity.setAdditionalInfo(buildAdditionalInfo(modePaiement));
                 entity.setSubmittedAt(LocalDateTime.now());
                 entity.setCurrentStep("new");
                 entity.setAdmissionStatus(CandidateStatus.EN_ATTENTE.name());
@@ -110,6 +114,28 @@ public class CandidaturesController {
             "id", candidatureId,
             "message", "Candidature soumise avec succès"
         ));
+    }
+
+    /** Valeur texte non vide, sinon null (évite aussi la chaîne « null » produite par String.valueOf(null)). */
+    static String textOrNull(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String s = String.valueOf(value).trim();
+        return s.isEmpty() ? null : s;
+    }
+
+    /**
+     * APP-BE-04 : additionalInfo sérialisé par Jackson (échappement garanti, pas d'injection JSON par concaténation).
+     * Retourne null si aucun moyen de paiement n'est connu.
+     */
+    static String buildAdditionalInfo(String modePaiement) throws JsonProcessingException {
+        if (modePaiement == null) {
+            return null;
+        }
+        Map<String, Object> info = new LinkedHashMap<>();
+        info.put("paymentMethod", modePaiement);
+        return JSON.writeValueAsString(info);
     }
 
     @GetMapping("/candidatures")
