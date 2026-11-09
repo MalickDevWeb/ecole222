@@ -60,3 +60,7 @@ application-local.properties
 *.temp
 .cache/
 .tmp/
+
+# Jarres de cookies / jetons produits par les scripts de test (contiennent des JWT) — APP-SEC-05
+*cookies*.txt
+*_test.txt
