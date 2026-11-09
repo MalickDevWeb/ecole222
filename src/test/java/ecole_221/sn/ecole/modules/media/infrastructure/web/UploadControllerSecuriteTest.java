@@ -49,10 +49,34 @@ class UploadControllerSecuriteTest {
     void adresseDuClientDerriereLeProxy() {
         MockHttpServletRequest r = new MockHttpServletRequest();
         r.setRemoteAddr("10.0.0.1");
-        r.addHeader("X-Forwarded-For", "196.1.2.3, 10.0.0.1");
+        r.addHeader("X-Forwarded-For", "196.1.2.3");
         assertEquals("196.1.2.3", UploadController.adresse(r));
+        // valeur falsifiée par le client : placée AVANT celle du proxy, elle est ignorée
+        MockHttpServletRequest falsifie = new MockHttpServletRequest();
+        falsifie.addHeader("X-Forwarded-For", "1.1.1.1, 2.2.2.2, 196.1.2.3");
+        assertEquals("196.1.2.3", UploadController.adresse(falsifie));
         MockHttpServletRequest direct = new MockHttpServletRequest();
         direct.setRemoteAddr("127.0.0.1");
         assertEquals("127.0.0.1", UploadController.adresse(direct));
+    }
+
+    @Test
+    void tableDesAdressesBornee() {
+        var limiteur = new UploadController.LimiteurEnvois(1, Duration.ofMillis(1));
+        for (int i = 0; i < UploadController.LimiteurEnvois.MAX_ADRESSES; i++) {
+            limiteur.autoriser("a" + i);
+        }
+        try { Thread.sleep(5); } catch (InterruptedException e) { Thread.currentThread().interrupt(); }
+        assertTrue(limiteur.autoriser("nouvelle"), "les entrées expirées sont purgées");
+        assertTrue(limiteur.taille() <= UploadController.LimiteurEnvois.MAX_ADRESSES);
+    }
+
+    @Test
+    void tablePleineDAdressesActivesRefuse() {
+        var limiteur = new UploadController.LimiteurEnvois(5, Duration.ofHours(1));
+        for (int i = 0; i < UploadController.LimiteurEnvois.MAX_ADRESSES; i++) {
+            limiteur.autoriser("a" + i);
+        }
+        assertFalse(limiteur.autoriser("nouvelle"), "pas de croissance mémoire sans limite");
     }
 }
