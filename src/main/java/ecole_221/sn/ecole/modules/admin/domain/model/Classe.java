@@ -14,6 +14,8 @@ public class Classe {
     /** Niveau et capacité tels que saisis par l'école (null si non renseignés). */
     private String level;
     private Integer capacity;
+    /** Frais de scolarité annuels (FCFA) saisis par l'école ; null si non renseignés (jamais supposés). */
+    private Long price;
     
     // Constructeur package-private (accessible par Factory dans le même package)
     Classe(String id, String name, String filiereId) {
@@ -28,6 +30,8 @@ public class Classe {
     public String getFiliereId() { return filiereId; }
     public String getLevel() { return level; }
     public Integer getCapacity() { return capacity; }
+    public Long getPrice() { return price; }
+    void setPrice(Long price) { this.price = price; }
     void setLevel(String level) { this.level = level; }
     void setCapacity(Integer capacity) { this.capacity = capacity; }
     

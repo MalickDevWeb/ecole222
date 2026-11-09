@@ -153,4 +153,23 @@ class AdminPlanningPersisteTest {
         assertEquals(35, captor.getValue().getCapacity());
         assertEquals("f-1", captor.getValue().getFiliereId());
     }
+
+    @Test
+    void putClassesEnregistreLesFraisAnnuels() throws Exception {
+        // avant : frais saisis à l'écran (450 000) puis perdus — affichés « — » après rechargement
+        Mockito.when(classes.findAll()).thenReturn(List.of());
+        mockMvc.perform(put("/admin/planning/classes").contentType(MediaType.APPLICATION_JSON)
+                        .content("[{\"id\":\"c-2\",\"name\":\"L1 INFO\",\"level\":\"L1\",\"filiereId\":\"f-1\",\"capacityMax\":35,\"price\":450000}]"))
+                .andExpect(status().isOk());
+        ArgumentCaptor<ClasseJpaEntity> captor = ArgumentCaptor.forClass(ClasseJpaEntity.class);
+        verify(classes).save(captor.capture());
+        assertEquals(450000L, captor.getValue().getFraisAnnuels());
+    }
+
+    @Test
+    void fraisNegatifsRefuses() throws Exception {
+        mockMvc.perform(put("/admin/planning/classes").contentType(MediaType.APPLICATION_JSON)
+                        .content("[{\"id\":\"c-3\",\"name\":\"L1\",\"filiereId\":\"f-1\",\"price\":-5}]"))
+                .andExpect(status().isBadRequest());
+    }
 }

@@ -104,7 +104,7 @@ public class JpaPlanningRepository implements PlanningRepositoryPort {
     public List<Classe> getAllClasses() {
         return classes.findAll().stream()
                 .map(e -> ClasseFactory.reconstruct(e.getId(), texte(e.getName()), texte(e.getFiliereId()),
-                        e.getLevel(), e.getCapacity() > 0 ? e.getCapacity() : null))
+                        e.getLevel(), e.getCapacity() > 0 ? e.getCapacity() : null, e.getFraisAnnuels()))
                 .collect(Collectors.toList());
     }
 
@@ -120,6 +120,7 @@ public class JpaPlanningRepository implements PlanningRepositoryPort {
             e.setFiliereId(c.getFiliereId());
             if (c.getLevel() != null) e.setLevel(c.getLevel());
             if (c.getCapacity() != null) e.setCapacity(c.getCapacity());
+            e.setFraisAnnuels(c.getPrice());
             classes.save(e);
             gardees.add(c.getId());
         }
