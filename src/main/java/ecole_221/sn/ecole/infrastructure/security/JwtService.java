@@ -17,13 +17,54 @@ import java.util.function.Function;
 @Service
 public class JwtService {
 
-    @Value("${jwt.secret:ecole221-super-secret-key-must-be-at-least-32-chars}")
-    private String secretKey;
+    /** Longueur minimale (en caractères) exigée pour le secret HMAC (HS256 => 256 bits). */
+    public static final int MIN_SECRET_LENGTH = 32;
 
-    @jakarta.annotation.PostConstruct
-    public void validateSecret() {
-        if ("ecole221-super-secret-key-must-be-at-least-32-chars".equals(secretKey)) {
-            System.err.println("[SECURITY-CRITICAL] Utilisation de la clé JWT par défaut non sécurisée. Définissez JWT_SECRET en production !");
+    /**
+     * Empreintes SHA-256 de secrets publics connus (ancienne valeur de repli publiée dans le dépôt).
+     * Comparées par empreinte pour ne jamais réécrire ces valeurs en clair.
+     */
+    static final java.util.Set<String> SECRETS_PUBLICS_SHA256 = java.util.Set.of(
+            "6c4449aac8611dad481a2d72aabdc2fbfaf4ac4d751c950d05e7b00ef41f80cc");
+
+    private final String secretKey;
+
+    /**
+     * APP-SEC-02 : aucun secret par défaut. Le secret provient exclusivement de la propriété
+     * {@code jwt.secret} (alimentée par la variable d'environnement JWT_SECRET).
+     * S'il est absent ou trop court, la création du bean échoue et l'application refuse de démarrer.
+     */
+    public JwtService(@Value("${jwt.secret:}") String secretKey) {
+        this.secretKey = validateSecret(secretKey);
+    }
+
+    static String validateSecret(String secret) {
+        if (secret == null || secret.isBlank()) {
+            throw new IllegalStateException(
+                    "[SECURITY] JWT_SECRET est absent : l'application refuse de démarrer. "
+                            + "Définissez la variable d'environnement JWT_SECRET (au moins "
+                            + MIN_SECRET_LENGTH + " caractères aléatoires).");
+        }
+        if (secret.length() < MIN_SECRET_LENGTH) {
+            // Ne jamais inclure la valeur du secret dans le message.
+            throw new IllegalStateException(
+                    "[SECURITY] JWT_SECRET est trop court (" + secret.length() + " caractères, minimum "
+                            + MIN_SECRET_LENGTH + ") : l'application refuse de démarrer.");
+        }
+        if (SECRETS_PUBLICS_SHA256.contains(sha256(secret))) {
+            throw new IllegalStateException(
+                    "[SECURITY] JWT_SECRET correspond à une valeur publique connue (ancienne valeur par défaut) : "
+                            + "l'application refuse de démarrer. Générez un nouveau secret.");
+        }
+        return secret;
+    }
+
+    static String sha256(String value) {
+        try {
+            byte[] d = java.security.MessageDigest.getInstance("SHA-256").digest(value.getBytes(StandardCharsets.UTF_8));
+            return java.util.HexFormat.of().formatHex(d);
+        } catch (java.security.NoSuchAlgorithmException e) {
+            throw new IllegalStateException(e);
         }
     }
 
