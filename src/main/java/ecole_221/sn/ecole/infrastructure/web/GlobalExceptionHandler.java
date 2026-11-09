@@ -66,6 +66,15 @@ public class GlobalExceptionHandler {
                 .body(ApiErrorResponse.of(ErrorCode.COURSE_NOT_FOUND, ex.getMessage()));
     }
 
+    /** Stockage indisponible : 503 explicite (APP-BE-05), jamais de faux succès. */
+    @ExceptionHandler(ecole_221.sn.ecole.modules.media.domain.exception.StockageIndisponibleException.class)
+    public ResponseEntity<ApiErrorResponse> handleStockageIndisponible(RuntimeException ex) {
+        log.warn("[Storage Unavailable] {}", ex.getMessage());
+        return ResponseEntity
+                .status(ErrorCode.STORAGE_UNAVAILABLE.getHttpStatus())
+                .body(ApiErrorResponse.of(ErrorCode.STORAGE_UNAVAILABLE, ex.getMessage()));
+    }
+
     /** Fichier refusé (vide, trop volumineux, format ou contenu non conforme) : 400 et non 500. */
     @ExceptionHandler(ecole_221.sn.ecole.modules.media.domain.exception.InvalidFileException.class)
     public ResponseEntity<ApiErrorResponse> handleInvalidFile(RuntimeException ex) {
