@@ -8,6 +8,7 @@ import ecole_221.sn.ecole.modules.student.infrastructure.persistence.StudentData
 import ecole_221.sn.ecole.infrastructure.logging.ActionLogger;
 import ecole_221.sn.ecole.modules.ai.application.port.usecase.AIUseCase;
 import ecole_221.sn.ecole.modules.email.application.port.usecase.EmailUseCase;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -35,8 +36,22 @@ class StudentControllerTest {
     private EmailUseCase emailUseCase;
     private MockMvc mockMvc;
 
+    /** APP-SEC-19 : le portail étudiant sert l'étudiant CONNECTÉ (ici usr-001). */
+    private static void connecter(String id) {
+        var u = ecole_221.sn.ecole.modules.auth.domain.model.UserFactory.reconstructSimple(id, "Ba", "Fatou", id + "@ex.sn",
+                "ecole221", "ETU-1", ecole_221.sn.ecole.modules.auth.domain.valueobject.RoleUtilisateur.ETUDIANT, null);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(u, null, u.getAuthorities()));
+    }
+
+    @AfterEach
+    void deconnecter() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+
     @BeforeEach
     void setUp() {
+        connecter("usr-001");
         studentUseCase = Mockito.mock(StudentUseCase.class);
         courseDetailRepository = Mockito.mock(CourseDetailRepository.class);
         studentDataRepository = Mockito.mock(StudentDataRepository.class);
@@ -154,5 +169,20 @@ class StudentControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Cours non trouvé avec l'identifiant: course-404"));
+    }
+
+    @Test
+    void chaqueEtudiantVoitSesPropresNotes() throws Exception {
+        connecter("etu-autre");
+        Mockito.when(studentUseCase.getStudentGrades(anyString())).thenReturn(java.util.List.of());
+        mockMvc.perform(get("/student/grades")).andExpect(status().isOk());
+        Mockito.verify(studentUseCase).getStudentGrades("etu-autre");
+        Mockito.verify(studentUseCase, Mockito.never()).getStudentGrades("usr-001");
+    }
+
+    @Test
+    void sansConnexionRefuse() throws Exception {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        mockMvc.perform(get("/student/grades")).andExpect(status().isUnauthorized());
     }
 }
