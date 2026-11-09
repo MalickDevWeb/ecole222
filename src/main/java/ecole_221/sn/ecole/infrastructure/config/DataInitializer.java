@@ -18,7 +18,13 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 
-////@Component
+/**
+ * Données de démonstration (KPI, cours, utilisateurs de test). INACTIF : la classe n'est pas un bean
+ * (annotation @Component retirée) et ne doit jamais tourner en production (APP-SEC-10).
+ * Pour un environnement de démonstration : réactiver avec @Profile("demo-data") et fournir
+ * DEMO_ACCOUNTS_PASSWORD ; aucun mot de passe n'est écrit dans le code.
+ */
+// @Component @Profile("demo-data")  ← à n'activer que pour une démonstration locale
 public class DataInitializer implements CommandLineRunner {
 
     private final DashboardKpiJpaRepository kpiRepository;
@@ -422,8 +428,12 @@ public class DataInitializer implements CommandLineRunner {
 
     private void populateTestUsers() {
         // Mots de passe hachés avec BCrypt (jamais en clair en base de données)
-        String hashedPassword = passwordEncoder.encode("Test@Ecole221!");
-        String hashedParentPassword = passwordEncoder.encode("Parent@Ecole221!");
+        String motDePasse = System.getenv("DEMO_ACCOUNTS_PASSWORD");
+        if (motDePasse == null || motDePasse.length() < 12) {
+            throw new IllegalStateException("DEMO_ACCOUNTS_PASSWORD (≥ 12 caractères) requis pour les comptes de démonstration.");
+        }
+        String hashedPassword = passwordEncoder.encode(motDePasse);
+        String hashedParentPassword = hashedPassword;
 
         userRepository.save(new UserJpaEntity(
             "user-001", "Admin", "Principal", "admin@ecole221.sn", hashedPassword,

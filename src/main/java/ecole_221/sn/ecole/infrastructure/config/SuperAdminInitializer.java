@@ -59,11 +59,19 @@ public class SuperAdminInitializer implements CommandLineRunner {
         // 1. Initialiser le SUPER_ADMIN
         seedSuperAdmin();
 
-        // 2. Comptes démo (mots de passe faibles) : jamais en production
-        if (environment.acceptsProfiles(Profiles.of("prod"))) {
-            logger.info("Profil prod actif : comptes démo non créés.");
+        // 2. Comptes de démonstration : DÉSACTIVÉS par défaut (APP-SEC-03).
+        //    Activation explicite seulement : ECOLE_DEMO_ACCOUNTS_ENABLED=true + DEMO_ACCOUNTS_PASSWORD (≥ 12 car.).
+        //    Jamais avec le profil prod, et plus aucun mot de passe écrit dans le code.
+        boolean demande = Boolean.parseBoolean(environment.getProperty("ecole.demo-accounts.enabled", "false"));
+        String motDePasse = getEnv("DEMO_ACCOUNTS_PASSWORD", "");
+        if (!demande) {
+            logger.info("Comptes de démonstration désactivés (ecole.demo-accounts.enabled=false).");
+        } else if (environment.acceptsProfiles(Profiles.of("prod"))) {
+            logger.warn("Comptes de démonstration demandés mais refusés : profil prod actif.");
+        } else if (motDePasse.length() < 12) {
+            logger.warn("Comptes de démonstration non créés : DEMO_ACCOUNTS_PASSWORD absent ou < 12 caractères.");
         } else {
-            seedDemoUsers();
+            seedDemoUsers(motDePasse);
         }
     }
 
@@ -102,16 +110,16 @@ public class SuperAdminInitializer implements CommandLineRunner {
         logger.warn("🚨 SUPER_ADMIN créé avec succès (email: {}) !", email);
     }
 
-    private void seedDemoUsers() {
-        seedSingleUser("admin@ecole221.sn", "Test@Ecole221!", "Admin", "École 221", RoleUtilisateur.ADMIN.value(), "ADM-221-001");
-        seedSingleUser("admin221@gmail.com", "ecole221", "Admin", "École 221", RoleUtilisateur.ADMIN.value(), "ADM-221-002");
-        seedSingleUser("prof@ecole221.sn", "Test@Ecole221!", "Professeur", "Test", RoleUtilisateur.PROFESSEUR.value(), "PRF-221-001");
-        seedSingleUser("professeur221@gmail.com", "ecole221", "Professeur", "Test", RoleUtilisateur.PROFESSEUR.value(), "PRF-221-002");
-        seedSingleUser("etudiant@ecole221.sn", "Test@Ecole221!", "Étudiant", "Test", RoleUtilisateur.ETUDIANT.value(), "ETU-221-001");
-        seedSingleUser("etudiant221@gmail.com", "ecole221", "Étudiant", "Test", RoleUtilisateur.ETUDIANT.value(), "ETU-221-002");
-        seedSingleUser("vigil@ecole221.sn", "Test@Ecole221!", "Vigile", "Sécurité", RoleUtilisateur.VIGIL.value(), "VIG-221-001");
-        seedSingleUser("vigile221@gmail.com", "ecole221", "Vigile", "Sécurité", RoleUtilisateur.VIGIL.value(), "VIG-221-002");
-        seedSingleUser("parent221@gmail.com", "ecole221", "Diallo", "Mamadou", RoleUtilisateur.PARENT.value(), "PAR-221-001");
+    private void seedDemoUsers(String motDePasse) {
+        seedSingleUser("admin@ecole221.sn", motDePasse, "Admin", "École 221", RoleUtilisateur.ADMIN.value(), "ADM-221-001");
+        seedSingleUser("admin221@gmail.com", motDePasse, "Admin", "École 221", RoleUtilisateur.ADMIN.value(), "ADM-221-002");
+        seedSingleUser("prof@ecole221.sn", motDePasse, "Professeur", "Test", RoleUtilisateur.PROFESSEUR.value(), "PRF-221-001");
+        seedSingleUser("professeur221@gmail.com", motDePasse, "Professeur", "Test", RoleUtilisateur.PROFESSEUR.value(), "PRF-221-002");
+        seedSingleUser("etudiant@ecole221.sn", motDePasse, "Étudiant", "Test", RoleUtilisateur.ETUDIANT.value(), "ETU-221-001");
+        seedSingleUser("etudiant221@gmail.com", motDePasse, "Étudiant", "Test", RoleUtilisateur.ETUDIANT.value(), "ETU-221-002");
+        seedSingleUser("vigil@ecole221.sn", motDePasse, "Vigile", "Sécurité", RoleUtilisateur.VIGIL.value(), "VIG-221-001");
+        seedSingleUser("vigile221@gmail.com", motDePasse, "Vigile", "Sécurité", RoleUtilisateur.VIGIL.value(), "VIG-221-002");
+        seedSingleUser("parent221@gmail.com", motDePasse, "Diallo", "Mamadou", RoleUtilisateur.PARENT.value(), "PAR-221-001");
     }
 
     private void seedSingleUser(String email, String rawPassword, String nom, String prenom, String role, String matricule) {
