@@ -123,6 +123,7 @@ public class ProfessorController {
         
         logger.info("POST /professor/courses/{}/grades/{} - saving grade", courseId, studentId);
         logger.debug("Grade body: cc={}, examen={}", body.get("cc"), body.get("examen"));
+        validerNotes(body);
         try {
             professorUseCase.saveGrade(studentId, courseId, body.get("cc"), body.get("examen"));
             Map<String, Object> gradeMap = professorUseCase.getGrade(studentId, courseId);
@@ -368,5 +369,23 @@ public class ProfessorController {
     private static String auteur() {
         String id = ProfExtraController.utilisateurConnecte();
         return id != null ? id : "anonyme";
+    }
+
+    /**
+     * Notes attendues : « cc » et/ou « examen », sur 20 (OBS-02, Agent 05).
+     * Avant : un corps aux clés inconnues (ex. noteCc) était accepté et enregistrait 0 en silence.
+     */
+    static void validerNotes(Map<String, Double> body) {
+        if (body == null || (body.get("cc") == null && body.get("examen") == null)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Note manquante : champs attendus « cc » et/ou « examen »");
+        }
+        for (String champ : new String[]{"cc", "examen"}) {
+            Double note = body.get(champ);
+            if (note != null && (note.isNaN() || note < 0 || note > 20)) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Note « " + champ + " » hors de l'intervalle 0–20");
+            }
+        }
     }
 }
