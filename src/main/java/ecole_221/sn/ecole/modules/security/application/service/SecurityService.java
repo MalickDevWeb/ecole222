@@ -206,17 +206,11 @@ public class SecurityService implements SecurityUseCase {
             return map;
         }
         
-        // Return default profile if not found
-        Map<String, Object> defaultProfile = new HashMap<>();
-        defaultProfile.put("id", "VIG-221");
-        defaultProfile.put("nom", "Diallo");
-        defaultProfile.put("prenom", "Mamadou");
-        defaultProfile.put("badgeId", "BADGE-VIG-001");
-        defaultProfile.put("equipe", "Jour");
-        defaultProfile.put("derniereConnexion", LocalDateTime.now().toString());
-        defaultProfile.put("statut", "Opérationnel");
-        defaultProfile.put("zone", "Portail Principal");
-        return defaultProfile;
+        // Profil non configuré : réponse explicite (avant : vigile « Mamadou Diallo » inventé)
+        Map<String, Object> nonConfigure = new HashMap<>();
+        nonConfigure.put("id", vigilId);
+        nonConfigure.put("statut", "non_configuré");
+        return nonConfigure;
     }
 
     // ==================== MAPPERS ====================
