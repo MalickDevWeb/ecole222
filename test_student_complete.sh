@@ -100,7 +100,7 @@ echo ""
 echo "🔐 Authentification étudiant..."
 AUTH_RESPONSE=$(curl -s -X POST "$AUTH_URL/login-token" \
     -H "Content-Type: application/json" \
-    -d '{"email":"etudiant221@gmail.com","password":"ecole221"}')
+    -d '{"email":"etudiant221@gmail.com","password":"'"${DEMO_ACCOUNTS_PASSWORD:?Exportez DEMO_ACCOUNTS_PASSWORD}"'"}')
 
 AUTH_TOKEN=$(echo "$AUTH_RESPONSE" | jq -r '.token // empty')
 

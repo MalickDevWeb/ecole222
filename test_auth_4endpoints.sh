@@ -36,7 +36,7 @@ echo "=========================================="
 echo -e "\n📝 Test 1: POST /auth/login-token"
 response=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/auth/login-token" \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin221@gmail.com","password":"ecole221"}')
+  -d '{"email":"admin221@gmail.com","password":"'"${DEMO_ACCOUNTS_PASSWORD:?Exportez DEMO_ACCOUNTS_PASSWORD}"'"}')
 http_code=$(echo "$response" | tail -n1)
 body=$(echo "$response" | sed '$d')
 
@@ -52,7 +52,7 @@ fi
 echo -e "\n📝 Test 2: POST /auth/login (cookie)"
 response=$(curl -s -w "\n%{http_code}" -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
-  -d '{"email":"admin221@gmail.com","password":"ecole221"}' \
+  -d '{"email":"admin221@gmail.com","password":"'"${DEMO_ACCOUNTS_PASSWORD:?Exportez DEMO_ACCOUNTS_PASSWORD}"'"}' \
   -c "$COOKIE_FILE")
 http_code=$(echo "$response" | tail -n1)
 body=$(echo "$response" | sed '$d')
