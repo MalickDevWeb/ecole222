@@ -119,13 +119,23 @@ class AdminControllerTest {
 
     @Test
     void testGetStats() throws Exception {
+        // APP-BE-01 : les statistiques viennent des dépôts (plus de valeurs de démonstration codées en dur)
+        var etudiant = Mockito.mock(ecole_221.sn.ecole.modules.auth.infrastructure.persistence.UserJpaEntity.class);
+        var prof = Mockito.mock(ecole_221.sn.ecole.modules.auth.infrastructure.persistence.UserJpaEntity.class);
+        Mockito.when(userJpaRepository.findByRole("ETUDIANT")).thenReturn(java.util.List.of(etudiant, etudiant, etudiant));
+        Mockito.when(userJpaRepository.findByRole("PROFESSEUR")).thenReturn(java.util.List.of(prof, prof));
+        Mockito.when(scheduleSessionJpaRepository.count()).thenReturn(7L);
+        Mockito.when(classeJpaRepository.count()).thenReturn(4L);
+        Mockito.when(roomJpaRepository.count()).thenReturn(0L);
+
         mockMvc.perform(get("/admin/stats")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.studentsCount").value(150))
-                .andExpect(jsonPath("$.professorsCount").value(25))
-                .andExpect(jsonPath("$.coursesCount").value(30))
-                .andExpect(jsonPath("$.classesCount").value(8));
+                .andExpect(jsonPath("$.studentsCount").value(3))
+                .andExpect(jsonPath("$.professorsCount").value(2))
+                .andExpect(jsonPath("$.coursesCount").value(7))
+                .andExpect(jsonPath("$.classesCount").value(4))
+                .andExpect(jsonPath("$.salleOccupation").value("0%"));
     }
 
     @Test
