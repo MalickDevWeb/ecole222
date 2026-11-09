@@ -97,4 +97,9 @@ public interface CollaborationUseCase {
      * Crée une réunion (compatibilité).
      */
     void createMeet(String title, String link, String time);
+
+    /** APP-BE-14 : création complète d'une classe virtuelle (tous les champs envoyés par le frontend). */
+    default void createMeet(Map<String, Object> details) {
+        createMeet((String) details.get("title"), (String) details.get("link"), (String) details.get("time"));
+    }
 }

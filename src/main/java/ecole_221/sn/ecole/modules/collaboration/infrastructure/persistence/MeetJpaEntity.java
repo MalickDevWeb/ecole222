@@ -21,6 +21,20 @@ public class MeetJpaEntity {
     private String link;
     private String time;
     private Boolean active;
+    // APP-BE-14 : champs de la classe virtuelle envoyés par le frontend (auparavant perdus)
+    @jakarta.persistence.Column(name = "subject_name")
+    private String subjectName;
+    @jakarta.persistence.Column(name = "teacher_name")
+    private String teacherName;
+    @jakarta.persistence.Column(name = "meet_date")
+    private String meetDate;
+    @jakarta.persistence.Column(name = "class_ids", length = 2000)
+    private String classIds;      // identifiants séparés par des virgules
+    @jakarta.persistence.Column(name = "class_names", length = 2000)
+    private String classNames;
+    private Boolean published;
+    @jakarta.persistence.Column(name = "restrict_google")
+    private Boolean restrictToGoogleAccount;
 
     public MeetJpaEntity() {}
 
@@ -40,6 +54,20 @@ public class MeetJpaEntity {
     public void setLink(String link) { this.link = link; }
     public String getTime() { return time; }
     public void setTime(String time) { this.time = time; }
-    public boolean isActive() { return active; }
+    public boolean isActive() { return Boolean.TRUE.equals(active); }   // null-safe (jamais renseigné à la création)
+    public String getSubjectName() { return subjectName; }
+    public void setSubjectName(String v) { this.subjectName = v; }
+    public String getTeacherName() { return teacherName; }
+    public void setTeacherName(String v) { this.teacherName = v; }
+    public String getMeetDate() { return meetDate; }
+    public void setMeetDate(String v) { this.meetDate = v; }
+    public String getClassIds() { return classIds; }
+    public void setClassIds(String v) { this.classIds = v; }
+    public String getClassNames() { return classNames; }
+    public void setClassNames(String v) { this.classNames = v; }
+    public Boolean getPublished() { return published; }
+    public void setPublished(Boolean v) { this.published = v; }
+    public Boolean getRestrictToGoogleAccount() { return restrictToGoogleAccount; }
+    public void setRestrictToGoogleAccount(Boolean v) { this.restrictToGoogleAccount = v; }
     public void setActive(boolean active) { this.active = active; }
 }

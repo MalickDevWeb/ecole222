@@ -208,8 +208,55 @@ public class CollaborationService implements CollaborationUseCase {
             map.put("title", meet.getTitle());
             map.put("link", meet.getLink());
             map.put("time", meet.getTime());
+            // APP-BE-14 : forme « classe virtuelle » attendue par le frontend
+            map.put("subjectName", meet.getSubjectName() != null ? meet.getSubjectName() : meet.getTitle());
+            map.put("meetLink", meet.getLink());
+            map.put("date", meet.getMeetDate());
+            map.put("teacherName", meet.getTeacherName());
+            map.put("classIds", liste(meet.getClassIds()));
+            map.put("classNames", liste(meet.getClassNames()));
+            map.put("isPublished", Boolean.TRUE.equals(meet.getPublished()));
+            map.put("restrictToGoogleAccount", Boolean.TRUE.equals(meet.getRestrictToGoogleAccount()));
             return map;
         }).toList();
+    }
+
+    private static List<String> liste(String csv) {
+        return csv == null || csv.isBlank() ? List.of() : java.util.Arrays.stream(csv.split(",")).map(String::trim).filter(x -> !x.isEmpty()).toList();
+    }
+
+    private static String csv(Object valeur) {
+        if (valeur instanceof java.util.Collection<?> c) {
+            return c.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+        }
+        return valeur == null ? null : String.valueOf(valeur);
+    }
+
+    private static String texte(Map<String, Object> d, String... cles) {
+        for (String k : cles) {
+            Object v = d.get(k);
+            if (v != null && !String.valueOf(v).isBlank()) {
+                return String.valueOf(v);
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public void createMeet(Map<String, Object> d) {
+        MeetJpaEntity meet = new MeetJpaEntity();
+        meet.setId("meet-" + UUID.randomUUID().toString().substring(0, 8));
+        meet.setTitle(texte(d, "title", "subjectName"));
+        meet.setLink(texte(d, "link", "meetLink"));
+        meet.setTime(texte(d, "time"));
+        meet.setMeetDate(texte(d, "date"));
+        meet.setSubjectName(texte(d, "subjectName", "title"));
+        meet.setTeacherName(texte(d, "teacherName"));
+        meet.setClassIds(csv(d.get("classIds")));
+        meet.setClassNames(csv(d.get("classNames")));
+        meet.setPublished(Boolean.TRUE.equals(d.get("isPublished")));
+        meet.setRestrictToGoogleAccount(Boolean.TRUE.equals(d.get("restrictToGoogleAccount")));
+        meetJpaRepository.save(meet);
     }
 
     @Override

@@ -163,7 +163,8 @@ public class CollaborationController {
     @PostMapping("/meets")
     @Operation(summary = "Créer une réunion", description = "Planifie une nouvelle réunion virtuelle (title, link, time).")
     public ResponseEntity<Map<String, Object>> createMeet(@RequestBody Map<String, Object> body) {
-        collaborationUseCase.createMeet((String) body.get("title"), (String) body.get("link"), (String) body.get("time"));
+        // APP-BE-14 : tous les champs de la classe virtuelle sont conservés (avant : seuls title/link/time)
+        collaborationUseCase.createMeet(body);
         Map<String, Object> res = new HashMap<>();
         res.put("success", true);
         return ResponseEntity.ok(res);
