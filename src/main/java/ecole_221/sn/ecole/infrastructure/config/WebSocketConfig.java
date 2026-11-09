@@ -21,6 +21,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // Register the "/ws" endpoint, enabling SockJS fallback options so that alternate transports can be used if WebSocket is not available.
-        registry.addEndpoint("/ws").setAllowedOriginPatterns("*").withSockJS();
+        // APP-SEC-01 : mêmes origines que le CORS REST (source unique AllowedOrigins), plus de joker "*".
+        registry.addEndpoint("/ws")
+                .setAllowedOriginPatterns(AllowedOrigins.PATTERNS.toArray(String[]::new))
+                .withSockJS();
     }
 }

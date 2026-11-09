@@ -112,12 +112,8 @@ public class SecurityConfig {
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         // Origines explicites requises quand allowCredentials=true
-        config.setAllowedOriginPatterns(List.of(
-            "http://localhost:*", "http://127.0.0.1:*",
-            "http://127.0.0.1:5173",
-            "http://192.168.1.239:5173",
-            "https://papa-221.vercel.app"
-        ));
+        // Source unique partagée avec le WebSocket (APP-SEC-01) : voir AllowedOrigins
+        config.setAllowedOriginPatterns(AllowedOrigins.PATTERNS);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);  // requis pour que les cookies soient envoyés
