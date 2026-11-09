@@ -6,59 +6,80 @@ import org.slf4j.LoggerFactory;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 import ecole_221.sn.ecole.modules.admin.application.port.usecase.AdminUseCase;
+import ecole_221.sn.ecole.modules.admin.application.service.ComptesEcoleService;
+import ecole_221.sn.ecole.modules.admin.application.service.ComptesEcoleService.CompteCree;
+import ecole_221.sn.ecole.modules.admin.domain.port.repository.AdminRepositoryPort;
 import ecole_221.sn.ecole.modules.admin.domain.valueobject.StatutFrais;
+import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.PointagePersonnelJpaEntity;
+import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.PointagePersonnelJpaRepository;
 import ecole_221.sn.ecole.infrastructure.logging.ActionLogger;
 import ecole_221.sn.ecole.modules.auth.infrastructure.persistence.UserJpaEntity;
-import ecole_221.sn.ecole.modules.auth.infrastructure.persistence.UserJpaRepository;
 import ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaEntity;
 import ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository;
-import ecole_221.sn.ecole.modules.planning.infrastructure.persistence.RoomJpaRepository;
+import ecole_221.sn.ecole.modules.platform.organization.infrastructure.persistence.OrganizationUserJpaEntity;
+import ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaEntity;
+import ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaRepository;
 import ecole_221.sn.ecole.modules.professor.infrastructure.persistence.ScheduleSessionJpaEntity;
 import ecole_221.sn.ecole.modules.professor.infrastructure.persistence.ScheduleSessionJpaRepository;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Administration d'UNE école (celle de la requête).
+ *
+ * <p>Révision 2026-11-09 (« plus aucune donnée fictive ») : toutes les listes et statistiques sont
+ * cloisonnées à l'école courante (appartenances organization_users ou entités @TenantId) ; plus aucune
+ * moyenne, présence, filière, classe, statut de frais ou téléphone inventé ; les comptes créés ont un
+ * mot de passe (sinon connexion impossible) ; les écritures persistent réellement ou échouent avec un
+ * message clair. Une information sans source réelle est renvoyée {@code null} (affichée « — » / « Non renseigné »).</p>
+ */
 @RestController
 @RequestMapping("/admin")
-@CrossOrigin(origins = "*")
 @Tag(name = "Admin", description = "Administration — portails, statuts etudiants, logs temps reel")
 public class AdminController {
 
     private static final Logger logger = LoggerFactory.getLogger(AdminController.class);
 
     @Autowired(required = false)
-    private ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaRepository courseJpaRepository;
+    private CourseJpaRepository courseJpaRepository;
 
     @Autowired(required = false)
     private ecole_221.sn.ecole.modules.admin.application.service.AdminStaffService adminStaffService;
 
     private final AdminUseCase adminUseCase;
     private final ActionLogger actionLogger;
-
-    private final UserJpaRepository userJpaRepository;
+    private final ComptesEcoleService comptesEcole;
+    private final AdminRepositoryPort adminRepository;
     private final ClasseJpaRepository classeJpaRepository;
-    private final RoomJpaRepository roomJpaRepository;
     private final ScheduleSessionJpaRepository scheduleSessionJpaRepository;
+    private final PointagePersonnelJpaRepository pointages;
 
-    public AdminController(AdminUseCase adminUseCase, 
+    public AdminController(AdminUseCase adminUseCase,
                            ActionLogger actionLogger,
-                           UserJpaRepository userJpaRepository,
+                           ComptesEcoleService comptesEcole,
+                           AdminRepositoryPort adminRepository,
                            ClasseJpaRepository classeJpaRepository,
-                           RoomJpaRepository roomJpaRepository,
-                           ScheduleSessionJpaRepository scheduleSessionJpaRepository) {
+                           ScheduleSessionJpaRepository scheduleSessionJpaRepository,
+                           PointagePersonnelJpaRepository pointages) {
         this.adminUseCase = adminUseCase;
         this.actionLogger = actionLogger;
-        this.userJpaRepository = userJpaRepository;
+        this.comptesEcole = comptesEcole;
+        this.adminRepository = adminRepository;
         this.classeJpaRepository = classeJpaRepository;
-        this.roomJpaRepository = roomJpaRepository;
         this.scheduleSessionJpaRepository = scheduleSessionJpaRepository;
+        this.pointages = pointages;
     }
 
     @PostMapping("/gates/assign")
@@ -68,10 +89,10 @@ public class AdminController {
         String gate = body.get("gate");
         String guard = body.getOrDefault("guard", body.getOrDefault("vigilId", null));
         adminUseCase.assignGate(gate, guard);
-        
-        actionLogger.logAdminAction("ASSIGN_GATE", "ADMIN", gate + " -> " + guard, 
+
+        actionLogger.logAdminAction("ASSIGN_GATE", "ADMIN", gate + " -> " + guard,
             "Portail " + gate + " assigné au vigil " + guard);
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
         response.put("gate", gate);
@@ -80,21 +101,32 @@ public class AdminController {
     }
 
     @PatchMapping("/students/{id}/status")
-    @Operation(summary = "Modifier statut etudiant", description = "Met a jour le statut de frais d'un etudiant (En Règle, En Retard).")
+    @Operation(summary = "Modifier statut etudiant", description = "Met a jour le statut de frais d'un etudiant de l'école (En Règle, En Retard).")
     public ResponseEntity<Map<String, Object>> updateStudentStatus(
             @Parameter(description = "Identifiant de l'etudiant") @PathVariable("id") String studentId,
             @RequestBody Map<String, String> body) {
-        logger.info("PATCH /admin/students/{}/status - Mise a jour statut: {}", studentId, body.get("statutFrais"));
-        StatutFrais status = StatutFrais.fromString(body.get("statutFrais"));
+        String saisi = body == null ? null : body.get("statutFrais");
+        logger.info("PATCH /admin/students/{}/status - Mise a jour statut: {}", studentId, saisi);
+        StatutFrais status = statutFraisStrict(saisi);
+        comptesEcole.membre(studentId, "ETUDIANT");   // 404 si l'élève n'est pas de cette école
         adminUseCase.updateStudentStatus(studentId, status);
-        
-        actionLogger.logAdminAction("UPDATE_STUDENT_STATUS", "ADMIN", studentId, 
+
+        actionLogger.logAdminAction("UPDATE_STUDENT_STATUS", "ADMIN", studentId,
             "Statut frais changé à " + status.getDisplayName() + " pour étudiant " + studentId);
-        
+
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
         response.put("status", status.getDisplayName());
         return ResponseEntity.ok(response);
+    }
+
+    @PatchMapping("/students/{id}/toggle-status")
+    @Operation(summary = "Suspendre / réactiver un élève", description = "Bascule l'appartenance de l'élève à l'école (ACTIVE ⇄ SUSPENDED). Un élève suspendu n'a plus accès à l'école (badge refusé, connexion refusée).")
+    public ResponseEntity<Map<String, Object>> toggleStudentStatus(@PathVariable("id") String studentId) {
+        String statut = comptesEcole.basculerStatut(studentId, "ETUDIANT");
+        actionLogger.logAdminAction("TOGGLE_STUDENT_STATUS", "ADMIN", studentId, "Accès élève : " + statut);
+        return ResponseEntity.ok(Map.of("id", studentId, "status", ComptesEcoleService.libelleStatut(statut),
+                "qrStatus", qrStatus(statut)));
     }
 
     @GetMapping("/realtime-logs")
@@ -121,192 +153,108 @@ public class AdminController {
     }
 
     @GetMapping("/stats")
-    @Operation(summary = "Statistiques globales", description = "Retourne les statistiques réelles de la plateforme.")
+    @Operation(summary = "Statistiques de l'école", description = "Effectifs réels de l'école courante. Les indicateurs sans source (présence des professeurs, occupation des salles) valent null.")
     public ResponseEntity<Map<String, Object>> getStats() {
-        logger.info("GET /admin/stats - Recuperation des statistiques réelles");
+        logger.info("GET /admin/stats - Statistiques de l'école courante");
         Map<String, Object> stats = new HashMap<>();
-        long studentsCount = userJpaRepository.findByRole("ETUDIANT").size();
-        long professorsCount = userJpaRepository.findByRole("PROFESSEUR").size();
-        long classesCount = classeJpaRepository.count();
-        long roomsCount = roomJpaRepository.count();
-        long coursesCount = scheduleSessionJpaRepository.count();
-
-        stats.put("studentsCount", studentsCount > 0 ? studentsCount : 0);
-        stats.put("professorsCount", professorsCount > 0 ? professorsCount : 0);
-        stats.put("coursesCount", coursesCount > 0 ? coursesCount : 0);
-        stats.put("classesCount", classesCount > 0 ? classesCount : 0);
-        stats.put("presentProfessors", professorsCount + "/" + professorsCount);
-        stats.put("salleOccupation", roomsCount > 0 ? "70%" : "0%");
+        long professorsCount = comptesEcole.nombreActifs("PROFESSEUR");
+        stats.put("studentsCount", comptesEcole.nombreActifs("ETUDIANT"));
+        stats.put("professorsCount", professorsCount);
+        stats.put("coursesCount", scheduleSessionJpaRepository.count());   // @TenantId : séances de l'école
+        stats.put("classesCount", classeJpaRepository.count());            // @TenantId : classes de l'école
+        // aucune source de pointage des professeurs ni de taux d'occupation des salles : pas de valeur inventée
+        stats.put("presentProfessors", null);
+        stats.put("salleOccupation", null);
         return ResponseEntity.ok(stats);
     }
 
     @GetMapping("/users")
-    @Operation(summary = "Liste des utilisateurs", description = "Retourne tous les utilisateurs réels (étudiants, professeurs, promotions).")
+    @Operation(summary = "Comptes de l'école", description = "Élèves, professeurs et classes de l'école courante (données réelles uniquement).")
     public ResponseEntity<Map<String, Object>> getUsers() {
-        logger.info("GET /admin/users - Recuperation des utilisateurs en direct de la base");
+        logger.info("GET /admin/users - Comptes de l'école courante");
         Map<String, Object> response = new HashMap<>();
-        
-        // Étudiants réels
-        List<UserJpaEntity> studentEntities = userJpaRepository.findByRole("ETUDIANT");
-        List<Map<String, Object>> students = studentEntities.stream().map(s -> {
-            Map<String, Object> map = new HashMap<String, Object>();
-            map.put("id", s.getId());
-            String fullName = ((s.getPrenom() != null ? s.getPrenom() : "") + " " + (s.getNom() != null ? s.getNom() : "")).trim();
-            map.put("name", fullName.isEmpty() ? (s.getEmail() != null ? s.getEmail() : "Étudiant") : fullName);
-            map.put("matricule", s.getMatricule() != null ? s.getMatricule() : "MAT-" + s.getId());
-            map.put("email", s.getEmail());
-            map.put("phoneParent", s.getTelephone() != null ? s.getTelephone() : "+221 77 000 00 00");
-            map.put("telephone", s.getTelephone());
-            map.put("promotion_id", "L1-GL");
-            map.put("average", 14.5);
-            map.put("gpa", "14.5/20");
-            map.put("mood", "stable");
-            map.put("statutFrais", "En Règle");
-            map.put("financialStatus", "En Règle");
-            map.put("qrStatus", "AUTORISÉ");
-            map.put("photoUrl", s.getPhotoUrl());
-            return map;
-        }).collect(java.util.stream.Collectors.toList());
-        response.put("students", students);
-        
-        // Professeurs réels
-        List<UserJpaEntity> professorEntities = userJpaRepository.findByRole("PROFESSEUR");
-        List<Map<String, Object>> professors = professorEntities.stream().map(p -> {
-            Map<String, Object> map = new HashMap<String, Object>();
-            map.put("id", p.getId());
-            String fullName = ((p.getPrenom() != null ? p.getPrenom() : "") + " " + (p.getNom() != null ? p.getNom() : "")).trim();
-            map.put("name", fullName.isEmpty() ? p.getEmail() : fullName);
-            map.put("email", p.getEmail());
-            map.put("telephone", p.getTelephone());
-            return map;
-        }).collect(java.util.stream.Collectors.toList());
-        response.put("professors", professors);
-        
-        // Promotions / Classes réelles
-        List<ClasseJpaEntity> classeEntities = classeJpaRepository.findAll();
-        List<Map<String, Object>> promotions = classeEntities.stream().map(c -> {
+        response.put("students", eleves());
+        response.put("professors", comptesEcole.membres("PROFESSEUR").stream()
+                .map(e -> professeur(e.getKey(), e.getValue())).toList());
+        List<ClasseJpaEntity> classeEntities = classeJpaRepository.findAll();   // @TenantId
+        response.put("promotions", classeEntities.stream().map(c -> {
             Map<String, Object> map = new HashMap<String, Object>();
             map.put("id", c.getId());
             map.put("name", c.getName() != null ? c.getName() : c.getNom());
-            map.put("filiere", c.getFiliereId() != null ? c.getFiliereId() : "Tronc Commun");
-            map.put("level", c.getLevel() != null ? c.getLevel() : "L1");
+            map.put("filiere", c.getFiliereId());
+            map.put("level", c.getLevel());
             map.put("capacity", c.getCapacity());
             return map;
-        }).collect(java.util.stream.Collectors.toList());
-        response.put("promotions", promotions);
-        
+        }).toList());
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/students")
+    @Operation(summary = "Lister les étudiants", description = "Élèves de l'école courante (données réelles uniquement).")
+    public ResponseEntity<List<Map<String, Object>>> getStudents() {
+        logger.info("GET /admin/students - Élèves de l'école courante");
+        return ResponseEntity.ok(eleves());
     }
 
     @PostMapping("/students")
-    @Operation(summary = "Ajouter étudiant", description = "Persiste un nouvel étudiant directement en base de données.")
+    @Operation(summary = "Ajouter étudiant", description = "Crée le compte de l'élève dans l'école courante. E-mail obligatoire (identifiant de connexion) ; "
+            + "mot de passe saisi (8 caractères min.) ou généré et renvoyé une seule fois dans motDePasseProvisoire.")
     public ResponseEntity<Map<String, Object>> addStudent(@RequestBody Map<String, String> body) {
-        logger.info("POST /admin/students - Ajout réel étudiant: {}", body.get("name"));
-        
-        String rawName = body.getOrDefault("name", "Nouvel Étudiant").trim();
-        String[] nameParts = rawName.split("\\s+", 2);
-        String prenom = nameParts.length > 1 ? nameParts[0] : "";
-        String nom = nameParts.length > 1 ? nameParts[1] : nameParts[0];
-        
-        String id = "usr-" + UUID.randomUUID().toString().substring(0, 8);
-        String matricule = body.getOrDefault("matricule", "MAT-" + System.currentTimeMillis() % 10000);
-        String email = body.get("email");
-        if (email == null || email.isBlank()) {
-            email = rawName.toLowerCase().replaceAll("[^a-z0-9]", ".") + "@ecole221.sn";
+        String[] nom = noms(body);
+        logger.info("POST /admin/students - Création d'un élève");
+        CompteCree cree = comptesEcole.creer(nom[0], nom[1], body.get("email"),
+                premier(body.get("telephone"), body.get("phoneParent")), body.get("matricule"), "ETUDIANT",
+                body.get("password"));
+        UserJpaEntity u = cree.compte();
+        actionLogger.logAdminAction("ADD_STUDENT", "ADMIN", u.getId(), "Élève créé : " + u.getEmail());
+
+        Map<String, Object> response = eleve(u, "ACTIVE");
+        if (cree.motDePasseProvisoire() != null) {
+            response.put("motDePasseProvisoire", cree.motDePasseProvisoire());
         }
-        
-        UserJpaEntity entity = new UserJpaEntity();
-        entity.setId(id);
-        entity.setNom(nom);
-        entity.setPrenom(prenom);
-        entity.setEmail(email);
-        entity.setMatricule(matricule);
-        entity.setRole("ETUDIANT");
-        entity.setTelephone(body.get("phoneParent") != null ? body.get("phoneParent") : body.get("telephone"));
-        
-        userJpaRepository.save(entity);
-        
-        actionLogger.logAdminAction("ADD_STUDENT", "ADMIN", rawName, 
-            "Étudiant créé en base de données avec ID " + id);
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", id);
-        response.put("name", rawName);
-        response.put("matricule", matricule);
-        response.put("email", email);
-        response.put("promotion_id", body.get("promotion_id"));
-        response.put("average", 14.0);
-        response.put("gpa", "14.0/20");
-        response.put("mood", "stable");
-        response.put("statutFrais", "En Règle");
-        response.put("financialStatus", "En Règle");
-        response.put("qrStatus", "AUTORISÉ");
-        
-        return ResponseEntity.ok(response);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @DeleteMapping("/students/{id}")
-    @Operation(summary = "Supprimer étudiant", description = "Supprime un étudiant de la base de données par son ID.")
+    @Operation(summary = "Retirer un étudiant", description = "Retire l'élève de l'école courante (compte supprimé s'il n'appartient à aucune autre école).")
     public ResponseEntity<Map<String, Object>> deleteStudent(@PathVariable("id") String id) {
-        logger.info("DELETE /admin/students/{} - Suppression réelle étudiant", id);
-        if (userJpaRepository.existsById(id)) {
-            userJpaRepository.deleteById(id);
-        }
-        
-        actionLogger.logAdminAction("DELETE_STUDENT", "ADMIN", id, 
-            "Étudiant supprimé de la base de données: " + id);
-        
+        logger.info("DELETE /admin/students/{} - Retrait de l'élève", id);
+        comptesEcole.retirer(id, "ETUDIANT");
+        actionLogger.logAdminAction("DELETE_STUDENT", "ADMIN", id, "Élève retiré de l'école : " + id);
         return ResponseEntity.ok(Map.of("success", true, "id", id));
     }
 
     @PostMapping("/professors")
-    @Operation(summary = "Ajouter professeur", description = "Persiste un nouveau professeur en base de données.")
+    @Operation(summary = "Ajouter professeur", description = "Crée le compte du professeur dans l'école courante (mêmes règles que pour un élève).")
     public ResponseEntity<Map<String, Object>> addProfessor(@RequestBody Map<String, String> body) {
-        logger.info("POST /admin/professors - Ajout réel professeur: {}", body.get("name"));
-        String rawName = body.getOrDefault("name", "Nouveau Professeur").trim();
-        String[] nameParts = rawName.split("\\s+", 2);
-        String prenom = nameParts.length > 1 ? nameParts[0] : "";
-        String nom = nameParts.length > 1 ? nameParts[1] : nameParts[0];
+        String[] nom = noms(body);
+        logger.info("POST /admin/professors - Création d'un professeur");
+        CompteCree cree = comptesEcole.creer(nom[0], nom[1], body.get("email"), body.get("telephone"),
+                body.get("matricule"), "PROFESSEUR", body.get("password"));
+        UserJpaEntity u = cree.compte();
+        actionLogger.logAdminAction("ADD_PROFESSOR", "ADMIN", u.getId(), "Professeur créé : " + u.getEmail());
 
-        String id = "usr-" + UUID.randomUUID().toString().substring(0, 8);
-        String email = body.getOrDefault("email", rawName.toLowerCase().replaceAll("[^a-z0-9]", ".") + "@ecole221.sn");
-
-        UserJpaEntity entity = new UserJpaEntity();
-        entity.setId(id);
-        entity.setNom(nom);
-        entity.setPrenom(prenom);
-        entity.setEmail(email);
-        entity.setRole("PROFESSEUR");
-        entity.setMatricule("PRF-" + System.currentTimeMillis() % 10000);
-        userJpaRepository.save(entity);
-
-        actionLogger.logAdminAction("ADD_PROFESSOR", "ADMIN", rawName, 
-            "Professeur créé en base de données avec ID " + id);
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("id", id);
-        response.put("name", rawName);
-        response.put("email", email);
-        return ResponseEntity.ok(response);
+        Map<String, Object> response = professeur(u, null);
+        if (cree.motDePasseProvisoire() != null) {
+            response.put("motDePasseProvisoire", cree.motDePasseProvisoire());
+        }
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @DeleteMapping("/professors/{id}")
-    @Operation(summary = "Supprimer professeur", description = "Supprime un professeur de la base de données.")
+    @Operation(summary = "Retirer professeur", description = "Retire le professeur de l'école courante.")
     public ResponseEntity<Map<String, Object>> deleteProfessor(@PathVariable("id") String id) {
-        logger.info("DELETE /admin/professors/{} - Suppression professeur", id);
-        if (userJpaRepository.existsById(id)) {
-            userJpaRepository.deleteById(id);
-        }
-        actionLogger.logAdminAction("DELETE_PROFESSOR", "ADMIN", id, 
-            "Professeur supprimé de la base de données: " + id);
+        logger.info("DELETE /admin/professors/{} - Retrait du professeur", id);
+        comptesEcole.retirer(id, "PROFESSEUR");
+        actionLogger.logAdminAction("DELETE_PROFESSOR", "ADMIN", id, "Professeur retiré de l'école : " + id);
         return ResponseEntity.ok(Map.of("success", true, "id", id));
     }
 
     @GetMapping("/schedule")
-    @Operation(summary = "Planning admin", description = "Retourne le planning complet des sessions depuis la base de données.")
+    @Operation(summary = "Planning admin", description = "Séances de l'école courante.")
     public ResponseEntity<List<Map<String, Object>>> getSchedule() {
-        logger.info("GET /admin/schedule - Recuperation des sessions en base de données");
-        List<ScheduleSessionJpaEntity> sessions = scheduleSessionJpaRepository.findAll();
+        logger.info("GET /admin/schedule - Séances de l'école courante");
+        List<ScheduleSessionJpaEntity> sessions = scheduleSessionJpaRepository.findAll();   // @TenantId
         List<Map<String, Object>> list = sessions.stream().map(s -> {
             Map<String, Object> map = new HashMap<String, Object>();
             map.put("id", s.getId());
@@ -320,36 +268,37 @@ public class AdminController {
             map.put("status", s.getStatus());
             map.put("classe", s.getClasse());
             return map;
-        }).collect(java.util.stream.Collectors.toList());
+        }).toList();
         return ResponseEntity.ok(list);
     }
 
-    private static final List<Map<String, Object>> STAFF_ATTENDANCE = new java.util.concurrent.CopyOnWriteArrayList<>(List.of(
-        new HashMap<>(Map.of("id", "att-1", "name", "Marie Sow", "photo", "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?w=100&h=100&fit=crop&q=80", "role", "Secrétaire", "checkIn", "07h52", "checkOut", "17h05", "hours", 9.0, "status", "À l'heure", "note", "Arrivée ponctuelle")),
-        new HashMap<>(Map.of("id", "att-2", "name", "Khadim Diallo", "photo", "https://images.unsplash.com/photo-1560250097-0b93528c311a?w=100&h=100&fit=crop&q=80", "role", "Enseignant", "checkIn", "08h15", "checkOut", "16h00", "hours", 7.5, "status", "En retard", "note", "Retard de 15 min - circulation")),
-        new HashMap<>(Map.of("id", "att-3", "name", "Abdou Ndiaye", "photo", "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100&h=100&fit=crop&q=80", "role", "Vigile", "checkIn", "06h45", "checkOut", "18h00", "hours", 11.25, "status", "À l'heure", "note", "Poste Porte Principale")),
-        new HashMap<>(Map.of("id", "att-4", "name", "Ibrahima Faye", "photo", "https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?w=100&h=100&fit=crop&q=80", "role", "Comptable", "checkIn", "08h02", "checkOut", "17h30", "hours", 9.25, "status", "À l'heure", "note", "En règle")),
-        new HashMap<>(Map.of("id", "att-5", "name", "Awa Diop", "photo", "https://images.unsplash.com/photo-1580489944761-15a19d654956?w=100&h=100&fit=crop&q=80", "role", "Secrétaire", "checkIn", "--", "checkOut", "--", "hours", 0.0, "status", "Absent", "note", "Absence signalée - certificat médical transmis"))
-    ));
-
     @GetMapping("/attendance")
-    @Operation(summary = "Émargements du personnel", description = "Retourne la liste des pointages d'émargement du personnel.")
+    @Operation(summary = "Émargements du personnel", description = "Pointages du personnel saisis dans l'école courante (vide tant qu'aucun n'est saisi).")
     public ResponseEntity<List<Map<String, Object>>> getStaffAttendance() {
-        logger.info("GET /admin/attendance - Récupération des émargements personnel");
-        return ResponseEntity.ok(STAFF_ATTENDANCE);
+        return ResponseEntity.ok(pointages.findAllByOrderByCreatedAtDesc().stream().map(this::pointage).toList());
     }
 
     @PostMapping("/attendance")
-    @Operation(summary = "Enregistrer un pointage personnel", description = "Crée ou enregistre une nouvelle entrée de pointage.")
+    @Operation(summary = "Enregistrer un pointage personnel", description = "Enregistre un pointage pour un membre du personnel de l'école.")
     public ResponseEntity<Map<String, Object>> addStaffAttendance(@RequestBody Map<String, Object> body) {
-        logger.info("POST /admin/attendance - Nouveau pointage pour: {}", body.get("name"));
-        Map<String, Object> record = new HashMap<>(body);
-        if (!record.containsKey("id") || record.get("id") == null) {
-            record.put("id", "att-" + System.currentTimeMillis());
+        String userId = texte(body.get("userId"));
+        String name = texte(body.get("name"));
+        if (userId != null) {
+            UserJpaEntity u = comptesEcole.membre(userId, null);   // personnel de CETTE école
+            name = ComptesEcoleService.nomComplet(u);
         }
-        STAFF_ATTENDANCE.add(record);
-        actionLogger.logAdminAction("ADD_ATTENDANCE", "ADMIN", (String) record.get("id"), "Pointage enregistré pour " + record.get("name"));
-        return ResponseEntity.ok(record);
+        if (name == null || name.isBlank()) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le membre du personnel est obligatoire.");
+        }
+        PointagePersonnelJpaEntity p = new PointagePersonnelJpaEntity();
+        p.setId("att-" + UUID.randomUUID());
+        p.setUserId(userId);
+        p.setName(name);
+        p.setCreatedAt(LocalDateTime.now());
+        appliquer(p, body);
+        pointages.save(p);
+        actionLogger.logAdminAction("ADD_ATTENDANCE", "ADMIN", p.getId(), "Pointage enregistré pour " + name);
+        return ResponseEntity.status(HttpStatus.CREATED).body(pointage(p));
     }
 
     @PutMapping("/attendance/{id}")
@@ -357,115 +306,218 @@ public class AdminController {
     public ResponseEntity<Map<String, Object>> updateStaffAttendance(
             @PathVariable("id") String id,
             @RequestBody Map<String, Object> updates) {
-        logger.info("PUT /admin/attendance/{} - Mise à jour pointage", id);
-        for (int i = 0; i < STAFF_ATTENDANCE.size(); i++) {
-            Map<String, Object> existing = STAFF_ATTENDANCE.get(i);
-            if (id.equals(existing.get("id"))) {
-                Map<String, Object> updated = new HashMap<>(existing);
-                updated.putAll(updates);
-                updated.put("id", id);
-                STAFF_ATTENDANCE.set(i, updated);
-                actionLogger.logAdminAction("UPDATE_ATTENDANCE", "ADMIN", id, "Pointage mis à jour pour " + updated.get("name"));
-                return ResponseEntity.ok(updated);
-            }
-        }
-        return ResponseEntity.notFound().build();
+        return pointages.findById(id).map(p -> {   // @TenantId : un pointage d'une autre école est introuvable
+            appliquer(p, updates);
+            pointages.save(p);
+            actionLogger.logAdminAction("UPDATE_ATTENDANCE", "ADMIN", id, "Pointage mis à jour pour " + p.getName());
+            return ResponseEntity.ok(pointage(p));
+        }).orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @GetMapping("/staff")
-    @Operation(summary = "Liste des membres du personnel", description = "Retourne tous les membres du personnel réels enregistrés en base.")
+    @Operation(summary = "Liste des membres du personnel", description = "Personnel de l'école courante.")
     public ResponseEntity<?> getStaffMembers() {
-        if (adminStaffService != null) {
-            return ResponseEntity.ok(adminStaffService.getStaffMembers());
-        }
-        return ResponseEntity.ok(List.of());
+        return ResponseEntity.ok(staff().getStaffMembers());
     }
 
     @PostMapping("/staff")
-    @Operation(summary = "Créer un membre du personnel", description = "Crée et persiste un nouveau collaborateur dans la base PostgreSQL.")
+    @Operation(summary = "Créer un membre du personnel", description = "Crée le compte d'un collaborateur dans l'école courante (mot de passe saisi ou provisoire).")
     public ResponseEntity<?> createStaffMember(@RequestBody Map<String, Object> body) {
-        if (adminStaffService != null) {
-            return adminStaffService.createStaffMember(body);
-        }
-        return ResponseEntity.ok(body);
+        return staff().createStaffMember(body);
     }
 
     @PutMapping("/staff/{id}")
-    @Operation(summary = "Modifier un membre du personnel", description = "Met à jour les identifiants, coordonnées et rôle d'un collaborateur dans PostgreSQL.")
+    @Operation(summary = "Modifier un membre du personnel", description = "Met à jour les coordonnées et le rôle d'un collaborateur de l'école.")
     public ResponseEntity<Map<String, Object>> updateStaffMember(
             @PathVariable("id") String id,
             @RequestBody Map<String, Object> updates) {
-        logger.info("PUT /admin/staff/{} - Modification collaborateur en base", id);
-        var userOpt = userJpaRepository.findById(id);
-        if (userOpt.isPresent()) {
-            UserJpaEntity u = userOpt.get();
-            if (updates.containsKey("firstName")) u.setPrenom((String) updates.get("firstName"));
-            if (updates.containsKey("lastName")) u.setNom((String) updates.get("lastName"));
-            if (updates.containsKey("email")) u.setEmail((String) updates.get("email"));
-            if (updates.containsKey("phone")) u.setTelephone((String) updates.get("phone"));
-            if (updates.containsKey("role")) u.setRole((String) updates.get("role"));
-            userJpaRepository.save(u);
-
-            actionLogger.logAdminAction("UPDATE_STAFF", "ADMIN", id, "Collaborateur mis à jour en base: " + u.getPrenom() + " " + u.getNom());
-            
-            Map<String, Object> res = new HashMap<>(updates);
-            res.put("id", id);
-            return ResponseEntity.ok(res);
-        }
-        return ResponseEntity.notFound().build();
+        logger.info("PUT /admin/staff/{} - Modification collaborateur", id);
+        return ResponseEntity.ok(staff().updateStaffMember(id, updates));
     }
 
     @PatchMapping("/staff/{id}/toggle-status")
-    @Operation(summary = "Suspendre/Réactiver un membre du personnel", description = "Bascule le statut d'un collaborateur.")
+    @Operation(summary = "Suspendre/Réactiver un membre du personnel", description = "Bascule l'appartenance du collaborateur à l'école (ACTIVE ⇄ SUSPENDED).")
     public ResponseEntity<Map<String, Object>> toggleStaffStatus(@PathVariable("id") String id) {
-        logger.info("PATCH /admin/staff/{}/toggle-status - Bascule statut", id);
-        var userOpt = userJpaRepository.findById(id);
-        if (userOpt.isPresent()) {
-            UserJpaEntity u = userOpt.get();
-            actionLogger.logAdminAction("TOGGLE_STAFF_STATUS", "ADMIN", id, "Statut basculé pour " + u.getEmail());
-            return ResponseEntity.ok(Map.of("id", id, "status", "Actif"));
-        }
-        return ResponseEntity.notFound().build();
+        String statut = comptesEcole.basculerStatut(id, null);
+        actionLogger.logAdminAction("TOGGLE_STAFF_STATUS", "ADMIN", id, "Statut collaborateur : " + statut);
+        return ResponseEntity.ok(Map.of("id", id, "status", ComptesEcoleService.libelleStatut(statut)));
     }
 
     @DeleteMapping("/staff/{id}")
-    @Operation(summary = "Supprimer un membre du personnel", description = "Supprime définitivement un collaborateur de PostgreSQL.")
+    @Operation(summary = "Retirer un membre du personnel", description = "Retire le collaborateur de l'école courante.")
     public ResponseEntity<Map<String, Object>> deleteStaffMember(@PathVariable("id") String id) {
-        logger.info("DELETE /admin/staff/{} - Suppression collaborateur en base", id);
-        if (userJpaRepository.existsById(id)) {
-            userJpaRepository.deleteById(id);
-            actionLogger.logAdminAction("DELETE_STAFF", "ADMIN", id, "Collaborateur supprimé de la base: " + id);
-            return ResponseEntity.ok(Map.of("success", true, "id", id));
-        }
-        return ResponseEntity.notFound().build();
+        logger.info("DELETE /admin/staff/{} - Retrait collaborateur", id);
+        comptesEcole.retirer(id, null);
+        actionLogger.logAdminAction("DELETE_STAFF", "ADMIN", id, "Collaborateur retiré de l'école : " + id);
+        return ResponseEntity.ok(Map.of("success", true, "id", id));
     }
 
     @PostMapping("/courses")
-    @Operation(summary = "Créer un cours", description = "Crée une matière/cours dans le cursus administratif.")
+    @Operation(summary = "Créer un cours", description = "Crée une matière pour une classe de l'école, confiée à un professeur de l'école.")
     public ResponseEntity<Map<String, Object>> createCourse(@RequestBody Map<String, Object> body) {
-        String id = "crs-" + System.currentTimeMillis();
-        String titre = (String) body.getOrDefault("titre", body.getOrDefault("name", "Nouveau Cours"));
-        String profId = (String) body.getOrDefault("professeur_id", body.getOrDefault("profId", "usr-002"));
-        String promoId = (String) body.getOrDefault("promotion_id", body.getOrDefault("classe", "L3-GL"));
-        
-        if (courseJpaRepository != null) {
-            ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaEntity course = 
-                new ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaEntity(id, titre, promoId, 45, profId);
-            courseJpaRepository.save(course);
+        if (courseJpaRepository == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Enregistrement des cours indisponible.");
         }
+        String titre = premier(texte(body.get("titre")), texte(body.get("name")));
+        String profId = premier(texte(body.get("professeur_id")), texte(body.get("profId")));
+        String promoId = premier(texte(body.get("promotion_id")), texte(body.get("classe")));
+        if (titre == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "L'intitulé du cours est obligatoire.");
+        if (promoId == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La classe du cours est obligatoire.");
+        if (profId == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le professeur du cours est obligatoire.");
+        comptesEcole.membre(profId, "PROFESSEUR");   // professeur de CETTE école
+        int heures = entier(premier(texte(body.get("volumeHoraire")), texte(body.get("totalHours"))));
+
+        String id = "crs-" + UUID.randomUUID();
+        courseJpaRepository.save(new CourseJpaEntity(id, titre, promoId, heures, profId));
         logger.info("POST /admin/courses - Cours créé: {} ({})", id, titre);
-        return ResponseEntity.ok(Map.of("success", true, "id", id, "titre", titre));
+        actionLogger.logAdminAction("CREATE_COURSE", "ADMIN", id, "Cours créé : " + titre);
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("success", true, "id", id, "titre", titre,
+                "professeur_id", profId, "promotion_id", promoId));
     }
 
     @PostMapping("/promotions")
-    @Operation(summary = "Créer une promotion / classe", description = "Enregistre une nouvelle filière ou promotion.")
+    @Operation(summary = "Créer une promotion / classe", description = "Enregistre une nouvelle classe de l'école courante.")
     public ResponseEntity<Map<String, Object>> createPromotion(@RequestBody Map<String, Object> body) {
-        String name = (String) body.getOrDefault("name", "Promotion");
-        String filiere = (String) body.getOrDefault("filiere", "Informatique");
-        String faculte = (String) body.getOrDefault("faculte", "Sciences & Technologies");
-        String id = "promo-" + System.currentTimeMillis();
-        
-        logger.info("POST /admin/promotions - Promotion créée: {} ({})", id, name);
-        return ResponseEntity.ok(Map.of("success", true, "id", id, "name", name, "filiere", filiere, "faculte", faculte));
+        String name = texte(body.get("name"));
+        if (name == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le nom de la promotion est obligatoire.");
+        boolean existe = classeJpaRepository.findAll().stream()
+                .anyMatch(c -> name.equalsIgnoreCase(c.getName() != null ? c.getName() : c.getNom()));
+        if (existe) throw new ResponseStatusException(HttpStatus.CONFLICT, "Une promotion porte déjà ce nom.");
+        ClasseJpaEntity c = new ClasseJpaEntity();
+        c.setId("cls-" + UUID.randomUUID());
+        c.setName(name);
+        c.setFiliereId(texte(body.get("filiere")));
+        c.setLevel(texte(body.get("level")));
+        c.setCapacity(entier(texte(body.get("capacity"))));
+        classeJpaRepository.save(c);   // organization_id posé par @TenantId
+        logger.info("POST /admin/promotions - Promotion créée: {} ({})", c.getId(), name);
+        actionLogger.logAdminAction("CREATE_PROMOTION", "ADMIN", c.getId(), "Promotion créée : " + name);
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("success", true);
+        res.put("id", c.getId());
+        res.put("name", name);
+        res.put("filiere", c.getFiliereId());
+        return ResponseEntity.status(HttpStatus.CREATED).body(res);
+    }
+
+    // ---------------------------------------------------------------- aides
+
+    private ecole_221.sn.ecole.modules.admin.application.service.AdminStaffService staff() {
+        if (adminStaffService == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Gestion du personnel indisponible.");
+        }
+        return adminStaffService;
+    }
+
+    private List<Map<String, Object>> eleves() {
+        return comptesEcole.membres("ETUDIANT").stream().map(e -> eleve(e.getKey(), e.getValue().getStatus())).toList();
+    }
+
+    /** Fiche élève : uniquement des champs réels ; classe / moyenne / présence n'ont pas encore de source → absents. */
+    private Map<String, Object> eleve(UserJpaEntity s, String statutAppartenance) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", s.getId());
+        map.put("name", ComptesEcoleService.nomComplet(s));
+        map.put("prenom", s.getPrenom());
+        map.put("nom", s.getNom());
+        map.put("matricule", s.getMatricule());
+        map.put("email", s.getEmail());
+        map.put("telephone", s.getTelephone());
+        map.put("photoUrl", s.getPhotoUrl());
+        StatutFrais frais = adminRepository.getStudentStatus(s.getId());
+        String libelle = frais == null ? null : frais.getDisplayName();   // null = non renseigné
+        map.put("statutFrais", libelle);
+        map.put("financialStatus", libelle);
+        map.put("status", ComptesEcoleService.libelleStatut(statutAppartenance));
+        map.put("qrStatus", qrStatus(statutAppartenance));
+        return map;
+    }
+
+    private Map<String, Object> professeur(UserJpaEntity p, OrganizationUserJpaEntity lien) {
+        Map<String, Object> map = new HashMap<>();
+        map.put("id", p.getId());
+        map.put("name", ComptesEcoleService.nomComplet(p));
+        map.put("email", p.getEmail());
+        map.put("telephone", p.getTelephone());
+        map.put("matricule", p.getMatricule());
+        map.put("status", ComptesEcoleService.libelleStatut(lien == null ? "ACTIVE" : lien.getStatus()));
+        return map;
+    }
+
+    private Map<String, Object> pointage(PointagePersonnelJpaEntity p) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", p.getId());
+        m.put("userId", p.getUserId());
+        m.put("name", p.getName());
+        m.put("role", p.getRole());
+        m.put("checkIn", p.getCheckIn());
+        m.put("checkOut", p.getCheckOut());
+        m.put("hours", p.getHours());
+        m.put("status", p.getStatus());
+        m.put("note", p.getNote());
+        m.put("date", p.getCreatedAt() == null ? null : p.getCreatedAt().toLocalDate().toString());
+        return m;
+    }
+
+    private static void appliquer(PointagePersonnelJpaEntity p, Map<String, Object> b) {
+        if (b.containsKey("role")) p.setRole(texte(b.get("role")));
+        if (b.containsKey("checkIn")) p.setCheckIn(texte(b.get("checkIn")));
+        if (b.containsKey("checkOut")) p.setCheckOut(texte(b.get("checkOut")));
+        if (b.containsKey("status")) p.setStatus(texte(b.get("status")));
+        if (b.containsKey("note")) p.setNote(texte(b.get("note")));
+        if (b.containsKey("hours")) {
+            String h = texte(b.get("hours"));
+            try {
+                p.setHours(h == null ? null : Double.valueOf(h.replace(',', '.')));
+            } catch (NumberFormatException e) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nombre d'heures invalide.");
+            }
+        }
+    }
+
+    private static String qrStatus(String statutAppartenance) {
+        return "ACTIVE".equalsIgnoreCase(statutAppartenance) ? "AUTORISÉ" : "SUSPENDU";
+    }
+
+    /** Statut saisi : « En Règle » ou « En Retard » uniquement (avant : toute valeur inconnue devenait « En Retard »). */
+    private static StatutFrais statutFraisStrict(String saisi) {
+        if (saisi == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Statut de frais manquant.");
+        String v = saisi.trim().toLowerCase(Locale.ROOT);
+        return switch (v) {
+            case "en règle", "en regle", "regle", "paye", "en_regle" -> StatutFrais.EN_REGLE;
+            case "en retard", "retard", "impaye", "en_retard" -> StatutFrais.EN_RETARD;
+            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Statut de frais invalide : « En Règle » ou « En Retard » attendu.");
+        };
+    }
+
+    /** Prénom / nom : champs séparés s'ils sont fournis, sinon découpe de « name ». */
+    private static String[] noms(Map<String, String> body) {
+        if (body.get("prenom") != null || body.get("nom") != null) {
+            return new String[] {body.get("prenom"), body.get("nom")};
+        }
+        if (body.get("firstName") != null || body.get("lastName") != null) {
+            return new String[] {body.get("firstName"), body.get("lastName")};
+        }
+        return ComptesEcoleService.decouperNom(body.get("name"));
+    }
+
+    private static String texte(Object o) {
+        if (o == null) return null;
+        String s = String.valueOf(o).trim();
+        return s.isEmpty() ? null : s;
+    }
+
+    private static String premier(String a, String b) {
+        return a != null && !a.isBlank() ? a : (b != null && !b.isBlank() ? b : null);
+    }
+
+    private static int entier(String s) {
+        if (s == null) return 0;
+        try {
+            return Integer.parseInt(s);
+        } catch (NumberFormatException e) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Nombre invalide : " + s);
+        }
     }
 }

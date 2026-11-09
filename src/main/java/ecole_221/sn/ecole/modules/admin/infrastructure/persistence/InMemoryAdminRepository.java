@@ -13,16 +13,14 @@ import java.util.concurrent.CopyOnWriteArrayList;
 public class InMemoryAdminRepository implements AdminRepositoryPort {
 
     private final Map<String, String> gateAssignment = new ConcurrentHashMap<>();
-    private final Map<String, StatutFrais> studentStatuses = new ConcurrentHashMap<>();
     private final List<String> realtimeLogs = new CopyOnWriteArrayList<>();
+    /** Statuts de frais persistés par école (plus de statuts inventés pour usr-001 / std-00x). */
+    private final StatutFraisJpaRepository statutsFrais;
 
-    public InMemoryAdminRepository() {
+    public InMemoryAdminRepository(StatutFraisJpaRepository statutsFrais) {
+        this.statutsFrais = statutsFrais;
         gateAssignment.put("gate", "Porte Principale");
         // plus de gardien inventé : « Non assigné » tant qu'aucune affectation n'est saisie
-        
-        studentStatuses.put("usr-001", StatutFrais.EN_REGLE);
-        studentStatuses.put("std-001", StatutFrais.EN_REGLE);
-        studentStatuses.put("std-002", StatutFrais.EN_RETARD);
 
         realtimeLogs.add("[" + LocalDateTime.now() + "] Système de contrôle initialisé.");
     }
@@ -40,7 +38,10 @@ public class InMemoryAdminRepository implements AdminRepositoryPort {
 
     @Override
     public void updateStudentStatus(String studentId, StatutFrais status) {
-        studentStatuses.put(studentId, status);
+        StatutFraisJpaEntity ligne = statutsFrais.findById(studentId)
+                .orElseGet(() -> new StatutFraisJpaEntity(studentId, status.name()));
+        ligne.setStatut(status.name());
+        statutsFrais.save(ligne);
     }
 
     @Override
@@ -55,6 +56,7 @@ public class InMemoryAdminRepository implements AdminRepositoryPort {
 
     @Override
     public StatutFrais getStudentStatus(String studentId) {
-        return studentStatuses.getOrDefault(studentId, StatutFrais.EN_REGLE);
+        // null = non renseigné : l'application ne présume JAMAIS qu'un élève est « En Règle »
+        return statutsFrais.findById(studentId).map(l -> StatutFrais.valueOf(l.getStatut())).orElse(null);
     }
 }

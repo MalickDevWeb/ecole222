@@ -10,5 +10,6 @@ public interface AdminRepositoryPort {
     void updateStudentStatus(String studentId, StatutFrais status);
     void addRealtimeLog(String message);
     List<String> getRealtimeLogs();
+    /** Statut des frais saisi par l'école ; {@code null} si jamais renseigné (aucune valeur présumée). */
     StatutFrais getStudentStatus(String studentId);
 }
