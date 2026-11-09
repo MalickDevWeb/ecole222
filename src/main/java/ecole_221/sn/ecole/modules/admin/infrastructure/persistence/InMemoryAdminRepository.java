@@ -18,7 +18,7 @@ public class InMemoryAdminRepository implements AdminRepositoryPort {
 
     public InMemoryAdminRepository() {
         gateAssignment.put("gate", "Porte Principale");
-        gateAssignment.put("guard", "Agent Mamadou Diallo");
+        // plus de gardien inventé : « Non assigné » tant qu'aucune affectation n'est saisie
         
         studentStatuses.put("usr-001", StatutFrais.EN_REGLE);
         studentStatuses.put("std-001", StatutFrais.EN_REGLE);

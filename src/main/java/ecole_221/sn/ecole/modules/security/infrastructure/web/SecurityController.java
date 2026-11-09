@@ -105,7 +105,17 @@ public class SecurityController {
 
     @GetMapping("/vigil/profile")
     public ResponseEntity<Map<String, Object>> getVigilProfile() {
-        return ResponseEntity.ok(securityUseCase.getVigilProfile("VIG-221"));
+        // Profil du vigile CONNECTÉ (avant : profil « VIG-221 » pour tout le monde)
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u)) {
+            return ResponseEntity.status(401).build();
+        }
+        Map<String, Object> profil = new java.util.HashMap<>(securityUseCase.getVigilProfile(u.getId()));
+        if ("non_configuré".equals(profil.get("statut"))) {
+            profil.put("nom", u.getNom());
+            profil.put("prenom", u.getPrenom());
+        }
+        return ResponseEntity.ok(profil);
     }
 
     @PostMapping("/vigil/scan")
