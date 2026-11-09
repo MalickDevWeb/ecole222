@@ -161,10 +161,17 @@ public class SecurityService implements SecurityUseCase {
                 msg = "Accès refusé : ce badge n'appartient pas à cet établissement.";
             } else if (u.getRole() != null && "ETUDIANT".equals(u.getRole().value())) {
                 StatutFrais frais = adminRepository.getStudentStatus(u.getId());
-                statutFrais = frais.getDisplayName();
-                accessGranted = frais == StatutFrais.EN_REGLE;
-                msg = accessGranted ? "Accès autorisé."
-                        : "Accès refusé. Veuillez régulariser votre situation financière auprès de la comptabilité.";
+                if (frais == null) {
+                    // statut jamais saisi : on ne présume ni « En Règle » ni « En Retard », on le signale
+                    statutFrais = "Non renseigné";
+                    accessGranted = true;
+                    msg = "Accès autorisé. Statut des frais non renseigné par l'administration.";
+                } else {
+                    statutFrais = frais.getDisplayName();
+                    accessGranted = frais == StatutFrais.EN_REGLE;
+                    msg = accessGranted ? "Accès autorisé."
+                            : "Accès refusé. Veuillez régulariser votre situation financière auprès de la comptabilité.";
+                }
             } else {
                 accessGranted = true;   // personnel de l'école
                 msg = "Accès autorisé (personnel).";
