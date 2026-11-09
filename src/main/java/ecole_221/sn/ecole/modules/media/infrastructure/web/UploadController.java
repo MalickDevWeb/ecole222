@@ -44,6 +44,12 @@ public class UploadController {
             @Parameter(description = "Identifiant de l'utilisateur (optionnel)") @RequestParam(value = "userId", required = false) String userId,
             jakarta.servlet.http.HttpServletRequest request)
             throws IOException {
+        // APP-SEC-15 (revue Agent 06) : quota vérifié AVANT toute lecture du fichier ;
+        // route publique (portail candidat) → débit limité pour les visiteurs sans compte
+        if (!authentifie() && !LIMITEUR.autoriser(adresse(request))) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, "Trop d'envois : réessayez plus tard.");
+        }
         if (file == null || file.isEmpty()) {
             throw new InvalidFileException("Le fichier sélectionné est vide.");
         }
@@ -61,11 +67,6 @@ public class UploadController {
         byte[] contenu = file.getBytes();
         if (!signatureConforme(contenu, contentType.toLowerCase())) {
             throw new InvalidFileException("Le contenu du fichier ne correspond pas à son format déclaré (" + contentType + ").");
-        }
-        // APP-SEC-15 : route publique (portail candidat) → débit limité pour les visiteurs sans compte
-        if (!authentifie() && !LIMITEUR.autoriser(adresse(request))) {
-            throw new org.springframework.web.server.ResponseStatusException(
-                    org.springframework.http.HttpStatus.TOO_MANY_REQUESTS, "Trop d'envois : réessayez plus tard.");
         }
 
         String fileName = file.getOriginalFilename();
@@ -116,10 +117,10 @@ public class UploadController {
     }
 
     /**
-     * Adresse du client : derrière le proxy de Render, getRemoteAddr() est celle du proxy (tous les
-     * candidats partageraient le même quota) → premier X-Forwarded-For. Limite connue : en-tête
-     * falsifiable, le quota peut être contourné ; à remplacer par server.forward-headers-strategy
-     * (application.yaml, en cours de modification par le Tech Lead).
+     * Adresse du client. Derrière le proxy de Render, getRemoteAddr() est celle du proxy : on prend
+     * la DERNIÈRE valeur de X-Forwarded-For, celle ajoutée par le proxy de confiance (les valeurs
+     * fournies par le client se placent avant et ne peuvent pas la remplacer). Hypothèse : un seul
+     * proxy devant l'application. À remplacer par server.forward-headers-strategy (application.yaml).
      */
     static String adresse(jakarta.servlet.http.HttpServletRequest request) {
         if (request == null) {
@@ -127,7 +128,8 @@ public class UploadController {
         }
         String xff = request.getHeader("X-Forwarded-For");
         if (xff != null && !xff.isBlank()) {
-            return xff.split(",")[0].trim();
+            String[] sauts = xff.split(",");
+            return sauts[sauts.length - 1].trim();
         }
         return request.getRemoteAddr();
     }
@@ -143,9 +145,18 @@ public class UploadController {
             this.fenetre = fenetre;
         }
 
+        /** Nombre maximal d'adresses suivies (revue Agent 06 : la table ne doit pas croître sans fin). */
+        static final int MAX_ADRESSES = 10_000;
+
         boolean autoriser(String cle) {
             long maintenant = System.currentTimeMillis();
             long limite = maintenant - fenetre.toMillis();
+            if (envois.size() >= MAX_ADRESSES && !envois.containsKey(cle)) {
+                purger(limite);
+                if (envois.size() >= MAX_ADRESSES) {
+                    return false;   // table pleine d'adresses actives : refus (fermé) plutôt que croissance mémoire
+                }
+            }
             java.util.Deque<Long> d = envois.computeIfAbsent(cle, k -> new java.util.ArrayDeque<>());
             synchronized (d) {
                 while (!d.isEmpty() && d.peekFirst() < limite) {
@@ -157,6 +168,19 @@ public class UploadController {
                 d.addLast(maintenant);
                 return true;
             }
+        }
+
+        /** Retire les adresses dont tous les envois sont sortis de la fenêtre. */
+        void purger(long limite) {
+            envois.entrySet().removeIf(e -> {
+                synchronized (e.getValue()) {
+                    return e.getValue().isEmpty() || e.getValue().peekLast() < limite;
+                }
+            });
+        }
+
+        int taille() {
+            return envois.size();
         }
     }
 }
