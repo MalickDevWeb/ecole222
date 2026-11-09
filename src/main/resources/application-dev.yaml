@@ -5,7 +5,7 @@ spring:
   datasource:
     url: jdbc:postgresql://ep-patient-darkness-avnjut8j-pooler.c-11.us-east-1.aws.neon.tech/221-db?sslmode=require&channelBinding=require
     username: neondb_owner
-    password: npg_4yY7uSBEPobK
+    password: ${DATABASE_PASSWORD}   # obligatoire ; plus de mot de passe dans le dépôt (APP-TL-14)
   
   jpa:
     show-sql: true
