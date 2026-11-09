@@ -262,39 +262,14 @@ public class ParentService implements ParentUseCase {
     }
 
     @Override
+    @Transactional(readOnly = true)
     public PaymentDto getParentPayments(String parentId) {
         logger.info("Récupération des paiements pour le parent: {}", parentId);
         
-        // TODO: Implémenter avec données réelles depuis PaymentRepository
-        
-        List<PaymentDto.PaymentInstallmentDto> echeances = List.of(
-            new PaymentDto.PaymentInstallmentDto(
-                "p1",
-                "1ère tranche",
-                300000L,
-                "2026-09-01",
-                "PAYE",
-                "2026-08-28"
-            ),
-            new PaymentDto.PaymentInstallmentDto(
-                "p2",
-                "2ème tranche",
-                275000L,
-                "2026-11-01",
-                "EN_COURS",
-                null
-            ),
-            new PaymentDto.PaymentInstallmentDto(
-                "p3",
-                "3ème tranche",
-                275000L,
-                "2026-01-15",
-                "A_PAYER",
-                null
-            )
-        );
-        
-        return new PaymentDto(850000L, echeances);
+        // APP-BE-18 : aucune source réelle de paiements n'est branchée (pas de PaymentRepository).
+        // On ne renvoie JAMAIS de transaction fictive : réponse vide explicitement marquée « non_disponible ».
+        // Quand une source réelle existera, renvoyer ses échéances avec statut PaymentDto.STATUT_DISPONIBLE.
+        return PaymentDto.nonDisponible();
     }
 
     @Override
