@@ -30,54 +30,43 @@ public class ParentService implements ParentUseCase {
     
     private final ParentRepositoryPort parentRepositoryPort;
     private final AppointmentRepositoryPort appointmentRepositoryPort;
+    private final ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort userRepositoryPort;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public ParentService(ParentRepositoryPort parentRepositoryPort,
-                         AppointmentRepositoryPort appointmentRepositoryPort) {
+                         AppointmentRepositoryPort appointmentRepositoryPort,
+                         ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort userRepositoryPort) {
         this.parentRepositoryPort = parentRepositoryPort;
         this.appointmentRepositoryPort = appointmentRepositoryPort;
+        this.userRepositoryPort = userRepositoryPort;
+    }
+
+    /** Compatibilité (tests) : sans annuaire des comptes, les enfants sont renvoyés sans nom. */
+    public ParentService(ParentRepositoryPort parentRepositoryPort,
+                         AppointmentRepositoryPort appointmentRepositoryPort) {
+        this(parentRepositoryPort, appointmentRepositoryPort, null);
     }
 
     @Override
     public List<ChildDto> getEnfantsByParentId(String parentId) {
         logger.info("Récupération des enfants du parent: {}", parentId);
-        
-        // TODO: Implémenter avec données réelles depuis les repositories Student/ParentEnfant
-        // Exemple temporaire avec données mockées
+        // APP-BE-19 (sécurité) : uniquement les liens parent ↔ enfant enregistrés.
+        // Avant : tout parent sans enfant recevait l'élève « usr-001 » par défaut, et comme ce
+        // résultat sert au contrôle de filiation du contrôleur, n'importe quel parent pouvait
+        // consulter les notes, présences et statistiques de cet élève. Les enfants réels
+        // étaient en outre tous renvoyés sous le nom fictif « Aminata Diallo ».
         List<ChildDto> enfants = new ArrayList<>();
-        
-        // Récupérer les liens parent-enfant
-        List<ParentEnfant> parentEnfants = parentRepositoryPort.findParentEnfantsByParentId(parentId);
-        
-        for (ParentEnfant pe : parentEnfants) {
-            // TODO: Récupérer les vrais détails de l'étudiant depuis StudentRepository
-            // Pour l'instant, on retourne des données mockées
+        for (ParentEnfant pe : parentRepositoryPort.findParentEnfantsByParentId(parentId)) {
+            var compte = userRepositoryPort == null ? Optional.<ecole_221.sn.ecole.modules.auth.domain.model.User>empty()
+                    : userRepositoryPort.findById(pe.getEnfantId());
             enfants.add(new ChildDto(
                 pe.getEnfantId(),
-                "Diallo",
-                "Aminata",
-                "E221-2026-001",
-                "Informatique",
-                "L2",
-                "L2-INFO-A",
-                null
+                compte.map(u -> u.getNom()).orElse(null),
+                compte.map(u -> u.getPrenom()).orElse(null),
+                compte.map(u -> u.getMatricule()).orElse(null),
+                null, null, null, null   // filière, niveau, classe, photo : pas encore de source fiable
             ));
         }
-        
-        // Si aucun enfant trouvé, retourner une liste vide
-        if (enfants.isEmpty()) {
-            // Essayer de trouver au moins un enfant par défaut
-            enfants.add(new ChildDto(
-                "usr-001",
-                "Sall",
-                "Mamadou",
-                "2026-GC-001",
-                "Génie Civil",
-                "L1",
-                "L1-GL",
-                null
-            ));
-        }
-        
         return enfants;
     }
 
