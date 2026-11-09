@@ -32,6 +32,7 @@ public enum ErrorCode {
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "Données de formulaire invalides."),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "Ressource demandée introuvable."),
     OPERATION_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "Opération non autorisée dans l'état actuel."),
+    STORAGE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Stockage des fichiers indisponible."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Une erreur inattendue est survenue sur le serveur.");
 
     private final HttpStatus httpStatus;
