@@ -237,7 +237,7 @@ public class AdmissionController {
                     "transcripts", false
                 ));
                 Map<String, Object> details = new java.util.HashMap<>();
-                details.put("cniNumber", "CNI-" + e.getId());
+                details.put("cniNumber", null);   // APP-BE-17 : plus de numéro « CNI-<id> » inventé (non collecté en base)
                 // APP-BE-04 : plus d'URL CNI fictive ni de statut « verified » inventé
                 details.put("cniUrl", null);
                 details.put("cniStatus", "unknown");

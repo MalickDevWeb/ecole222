@@ -108,47 +108,26 @@ public class AdminStudentProfileController {
         return new LinkedHashMap<>();
     }
 
+    /**
+     * Profil 360 par défaut (aucune donnée enregistrée pour cet élève) — APP-BE-17.
+     * Avant : dossier d'admission, notes, connexions, parcours, messages et DONNÉES DE SANTÉ
+     * (« O+, Aucune allergie connue ») inventés pour tout élève. Désormais : structure vide
+     * et statut explicite ; seules les données saisies (POST profile360) sont renvoyées.
+     */
     private Map<String, Object> buildDefaultProfile(String studentId) {
         Map<String, Object> profile = new LinkedHashMap<>();
-        profile.put("admissionDetails", Map.of(
-                "matricule", "MAT-2023-" + studentId,
-                "dateInscription", "15/09/2023",
-                "bacSerie", "S1 Scientifique",
-                "bacMention", "Très Bien (16.8/20)",
-                "lyceeOrigine", "Lycée Seydou Nourou Tall",
-                "commissionAdmission", "Commission Régionale Dakar",
-                "dateDecision", "05/09/2023",
-                "statut", "ADMIS"
-        ));
-        profile.put("ueList", List.of(
-                Map.of("ue", "UE Scientifique Fondamentale", "module", "Mathématiques & Analyse",
-                        "coefficient", 4, "grade", 16.5, "teacher", "Mme Sow", "status", "VALIDÉ"),
-                Map.of("ue", "UE Technique Professionnelle", "module", "Résistance des Matériaux (RDM)",
-                        "coefficient", 5, "grade", 17.8, "teacher", "Prof Diallo", "status", "VALIDÉ")
-        ));
-        profile.put("connectionLogs", List.of(
-                Map.of("date", "2026-07-17 08:15", "device", "Chrome Desktop", "location", "Dakar, Sénégal", "status", "RÉUSSI")
-        ));
-        profile.put("activityTrail", List.of(
-                Map.of("id", "log-1", "timestamp", "2026-07-17 08:35", "actor", "Étudiant",
-                        "module", "Planning", "action", "Consultation emploi du temps", "result", "SUCCÈS")
-        ));
-        profile.put("timeline", List.of(
-                Map.of("year", "2023-09", "title", "Candidature & Admission",
-                        "desc", "Dossier accepté", "status", "COMPLETED")
-        ));
-        // APP-BE-04 : aucun paiement fictif (plus de reçu REC-2023-001 ni de « Orange Money » inventé).
-        // Les paiements réels ne sont pas encore branchés sur ce profil → liste vide + statut explicite.
+        profile.put("donneesStatus", "non_disponible");
+        profile.put("admissionDetails", new LinkedHashMap<String, Object>());
+        profile.put("ueList", List.of());
+        profile.put("connectionLogs", List.of());
+        profile.put("activityTrail", List.of());
+        profile.put("timeline", List.of());
+        // APP-BE-04 : aucun paiement fictif
         profile.put("payments", List.of());
         profile.put("paymentsStatus", "non_disponible");
-        profile.put("extra", Map.of(
-                "sante", "O+,Aucune allergie connue",
-                "bourses", "Aucune bourse",
-                "messages", List.of(
-                        Map.of("sender", "Administration", "text", "Bienvenue sur la plateforme École 221.",
-                                "date", "10/07/2026 09:00")
-                )
-        ));
+        Map<String, Object> extra = new LinkedHashMap<>();
+        extra.put("messages", List.of());
+        profile.put("extra", extra);
         return profile;
     }
 }
