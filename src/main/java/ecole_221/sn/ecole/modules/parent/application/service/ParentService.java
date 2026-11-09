@@ -73,53 +73,36 @@ public class ParentService implements ParentUseCase {
     @Override
     public ChildStatsDto getChildStats(String enfantId) {
         logger.info("Récupération des stats pour l'enfant: {}", enfantId);
-        
-        // TODO: Implémenter avec données réelles
-        // Calculer les stats à partir des repositories
-        
-        List<ChildStatsDto.ExamDto> prochainsExamens = List.of(
-            new ChildStatsDto.ExamDto("Algorithmique Avancée", "2026-08-20", "A101"),
-            new ChildStatsDto.ExamDto("Base de Données", "2026-08-25", "B203")
-        );
-        
-        List<ChildStatsDto.CourseDto> coursAujourdhui = List.of(
-            new ChildStatsDto.CourseDto(
-                "c1",
-                getCurrentDay(),
-                "08h00 - 10h00",
-                "Algorithmique Avancée",
-                "Dr. Sall",
-                "A101",
-                "CM",
-                true
-            )
-        );
-        
-        return new ChildStatsDto(
-            87.0,   // tauxPresence
-            3,      // nombreAbsences
-            2,      // nombreRetards
-            14.5,   // moyenneGenerale
-            24,     // creditValides
-            1,      // devoirsEnRetard
-            prochainsExamens,
-            coursAujourdhui
-        );
+        // APP-BE-19 : calculées UNIQUEMENT à partir des présences et notes réellement saisies.
+        // Avant : 87 % de présence, 14,5 de moyenne, examens et cours « Dr. Sall » inventés.
+        // Sans donnée : null (rien d'inventé). Crédits, devoirs, examens, cours du jour : pas de source → null / vide.
+        var presences = parentRepositoryPort.findPresencesByEnfantId(enfantId);
+        Double taux = null;
+        Integer absences = null;
+        Integer retards = null;
+        if (!presences.isEmpty()) {
+            long presents = presences.stream().filter(p -> "PRESENT".equalsIgnoreCase(p.statut())).count();
+            long retardsN = presences.stream().filter(p -> "RETARD".equalsIgnoreCase(p.statut()) || "LATE".equalsIgnoreCase(p.statut())).count();
+            long absN = presences.stream().filter(p -> "ABSENT".equalsIgnoreCase(p.statut())).count();
+            taux = Math.round((presents + retardsN) * 1000.0 / presences.size()) / 10.0;
+            absences = (int) absN;
+            retards = (int) retardsN;
+        }
+        var moyennes = getChildGrades(enfantId).stream().map(GradeDto::moyenne).filter(java.util.Objects::nonNull).toList();
+        Double moyenne = moyennes.isEmpty() ? null
+                : Math.round(moyennes.stream().mapToDouble(Double::doubleValue).average().orElse(0) * 100) / 100.0;
+        return new ChildStatsDto(taux, absences, retards, moyenne, null, null, List.of(), List.of());
     }
 
     @Override
     public List<PresenceDto> getChildPresences(String enfantId, String mois) {
         logger.info("Récupération des présences pour l'enfant: {}, mois: {}", enfantId, mois);
-        
-        // TODO: Implémenter avec données réelles depuis PresenceRepository
-        // Si mois est null, utiliser le mois courant
-        String monthToUse = mois != null ? mois : LocalDate.now().format(DateTimeFormatter.ofPattern("yyyy-MM"));
-        
-        return List.of(
-            new PresenceDto("a1", "2026-08-12", "PRESENT", "Algorithmique", "Dr. Sall", "08h00"),
-            new PresenceDto("a2", "2026-08-11", "RETARD", "Base de Données", "Prof. Ndiaye", "10h30"),
-            new PresenceDto("a3", "2026-08-10", "ABSENT", "Réseaux", "Dr. Mbaye", "14h00")
-        );
+        // APP-BE-19 : présences réellement saisies par les professeurs (table attendances), filtrées par mois si fourni
+        return parentRepositoryPort.findPresencesByEnfantId(enfantId).stream()
+                .filter(p -> mois == null || mois.isBlank() || (p.date() != null && p.date().startsWith(mois)))
+                .map(p -> new PresenceDto(p.id(), p.date(), p.statut(),
+                        p.coursNom() != null ? p.coursNom() : p.coursId(), nomProfesseur(p.professeurId()), null))
+                .toList();
     }
 
     @Override
@@ -154,45 +137,16 @@ public class ParentService implements ParentUseCase {
     @Override
     public List<ScheduleDto> getChildSchedule(String enfantId) {
         logger.info("Récupération du planning pour l'enfant: {}", enfantId);
-        
-        // TODO: Implémenter avec données réelles depuis PlanningRepository
-        
-        return List.of(
-            new ScheduleDto("s1", "Lundi", "08h00 - 10h00", "Algorithmique", "Dr. Sall", "A101", "CM", false),
-            new ScheduleDto("s2", "Mardi", "08h00 - 10h00", "Algorithmique", "Dr. Sall", "A101", "CM", true),
-            new ScheduleDto("s3", "Mardi", "10h30 - 12h30", "Base de Données", "Prof. Ndiaye", "B203", "TD", false),
-            new ScheduleDto("s4", "Mercredi", "14h00 - 16h00", "Réseaux", "Dr. Mbaye", "C101", "CM", false)
-        );
+        // APP-BE-19 : aucun lien fiable élève → classe → séances n'existe encore ; liste vide plutôt
+        // qu'un emploi du temps inventé (« Dr. Sall », « Prof. Ndiaye »…).
+        return List.of();
     }
 
     @Override
     public List<MessageDto> getParentMessages(String parentId) {
         logger.info("Récupération des messages pour le parent: {}", parentId);
-        
-        // TODO: Implémenter avec données réelles depuis MessageRepository
-        
-        return List.of(
-            new MessageDto(
-                "m1",
-                "Dr. Sall",
-                "Professeur - Algorithmique",
-                "Progrès de votre enfant",
-                "Bonjour, je souhaite vous informer qu'Aminata montre d'excellentes dispositions en algorithmique.",
-                "2026-08-10",
-                false,
-                null
-            ),
-            new MessageDto(
-                "m3",
-                "Administration",
-                "Secrétariat",
-                "Réunion parents-professeurs",
-                "Une réunion parents-professeurs est prévue le 30 août 2026 à 10h dans l'amphithéâtre A.",
-                "2026-08-05",
-                true,
-                null
-            )
-        );
+        // APP-BE-19 : aucune messagerie persistée → liste vide (avant : messages inventés, « Dr. Sall » / « Aminata »)
+        return List.of();
     }
 
     @Override
@@ -236,22 +190,8 @@ public class ParentService implements ParentUseCase {
     @Override
     public List<ApplicationDto> getParentApplications(String parentId) {
         logger.info("Récupération des candidatures pour le parent: {}", parentId);
-        
-        // TODO: Implémenter avec données réelles depuis ApplicationRepository
-        
-        return List.of(
-            new ApplicationDto(
-                "d-123",
-                "Aminata Diallo",
-                "Informatique",
-                "L1",
-                "2026-08-12",
-                "EN_ATTENTE",
-                40,
-                "Vérification",
-                null
-            )
-        );
+        // APP-BE-19 : aucun lien parent → candidature persisté → liste vide (avant : dossier « Aminata Diallo » inventé)
+        return List.of();
     }
 
     @Override
@@ -291,9 +231,8 @@ public class ParentService implements ParentUseCase {
         logger.info("Demande de RDV par le parent: {}, avec professeur: {}, date: {}", 
                    parentId, request.professeurId(), request.dateSouhaitee());
         
-        String profNom = request.professeurId() != null && request.professeurId().contains("—") 
-            ? request.professeurId() 
-            : "Dr. Sall (Algorithmique & IA)";
+        // APP-BE-19 : nom réel du professeur choisi (avant : « Dr. Sall » pour tout identifiant)
+        String profNom = nomProfesseur(request.professeurId());
             
         Appointment appointment = Appointment.create(
             parentId,

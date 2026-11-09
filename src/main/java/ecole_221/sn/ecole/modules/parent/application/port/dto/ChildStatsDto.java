@@ -6,12 +6,12 @@ import java.util.List;
  * DTO représentant les statistiques d'un enfant.
  */
 public record ChildStatsDto(
-    double tauxPresence,
-    int nombreAbsences,
-    int nombreRetards,
-    double moyenneGenerale,
-    int creditValides,
-    int devoirsEnRetard,
+    Double tauxPresence,
+    Integer nombreAbsences,
+    Integer nombreRetards,
+    Double moyenneGenerale,
+    Integer creditValides,
+    Integer devoirsEnRetard,
     List<ExamDto> prochainsExamens,
     List<CourseDto> coursAujourdhui
 ) {
