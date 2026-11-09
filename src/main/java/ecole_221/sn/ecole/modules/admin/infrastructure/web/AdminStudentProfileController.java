@@ -26,7 +26,7 @@ public class AdminStudentProfileController {
     @GetMapping("/students/{id}/profile360")
     public ResponseEntity<Map<String, Object>> getProfile360(@PathVariable("id") String studentId) {
         logger.info("GET /admin/students/{}/profile360", studentId);
-        return ResponseEntity.ok(profileStore.computeIfAbsent(studentId, this::buildDefaultProfile));
+        return ResponseEntity.ok(profileStore.computeIfAbsent(cle(studentId), k -> buildDefaultProfile(studentId)));
     }
 
     @PostMapping("/students/{id}/profile360")
@@ -34,7 +34,7 @@ public class AdminStudentProfileController {
             @PathVariable("id") String studentId,
             @RequestBody Map<String, Object> fields) {
         logger.info("POST /admin/students/{}/profile360", studentId);
-        Map<String, Object> profile = profileStore.computeIfAbsent(studentId, this::buildDefaultProfile);
+        Map<String, Object> profile = profileStore.computeIfAbsent(cle(studentId), k -> buildDefaultProfile(studentId));
         Map<String, Object> extra = castMap(profile.get("extra"));
         if (fields.containsKey("email")) {
             // no-op placeholder for future user linkage
@@ -42,7 +42,7 @@ public class AdminStudentProfileController {
         if (fields.containsKey("bloodGroup")) extra.put("sante", fields.get("bloodGroup"));
         if (fields.containsKey("allergies")) extra.put("allergies", fields.get("allergies"));
         profile.put("extra", extra);
-        profileStore.put(studentId, profile);
+        profileStore.put(cle(studentId), profile);
         return ResponseEntity.ok(profile);
     }
 
@@ -106,6 +106,15 @@ public class AdminStudentProfileController {
             return (Map<String, Object>) map;
         }
         return new LinkedHashMap<>();
+    }
+
+    /**
+     * Clé de stockage = école courante + élève (APP-BE-20) : les données saisies (dont la santé)
+     * d'un élève de l'école A ne sont pas lisibles depuis l'école B avec le même identifiant.
+     */
+    static String cle(String studentId) {
+        String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse("sans-ecole");
+        return ecole + ":" + studentId;
     }
 
     /**
