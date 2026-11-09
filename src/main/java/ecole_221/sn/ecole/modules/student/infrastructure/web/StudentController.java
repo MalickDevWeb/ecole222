@@ -35,6 +35,14 @@ public class StudentController {
     @Autowired(required = false)
     private ecole_221.sn.ecole.modules.collaboration.infrastructure.persistence.MeetJpaRepository meetJpaRepository;
 
+    /** Affectation réelle élève → classe (filtrée par école). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaRepository inscriptions;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository classesEcole;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.FiliereJpaRepository filieresEcole;
+
     private final StudentUseCase studentUseCase;
     private final ecole_221.sn.ecole.modules.student.infrastructure.persistence.CourseDetailRepository courseDetailRepository;
     private final ecole_221.sn.ecole.modules.student.infrastructure.persistence.StudentDataRepository studentDataRepository;
@@ -66,11 +74,7 @@ public class StudentController {
     @Operation(summary = "Profil etudiant", description = "Retourne les informations du profil de l'etudiant depuis la BDD.")
     public ResponseEntity<StudentProfileDto> getProfile() {
         logger.info("GET /student/profile - Recuperation du profil etudiant");
-        Map<String, Object> profileMap = studentDataRepository.findById(etudiant())
-                .map(data -> data.getProfile())
-                .orElseGet(() -> studentUseCase.getStudentProfile(etudiant()));
-        
-        return ResponseEntity.ok(StudentMapper.toProfileDto(profileMap));
+        return ResponseEntity.ok(StudentMapper.toProfileDto(profilReel()));
     }
 
     @GetMapping("/dashboard")
@@ -90,7 +94,15 @@ public class StudentController {
     @Operation(summary = "Badge numerique dynamique", description = "Retourne le badge QR avec token HMAC rotatif (expire chaque minute).")
     public ResponseEntity<DigitalBadgeDto> getDigitalBadge() {
         logger.info("GET /student/digital-badge - Generation du badge numerique");
-        Map<String, Object> badgeMap = studentUseCase.getDigitalBadge(etudiant());
+        Map<String, Object> profil = profilReel();
+        String matricule = (String) profil.get("matricule");
+        if (matricule == null || matricule.isBlank()) {
+            // jamais de matricule inventé : sans matricule attribué, pas de badge d'accès
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
+                    "Badge indisponible : aucun matricule n'est encore attribué à votre compte.");
+        }
+        String nom = (String.valueOf(profil.getOrDefault("prenom", "")) + " " + profil.getOrDefault("nom", "")).trim();
+        Map<String, Object> badgeMap = studentUseCase.getDigitalBadge(etudiant(), matricule, nom, (String) profil.get("classe"));
         return ResponseEntity.ok(StudentMapper.toDigitalBadgeDto(badgeMap));
     }
 
@@ -481,6 +493,43 @@ public class StudentController {
             return u;
         }
         throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED);
+    }
+
+    /**
+     * Profil RÉEL de l'élève connecté : compte (nom, e-mail, matricule…) + classe affectée (niveau, filière).
+     * Avant : lu uniquement dans le stockage annexe StudentData, rempli par les anciennes données fictives
+     * → pour un vrai compte, profil entièrement vide (« Matricule non renseigné », pas de nom).
+     * Les informations complémentaires éventuellement présentes dans StudentData complètent les champs vides.
+     */
+    private Map<String, Object> profilReel() {
+        var u = compteConnecte();
+        Map<String, Object> p = new java.util.LinkedHashMap<>();
+        p.put("id", u.getId());
+        p.put("nom", u.getNom());
+        p.put("prenom", u.getPrenom());
+        p.put("email", u.getEmail());
+        p.put("matricule", u.getMatricule());
+        p.put("telephone", u.getTelephone());
+        p.put("photoUrl", u.getPhotoUrl());
+        if (inscriptions != null && classesEcole != null) {
+            inscriptions.findFirstByUserId(u.getId())
+                    .flatMap(i -> classesEcole.findById(i.getClasseId()))
+                    .ifPresent(c -> {
+                        p.put("classe", c.getName() != null ? c.getName() : c.getNom());
+                        p.put("niveau", c.getLevel());
+                        String filiere = c.getFiliereId();
+                        if (filiere != null && filieresEcole != null) {
+                            filiere = filieresEcole.findById(filiere).map(f -> f.getName() != null ? f.getName() : f.getNom()).orElse(filiere);
+                        }
+                        p.put("filiere", filiere);
+                    });
+        }
+        studentDataRepository.findById(u.getId()).map(d -> d.getProfile()).ifPresent(extra -> extra.forEach((k, v) -> {
+            Object actuel = p.get(k);
+            if ((actuel == null || String.valueOf(actuel).isBlank()) && v != null) p.put(k, v);
+        }));
+        p.replaceAll((k, v) -> v == null ? "" : v);
+        return p;
     }
 
     private static String etudiant() {

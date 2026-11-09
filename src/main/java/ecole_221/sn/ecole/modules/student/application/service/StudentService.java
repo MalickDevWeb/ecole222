@@ -65,26 +65,17 @@ public class StudentService implements StudentUseCase {
     }
 
     @Override
-    public Map<String, Object> getDigitalBadge(String studentId) {
+    public Map<String, Object> getDigitalBadge(String studentId, String matricule, String nomComplet, String classeReelle) {
         long minuteEpoch = System.currentTimeMillis() / 60000;
-        String matricule = "SN-2026-" + studentId.hashCode() % 10000;
         String token = generateHmacToken(matricule, minuteEpoch);
         String qrPayload = "STU_SECURE:" + matricule + ":" + minuteEpoch + ":" + token;
 
         Map<String, Object> badge = new HashMap<>();
-        Map<String, Object> profile = getStudentProfile(studentId);
         badge.put("id", "badge-" + studentId);
         badge.put("studentId", studentId);
-        badge.put("studentName", profile.getOrDefault("prenom", "") + " " + profile.getOrDefault("nom", ""));
+        badge.put("studentName", nomComplet);
         badge.put("matricule", matricule);
-        Object classe = profile.get("classe");
-        Object classeName = "Non assigné";
-        if (classe instanceof Map) {
-            @SuppressWarnings("unchecked")
-            Map<String, Object> classeMap = (Map<String, Object>) classe;
-            classeName = classeMap.getOrDefault("name", "Non assigné");
-        }
-        badge.put("classe", String.valueOf(classeName));
+        badge.put("classe", classeReelle == null ? "Non affecté" : classeReelle);
         badge.put("qrPayload", qrPayload);
         badge.put("token", token);
         badge.put("minuteEpoch", minuteEpoch);
