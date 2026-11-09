@@ -66,9 +66,9 @@ public class StudentController {
     @Operation(summary = "Profil etudiant", description = "Retourne les informations du profil de l'etudiant depuis la BDD.")
     public ResponseEntity<StudentProfileDto> getProfile() {
         logger.info("GET /student/profile - Recuperation du profil etudiant");
-        Map<String, Object> profileMap = studentDataRepository.findById("usr-001")
+        Map<String, Object> profileMap = studentDataRepository.findById(etudiant())
                 .map(data -> data.getProfile())
-                .orElseGet(() -> studentUseCase.getStudentProfile("usr-001"));
+                .orElseGet(() -> studentUseCase.getStudentProfile(etudiant()));
         
         return ResponseEntity.ok(StudentMapper.toProfileDto(profileMap));
     }
@@ -77,9 +77,9 @@ public class StudentController {
     @Operation(summary = "Tableau de bord", description = "Retourne les donnees du dashboard depuis la BDD.")
     public ResponseEntity<StudentDashboardDto> getDashboard() {
         logger.info("GET /student/dashboard - Recuperation du dashboard etudiant");
-        Map<String, Object> dashboardMap = studentDataRepository.findById("usr-001")
+        Map<String, Object> dashboardMap = studentDataRepository.findById(etudiant())
                 .map(data -> data.getDashboard())
-                .orElseGet(() -> studentUseCase.getStudentDashboard("usr-001"));
+                .orElseGet(() -> studentUseCase.getStudentDashboard(etudiant()));
         
         return ResponseEntity.ok(StudentMapper.toDashboardDto(dashboardMap));
     }
@@ -90,7 +90,7 @@ public class StudentController {
     @Operation(summary = "Badge numerique dynamique", description = "Retourne le badge QR avec token HMAC rotatif (expire chaque minute).")
     public ResponseEntity<DigitalBadgeDto> getDigitalBadge() {
         logger.info("GET /student/digital-badge - Generation du badge numerique");
-        Map<String, Object> badgeMap = studentUseCase.getDigitalBadge("usr-001");
+        Map<String, Object> badgeMap = studentUseCase.getDigitalBadge(etudiant());
         return ResponseEntity.ok(StudentMapper.toDigitalBadgeDto(badgeMap));
     }
 
@@ -125,7 +125,7 @@ public class StudentController {
         logger.info("GET /student/attendances - Historique des presences (page={}, size={})", page, size);
         
         return ResponseEntity.ok(StudentMapper.toAttendancePageResponse(
-            studentUseCase.getStudentAttendances("usr-001", page, size)
+            studentUseCase.getStudentAttendances(etudiant(), page, size)
         ));
     }
 
@@ -134,12 +134,12 @@ public class StudentController {
     public ResponseEntity<Map<String, Object>> selfCheckIn(@Valid @RequestBody AttendanceRequestDto request) {
         logger.info("POST /student/attendances - Auto check-in: type={}, method={}", request.type(), request.method());
         studentUseCase.submitSelfAttendance(
-            "usr-001", 
+            etudiant(), 
             request.type().name(), 
             request.method()
         );
 
-        actionLogger.logStudentAction("SELF_CHECKIN", "usr-001", "Student", 
+        actionLogger.logStudentAction("SELF_CHECKIN", etudiant(), "Student", 
             "Auto check-in: " + request.type() + " via " + request.method());
 
         Map<String, Object> response = new HashMap<>();
@@ -211,7 +211,7 @@ public class StudentController {
     @Operation(summary = "Notes de l'etudiant", description = "Retourne la liste des notes depuis la BDD.")
     public ResponseEntity<List<GradeDto>> getGrades() {
         logger.info("GET /student/grades - Recuperation des notes");
-        List<Map<String, Object>> gradesMap = studentUseCase.getStudentGrades("usr-001");
+        List<Map<String, Object>> gradesMap = studentUseCase.getStudentGrades(etudiant());
         
         return ResponseEntity.ok(StudentMapper.toGradeDtoList(gradesMap));
     }
@@ -220,7 +220,7 @@ public class StudentController {
     @Operation(summary = "Telecharger le releve PDF", description = "Genere et retourne un releve de notes officiel au format PDF.")
     public ResponseEntity<byte[]> downloadGradesPdf() {
         logger.info("GET /student/grades/download - Telechargement du releve PDF");
-        List<Map<String, Object>> gradesMap = studentUseCase.getStudentGrades("usr-001");
+        List<Map<String, Object>> gradesMap = studentUseCase.getStudentGrades(etudiant());
 
         double totalEcts = gradesMap.stream().mapToDouble(g -> ((Number) g.get("ects")).doubleValue()).sum();
         double weightedSum = gradesMap.stream().mapToDouble(g -> {
@@ -241,10 +241,12 @@ public class StudentController {
                 .mapToDouble(g -> ((Number) g.get("ects")).doubleValue())
                 .sum();
 
+        // Relevé au nom de l'étudiant connecté (avant : « Mamadou Sall », filière et niveau inventés)
+        var compte = compteConnecte();
         byte[] pdf = gradesReportService.generateTranscriptPdf(
-                "Mamadou Sall",
-                "Genie Logiciel & Systemes d'Information",
-                "Licence 3 (L3)",
+                ((compte.getPrenom() == null ? "" : compte.getPrenom() + " ") + (compte.getNom() == null ? "" : compte.getNom())).trim(),
+                "",
+                "",
                 average, gpa, validatedEcts,
                 gradesMap);
 
@@ -275,7 +277,7 @@ public class StudentController {
     @Operation(summary = "Cours de l'etudiant", description = "Retourne la liste des cours depuis la BDD.")
     public ResponseEntity<List<CourseDto>> getCourses() {
         logger.info("GET /student/courses - Recuperation des cours");
-        List<Map<String, Object>> coursesMap = studentUseCase.getStudentCourses("usr-001");
+        List<Map<String, Object>> coursesMap = studentUseCase.getStudentCourses(etudiant());
         
         return ResponseEntity.ok(StudentMapper.toCourseDtoList(coursesMap));
     }
@@ -300,7 +302,7 @@ public class StudentController {
     @Operation(summary = "Devoirs de l'etudiant", description = "Retourne la liste des devoirs de l'etudiant.")
     public ResponseEntity<List<HomeworkDto>> getStudentHomeworks() {
         logger.info("GET /student/homeworks - Recuperation des devoirs");
-        List<Map<String, Object>> homeworksMap = studentUseCase.getStudentHomeworks("usr-001");
+        List<Map<String, Object>> homeworksMap = studentUseCase.getStudentHomeworks(etudiant());
         
         return ResponseEntity.ok(StudentMapper.toHomeworkDtoList(homeworksMap));
     }
@@ -433,14 +435,14 @@ public class StudentController {
             @RequestBody Map<String, String> body) {
         logger.info("POST /student/live-sessions/{}/chat - user={}, text={}", sessionId, body.get("user"), body.get("text"));
         
-        String userId = "usr-001";
+        String userId = etudiant();
         String userName = body.get("user");
         String userRole = "Student";
         String text = body.get("text");
         
         studentUseCase.saveLiveChatMessage(sessionId, userId, userName, userRole, text);
         
-        actionLogger.logStudentAction("SEND_CHAT", "usr-001", "Student", 
+        actionLogger.logStudentAction("SEND_CHAT", etudiant(), "Student", 
             "Message envoyé dans session " + sessionId);
         return ResponseEntity.ok(Map.of("success", true, "id", "msg-" + System.currentTimeMillis()));
     }
@@ -451,7 +453,7 @@ public class StudentController {
             @Parameter(description = "Identifiant du devoir") @PathVariable("homeworkId") String homeworkId) {
         logger.info("POST /student/homeworks/{}/start", homeworkId);
         studentUseCase.updateHomeworkProgress(homeworkId, 0);
-        actionLogger.logStudentAction("START_HOMEWORK", "usr-001", "Student", 
+        actionLogger.logStudentAction("START_HOMEWORK", etudiant(), "Student", 
             "Devoir démarré: " + homeworkId);
         return ResponseEntity.ok(Map.of("success", true, "homeworkId", homeworkId));
     }
@@ -464,8 +466,24 @@ public class StudentController {
         logger.info("POST /student/homeworks/{}/progress - addedProgress={}", homeworkId, body.get("addedProgress"));
         int progress = body.get("addedProgress") != null ? body.get("addedProgress").intValue() : 0;
         studentUseCase.updateHomeworkProgress(homeworkId, progress);
-        actionLogger.logStudentAction("UPDATE_HOMEWORK_PROGRESS", "usr-001", "Student", 
+        actionLogger.logStudentAction("UPDATE_HOMEWORK_PROGRESS", etudiant(), "Student", 
             "Avancement mis à jour pour devoir: " + homeworkId);
         return ResponseEntity.ok(Map.of("success", true, "homeworkId", homeworkId));
+    }
+
+    /**
+     * Étudiant connecté (APP-SEC-19). Avant : TOUT le portail étudiant était rattaché à l'élève
+     * « usr-001 » — chaque étudiant voyait le profil, les notes, les présences et les devoirs de cet élève.
+     */
+    private static ecole_221.sn.ecole.modules.auth.domain.model.User compteConnecte() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u) {
+            return u;
+        }
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED);
+    }
+
+    private static String etudiant() {
+        return compteConnecte().getId();
     }
 }
