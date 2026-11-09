@@ -70,7 +70,7 @@ public class RequestLoggingFilter implements Filter {
         logger.info("║   • Method:        {}                                                                     ║", method);
         logger.info("║   • Path:          {}                                                                     ║", uri);
         logger.info("║   • Query String:  {}                                                                     ║", queryString != null ? queryString : "N/A");
-        logger.info("║   • User/Auth:     {}                                                                     ║", user);
+        logger.info("║   • User/Auth:     {}                                                                     ║", ecole_221.sn.ecole.infrastructure.logging.LogMasker.masquer(user));
         logger.info("║   • Remote Addr:   {}                                                                     ║", request.getRemoteAddr());
         logger.info("║   • Content Type:  {}                                                                     ║", wrappedRequest.getContentType());
         logger.info("║   • Content Length:{}                                                                     ║", wrappedRequest.getContentLength());
@@ -80,8 +80,9 @@ public class RequestLoggingFilter implements Filter {
             String.format("%-40s", value.length() > 40 ? value.substring(0, 40) + "..." : value), "  ║"));
         logger.info("╠════════════════════════════════════════════════════════════════════════════════════════════════════════╣");
         if (requestBody != null && !requestBody.isEmpty()) {
-            logger.info("║ 📝 REQUEST BODY:                                                                            ║");
-            logger.info("║ {}                                                                                      ║", truncateBody(requestBody));
+            logger.debug("║ 📝 REQUEST BODY:                                                                            ║");
+            // APP-SEC-13 : corps en DEBUG seulement et masqué (mot de passe, email, téléphone, jetons)
+            logger.debug("║ {}                                                                                      ║", truncateBody(requestBody));
         } else {
             logger.info("║ 📝 REQUEST BODY: [EMPTY or GET request]                                                      ║");
         }
@@ -100,7 +101,7 @@ public class RequestLoggingFilter implements Filter {
         logger.info("║ 📋 DETAILS:                                                                                  ║");
         logger.info("║   • Status:        {} {}                                                                  ║", status, getStatusText(status));
         logger.info("║   • Duration:      {}ms                                                                    ║", duration);
-        logger.info("║   • User/Auth:     {}                                                                     ║", user);
+        logger.info("║   • User/Auth:     {}                                                                     ║", ecole_221.sn.ecole.infrastructure.logging.LogMasker.masquer(user));
         logger.info("║   • Content Type:  {}                                                                     ║", httpResponse.getContentType());
         logger.info("╠════════════════════════════════════════════════════════════════════════════════════════════════════════╣");
         logger.info("║ 📊 PERFORMANCE METRICS:                                                                      ║");
@@ -172,6 +173,7 @@ public class RequestLoggingFilter implements Filter {
     }
 
     private String truncateBody(String body) {
+        body = ecole_221.sn.ecole.infrastructure.logging.LogMasker.masquer(body); // APP-SEC-13
         int maxLength = 2000; // Limiter la taille du body dans les logs
         if (body.length() > maxLength) {
             return body.substring(0, maxLength) + "... [TRUNCATED]";

@@ -40,6 +40,7 @@ public class MethodLoggingAspect {
     public void allApplicationLayers() {}
 
     // Logger l'entrée et la sortie de toutes les méthodes
+    // APP-SEC-13 : traces d'entrée/sortie en DEBUG (données métier), erreurs en ERROR
     @Around("allApplicationLayers()")
     public Object logMethodExecution(ProceedingJoinPoint joinPoint) throws Throwable {
         String className = joinPoint.getTarget().getClass().getSimpleName();
@@ -47,11 +48,13 @@ public class MethodLoggingAspect {
         Object[] args = joinPoint.getArgs();
 
         // Logger l'entrée de la méthode
-        logger.info("========== METHOD ENTRY ==========");
-        logger.info("Class: {}", className);
-        logger.info("Method: {}", methodName);
-        logger.info("Arguments: {}", formatArguments(args));
-        logger.info("=================================");
+        logger.debug("========== METHOD ENTRY ==========");
+        logger.debug("Class: {}", className);
+        logger.debug("Method: {}", methodName);
+        if (logger.isDebugEnabled()) {
+            logger.debug("Arguments: {}", formatArguments(args));
+        }
+        logger.debug("=================================");
 
         long startTime = System.currentTimeMillis();
         Object result = null;
@@ -63,12 +66,14 @@ public class MethodLoggingAspect {
             
             // Logger le succès
             long duration = System.currentTimeMillis() - startTime;
-            logger.info("========== METHOD EXIT (SUCCESS) ==========");
-            logger.info("Class: {}", className);
-            logger.info("Method: {}", methodName);
-            logger.info("Duration: {}ms", duration);
-            logger.info("Result: {}", formatResult(result));
-            logger.info("==========================================");
+            logger.debug("========== METHOD EXIT (SUCCESS) ==========");
+            logger.debug("Class: {}", className);
+            logger.debug("Method: {}", methodName);
+            logger.debug("Duration: {}ms", duration);
+            if (logger.isDebugEnabled()) {
+                logger.debug("Result: {}", formatResult(result));
+            }
+            logger.debug("==========================================");
             
             return result;
         } catch (Throwable e) {
@@ -109,20 +114,14 @@ public class MethodLoggingAspect {
         }
         
         String argString = arg.toString();
-        
-        // Limiter la taille des arguments dans les logs
-        if (argString.length() > 200) {
-            return argString.substring(0, 200) + "... [TRUNCATED]";
-        }
-        
-        // Masquer les données sensibles
+        // Masquer les données sensibles (avant troncature : un secret coupé reste un secret)
         String lowerArg = argString.toLowerCase();
-        if (lowerArg.contains("password") || lowerArg.contains("secret") || 
+        if (lowerArg.contains("password") || lowerArg.contains("secret") ||
             lowerArg.contains("token") || lowerArg.contains("credential")) {
             return "[SENSITIVE_DATA_REDACTED]";
         }
-        
-        return argString;
+        // APP-SEC-13 : emails, téléphones, jetons masqués ; troncature
+        return LogMasker.masquer(argString);
     }
 
     private String formatResult(Object result) {
@@ -130,13 +129,7 @@ public class MethodLoggingAspect {
             return "null";
         }
         
-        String resultString = result.toString();
-        
-        // Limiter la taille du résultat dans les logs
-        if (resultString.length() > 500) {
-            return resultString.substring(0, 500) + "... [TRUNCATED]";
-        }
-        
-        return resultString;
+        // APP-SEC-13 : résultat masqué (emails, téléphones, jetons) et tronqué
+        return LogMasker.masquer(result);
     }
 }
