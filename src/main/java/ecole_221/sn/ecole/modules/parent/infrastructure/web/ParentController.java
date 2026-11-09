@@ -32,11 +32,20 @@ public class ParentController {
     private final ParentUseCase parentUseCase;
     private final JwtService jwtService;
     private final UserRepositoryPort userRepositoryPort;
+    private final ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances;
 
-    public ParentController(ParentUseCase parentUseCase, JwtService jwtService, UserRepositoryPort userRepositoryPort) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public ParentController(ParentUseCase parentUseCase, JwtService jwtService, UserRepositoryPort userRepositoryPort,
+                            ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances) {
         this.parentUseCase = parentUseCase;
         this.jwtService = jwtService;
         this.userRepositoryPort = userRepositoryPort;
+        this.appartenances = appartenances;
+    }
+
+    /** Compatibilité (tests) : sans annuaire des appartenances, aucun professeur n'est listé. */
+    public ParentController(ParentUseCase parentUseCase, JwtService jwtService, UserRepositoryPort userRepositoryPort) {
+        this(parentUseCase, jwtService, userRepositoryPort, null);
     }
 
     // ==================== ENDPOINTS ENFANTS ====================
@@ -248,19 +257,26 @@ public class ParentController {
     @Operation(summary = "Liste des professeurs", description = "Retourne la liste des professeurs pour la prise de rendez-vous")
     public ResponseEntity<List<Map<String, Object>>> getProfesseurs(
             @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        List<User> profs = userRepositoryPort.findByRole(RoleUtilisateur.PROFESSEUR);
-        List<Map<String, Object>> result = new java.util.ArrayList<>(profs.stream().map(p -> {
-            Map<String, Object> map = new java.util.HashMap<String, Object>();
-            map.put("id", p.getId());
-            map.put("nom", p.getNom());
-            map.put("prenom", p.getPrenom());
-            map.put("email", p.getEmail());
-            map.put("displayName", "Dr. " + p.getNom() + " " + p.getPrenom() + " (" + p.getEmail() + ")");
-            return map;
-        }).toList());
-        if (result.isEmpty()) {
-            result.add(Map.of("id", "usr-002", "nom", "Sall", "prenom", "Moustapha", "email", "prof@bonsoir.sn", "displayName", "Dr. Sall — Algorithmique & Systèmes"));
-            result.add(Map.of("id", "usr-003", "nom", "Ndiaye", "prenom", "Awa", "email", "awa.ndiaye@bonsoir.sn", "displayName", "Prof. Ndiaye — Bases de Données"));
+        // APP-BE-17 / APP-SEC-17 : uniquement les professeurs ACTIFS de l'école courante.
+        // Avant : tous les comptes PROFESSEUR de toutes les écoles (emails compris), titre « Dr. »
+        // ajouté à tous, et deux professeurs inventés si la liste était vide.
+        String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse(null);
+        List<Map<String, Object>> result = new java.util.ArrayList<>();
+        if (ecole != null && appartenances != null) {
+            for (var m : appartenances.findByOrganizationIdAndRole(ecole, RoleUtilisateur.PROFESSEUR.value())) {
+                if (!m.isActive()) {
+                    continue;
+                }
+                userRepositoryPort.findById(m.getUserId()).ifPresent(p -> {
+                    Map<String, Object> map = new java.util.HashMap<String, Object>();
+                    map.put("id", p.getId());
+                    map.put("nom", p.getNom());
+                    map.put("prenom", p.getPrenom());
+                    map.put("email", p.getEmail());
+                    map.put("displayName", ((p.getPrenom() == null ? "" : p.getPrenom() + " ") + (p.getNom() == null ? "" : p.getNom())).trim());
+                    result.add(map);
+                });
+            }
         }
         return ResponseEntity.ok(result);
     }
