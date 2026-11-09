@@ -51,11 +51,16 @@ public class SyncService implements SyncUseCase {
 
     private void processSingleAction(SyncAction action) {
         Map<String, Object> payload = action.getPayload();
+        if (payload == null) {
+            throw new IllegalArgumentException("Action sans données.");
+        }
         String actionType = action.getType().name();
         switch (actionType) {
             case "ATTENDANCE_SELF" -> studentUseCase.submitSelfAttendance(
-                    (String) payload.getOrDefault("studentId", "usr-001"),
-                    (String) payload.get("type"),
+                    // Avant : « usr-001 » par défaut → la présence était attribuée à un autre élève.
+                    // Désormais : l'élève CONNECTÉ ; un studentId différent dans la charge est refusé.
+                    etudiantConnecte(payload.get("studentId")),
+                    obligatoire(payload, "type", "le type de pointage"),
                     (String) payload.get("method")
             );
             case "BADGE_SCAN" -> securityUseCase.processBadgeScan(
@@ -75,13 +80,43 @@ public class SyncService implements SyncUseCase {
                     (String) payload.get("message")
             );
             case "ATTENDANCE_SUBMIT" -> professorUseCase.submitAttendance(
-                    (String) payload.getOrDefault("date", "2026-07-20"),
-                    (String) payload.get("studentId"),
+                    // Avant : date « 2026-07-20 » et cours « course-1 » inventés si absents → action refusée.
+                    dateIso(obligatoire(payload, "date", "la date")),
+                    obligatoire(payload, "studentId", "l'étudiant"),
                     (String) payload.get("studentName"),
-                    (String) payload.get("status"),
-                    (String) payload.getOrDefault("courseId", "course-1")
+                    obligatoire(payload, "status", "le statut"),
+                    obligatoire(payload, "courseId", "le cours")
             );
             default -> throw new IllegalArgumentException("Type d'action de synchronisation inconnu: " + actionType);
         }
+    }
+
+    private static String obligatoire(Map<String, Object> payload, String cle, String libelle) {
+        Object v = payload.get(cle);
+        if (v == null || v.toString().isBlank()) {
+            throw new IllegalArgumentException("Champ obligatoire manquant : " + libelle + ".");
+        }
+        return v.toString().trim();
+    }
+
+    private static String dateIso(String date) {
+        try {
+            return java.time.LocalDate.parse(date).toString();
+        } catch (java.time.format.DateTimeParseException e) {
+            throw new IllegalArgumentException("Date invalide (format attendu AAAA-MM-JJ) : " + date);
+        }
+    }
+
+    /** Identifiant de l'élève authentifié ; refuse une charge qui désigne un autre élève. */
+    static String etudiantConnecte(Object studentIdDeclare) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !(auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u)) {
+            throw new IllegalArgumentException("Pointage refusé : aucun élève authentifié.");
+        }
+        if (studentIdDeclare != null && !studentIdDeclare.toString().isBlank()
+                && !studentIdDeclare.toString().equals(u.getId())) {
+            throw new IllegalArgumentException("Pointage refusé : il ne concerne pas l'élève connecté.");
+        }
+        return u.getId();
     }
 }

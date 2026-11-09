@@ -42,9 +42,15 @@ class NoFakePaymentTest {
     void setUp() {
         repo = Mockito.mock(CandidateJpaRepository.class);
         mockMvc = MockMvcBuilders.standaloneSetup(
-                new AdmissionController(Mockito.mock(AdmissionUseCase.class), repo),
-                new CandidaturesController(repo),
-                new AdminStudentProfileController(Mockito.mock(AIUseCase.class))).build();
+                new AdmissionController(Mockito.mock(AdmissionUseCase.class), repo,
+                        Mockito.mock(ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.ElementPortailAdmissionJpaRepository.class)),
+                new CandidaturesController(repo, Mockito.mock(ecole_221.sn.ecole.modules.admin.application.service.ParametresCandidaturesService.class)),
+                new AdminStudentProfileController(
+                        Mockito.mock(ecole_221.sn.ecole.modules.admin.application.service.ComptesEcoleService.class),
+                        Mockito.mock(ecole_221.sn.ecole.modules.admin.infrastructure.persistence.ProfilEleveJpaRepository.class),
+                        Mockito.mock(ecole_221.sn.ecole.modules.admin.infrastructure.persistence.DocumentEleveJpaRepository.class),
+                        Mockito.mock(ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaRepository.class),
+                        Mockito.mock(ecole_221.sn.ecole.modules.professor.infrastructure.persistence.ScheduleSessionJpaRepository.class))).build();
     }
 
     private static void aucuneFausseValeur(String body) {

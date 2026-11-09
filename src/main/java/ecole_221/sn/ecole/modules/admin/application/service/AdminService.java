@@ -12,9 +12,11 @@ import java.util.Map;
 public class AdminService implements AdminUseCase {
 
     private final AdminRepositoryPort repositoryPort;
+    private final ParametresCandidaturesService parametresCandidatures;
 
-    public AdminService(AdminRepositoryPort repositoryPort) {
+    public AdminService(AdminRepositoryPort repositoryPort, ParametresCandidaturesService parametresCandidatures) {
         this.repositoryPort = repositoryPort;
+        this.parametresCandidatures = parametresCandidatures;
     }
 
     @Override
@@ -46,6 +48,9 @@ public class AdminService implements AdminUseCase {
 
     @Override
     public void updateCandidaturesSettings(boolean enabled) {
+        // Avant : seul un message de journal était écrit (rien n'était enregistré). Désormais la même table
+        // que /candidatures/settings, pour l'école courante.
+        parametresCandidatures.definirOuverture(enabled);
         repositoryPort.addRealtimeLog("Paramètres de candidature mis à jour: " + (enabled ? "activé" : "désactivé"));
     }
 }

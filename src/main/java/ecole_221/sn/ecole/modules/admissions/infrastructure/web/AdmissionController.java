@@ -10,6 +10,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.ElementPortailAdmissionJpaEntity;
+import ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.ElementPortailAdmissionJpaRepository;
 import java.util.List;
 import java.util.Map;
 
@@ -23,15 +25,19 @@ public class AdmissionController {
     private final AdmissionUseCase admissionUseCase;
     private final ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository;
     
+    private final ElementPortailAdmissionJpaRepository elementsPortail;
+
     public AdmissionController(AdmissionUseCase admissionUseCase) {
-        this(admissionUseCase, null);
+        this(admissionUseCase, null, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
     public AdmissionController(AdmissionUseCase admissionUseCase, 
-                               ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository) {
+                               ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository,
+                               ElementPortailAdmissionJpaRepository elementsPortail) {
         this.admissionUseCase = admissionUseCase;
         this.candidateJpaRepository = candidateJpaRepository;
+        this.elementsPortail = elementsPortail;
     }
     
     // ==================== ENDPOINTS CANDIDATS ====================
@@ -185,32 +191,63 @@ public class AdmissionController {
     }
 
     // ==================== ENDPOINT CANDIDATURE PORTAL DB ====================
-    private static final List<Map<String, Object>> portalCandidates = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private static final List<Map<String, Object>> portalCampaigns = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private static final List<Map<String, Object>> portalAuditLogs = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private static final List<Map<String, Object>> portalMessages = new java.util.concurrent.CopyOnWriteArrayList<>();
+    // Avant : quatre listes statiques en mémoire, communes à toutes les écoles (dont deux campagnes inventées
+    // avec images Unsplash) et perdues au redémarrage. Désormais : candidats = table candidates, campagnes /
+    // messages / journal = table admissions_portail_elements ; tout est cloisonné par école (@TenantId).
 
-    static {
-        portalCampaigns.add(Map.of(
-            "id", "camp-1",
-            "title", "Licence Informatique & Génie Logiciel (L1/L2/L3)",
-            "code", "LICENCE",
-            "state", "Ouverte",
-            "deadline", "30 Octobre 2026",
-            "fees", 25000,
-            "requirements", List.of("Baccalauréat Scientifique ou Technique", "Bulletins de Terminale"),
-            "imageUrl", "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80"
-        ));
-        portalCampaigns.add(Map.of(
-            "id", "camp-2",
-            "title", "Master Cloud Computing & DevOps (M1/M2)",
-            "code", "MASTER",
-            "state", "Ouverte",
-            "deadline", "15 Novembre 2026",
-            "fees", 35000,
-            "requirements", List.of("Licence Informatique ou équivalent", "Relevés de notes universitaires"),
-            "imageUrl", "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=600&q=80"
-        ));
+    private void exigerStockage() {
+        if (candidateJpaRepository == null || elementsPortail == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Stockage des admissions indisponible.");
+        }
+    }
+
+    private List<Map<String, Object>> lireElements(String nature) {
+        List<Map<String, Object>> res = new java.util.ArrayList<>();
+        for (ElementPortailAdmissionJpaEntity e : elementsPortail.findByNatureOrderByPositionAsc(nature)) {
+            try {
+                res.add(JSON.readValue(e.getContenuJson(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}));
+            } catch (Exception ex) {
+                logger.warn("Élément {} du portail illisible, ignoré", e.getId());
+            }
+        }
+        return res;
+    }
+
+    /** Remplace la liste (campagnes, messages ou journal) de l'école courante. */
+    private void remplacerElements(String nature, List<?> liste) {
+        elementsPortail.deleteAll(elementsPortail.findByNatureOrderByPositionAsc(nature));
+        int position = 0;
+        for (Object item : liste) {
+            ElementPortailAdmissionJpaEntity e = new ElementPortailAdmissionJpaEntity();
+            e.setId(java.util.UUID.randomUUID().toString());
+            e.setNature(nature);
+            e.setPosition(position++);
+            try {
+                e.setContenuJson(JSON.writeValueAsString(item));
+            } catch (Exception ex) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Élément illisible dans la liste « " + nature + " ».");
+            }
+            e.setUpdatedAt(java.time.LocalDateTime.now());
+            elementsPortail.save(e);
+        }
+    }
+
+    private static List<?> listeDeMaps(Map<String, Object> body, String cle) {
+        Object v = body.get(cle);
+        if (v == null) return null;
+        if (!(v instanceof List<?> l)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "« " + cle + " » doit être une liste.");
+        }
+        for (Object o : l) {
+            if (!(o instanceof Map<?, ?>)) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "« " + cle + " » ne doit contenir que des objets.");
+            }
+        }
+        return l;
     }
 
     @GetMapping("/db")
@@ -218,16 +255,18 @@ public class AdmissionController {
     public ResponseEntity<Map<String, Object>> getAdmissionsDb() {
         java.util.List<Map<String, Object>> candidatesList = new java.util.ArrayList<>();
         java.util.List<ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity> entities = 
-            candidateJpaRepository != null ? candidateJpaRepository.findAll() : null;
+            candidateJpaRepository != null ? candidateJpaRepository.findAll() : List.of();
 
-        if (entities != null && !entities.isEmpty()) {
+        {
             for (ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity e : entities) {
                 Map<String, Object> c = new java.util.HashMap<>();
                 c.put("id", e.getId());
                 c.put("name", e.getFullName() != null ? e.getFullName() : (e.getFirstName() + " " + e.getLastName()).trim());
                 c.put("email", e.getEmail() != null ? e.getEmail() : "");
-                c.put("course", e.getCourseChoice() != null ? e.getCourseChoice() : "Licence Informatique");
-                c.put("type", (e.getCourseChoice() != null && e.getCourseChoice().contains("Master")) ? "MASTER" : "LICENCE");
+                // plus de formation « Licence Informatique » par défaut : null si le candidat n'en a pas choisi
+                c.put("course", blankToNull(e.getCourseChoice()));
+                c.put("type", e.getCourseChoice() == null || e.getCourseChoice().isBlank() ? null
+                        : (e.getCourseChoice().contains("Master") ? "MASTER" : "LICENCE"));
                 c.put("step", e.getCurrentStep() != null ? e.getCurrentStep() : "new");
                 c.put("registrationFeePaid", Boolean.TRUE.equals(e.getRegistrationFeePaid()));
                 c.put("docs", Map.of(
@@ -248,15 +287,14 @@ public class AdmissionController {
                 c.put("details", details);
                 candidatesList.add(c);
             }
-        } else {
-            candidatesList.addAll(portalCandidates);
         }
 
+        boolean stockage = elementsPortail != null;
         return ResponseEntity.ok(Map.of(
             "candidates", candidatesList,
-            "campaigns", portalCampaigns,
-            "auditLogs", portalAuditLogs,
-            "messages", portalMessages
+            "campaigns", stockage ? lireElements(ElementPortailAdmissionJpaEntity.CAMPAGNE) : List.of(),
+            "auditLogs", stockage ? lireElements(ElementPortailAdmissionJpaEntity.AUDIT) : List.of(),
+            "messages", stockage ? lireElements(ElementPortailAdmissionJpaEntity.MESSAGE) : List.of()
         ));
     }
 
@@ -283,68 +321,74 @@ public class AdmissionController {
 
     @PostMapping("/db")
     @Operation(summary = "Mettre à jour la base admissions", description = "Synchronise les modifications du portail candidat avec PostgreSQL")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<Map<String, Object>> saveAdmissionsDb(@RequestBody Map<String, Object> body) {
-        if (body.containsKey("candidates") && body.get("candidates") instanceof List<?> list) {
-            portalCandidates.clear();
-            for (Object item : list) {
-                if (item instanceof Map<?, ?> m) {
-                    Map<String, Object> map = (Map<String, Object>) m;
-                    portalCandidates.add(map);
+        exigerStockage();
+        if (body == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Corps de requête manquant.");
+        }
+        List<?> candidats = listeDeMaps(body, "candidates");
+        List<?> campagnes = listeDeMaps(body, "campaigns");
+        List<?> journal = listeDeMaps(body, "auditLogs");
+        List<?> messages = listeDeMaps(body, "messages");
 
-                    String id = String.valueOf(map.getOrDefault("id", ""));
-                    if (!id.isBlank() && candidateJpaRepository != null) {
-                        String name = String.valueOf(map.getOrDefault("name", ""));
-                        String email = String.valueOf(map.getOrDefault("email", ""));
-                        String course = String.valueOf(map.getOrDefault("course", ""));
-                        String step = String.valueOf(map.getOrDefault("step", "new"));
-                        boolean paid = Boolean.parseBoolean(String.valueOf(map.getOrDefault("registrationFeePaid", false)));
+        // Validation AVANT toute écriture : pas d'enregistrement partiel, pas de formation par défaut.
+        if (candidats != null) {
+            for (Object item : candidats) {
+                Map<?, ?> m = (Map<?, ?>) item;
+                String id = texte(m.get("id"));
+                if (id == null) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.BAD_REQUEST, "Candidat sans identifiant.");
+                }
+                if (texte(m.get("course")) == null) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.BAD_REQUEST, "Formation demandée manquante pour le candidat " + id + ".");
+                }
+                if (texte(m.get("name")) == null) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.BAD_REQUEST, "Nom manquant pour le candidat " + id + ".");
+                }
+            }
+            for (Object item : candidats) {
+                Map<?, ?> map = (Map<?, ?>) item;
+                String id = texte(map.get("id"));
+                String name = texte(map.get("name"));
+                String email = texte(map.get("email"));
+                String course = texte(map.get("course"));
+                String step = texte(map.get("step"));
+                boolean paid = Boolean.parseBoolean(String.valueOf(map.get("registrationFeePaid")));
 
-                        ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity entity = 
-                            candidateJpaRepository.findById(id).orElseGet(() -> {
-                                ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity ne = 
-                                    new ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity();
-                                ne.setId(id);
-                                return ne;
-                            });
+                ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity entity =
+                    candidateJpaRepository.findById(id).orElseGet(() -> {
+                        ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity ne =
+                            new ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity();
+                        ne.setId(id);
+                        return ne;
+                    });
 
-                        entity.setFullName(name);
-                        String[] parts = name.split("\\s+", 2);
-                        entity.setFirstName(parts[0]);
-                        entity.setLastName(parts.length > 1 ? parts[1] : parts[0]);
-                        entity.setEmail(email);
-                        entity.setCourseChoice(course);
-                        entity.setCurrentStep(step);
-                        entity.setRegistrationFeePaid(paid);
-                        entity.setUpdatedAt(java.time.LocalDateTime.now());
-                        candidateJpaRepository.save(entity);
-                    }
-                }
+                entity.setFullName(name);
+                String[] parts = name.split("\\s+", 2);
+                entity.setFirstName(parts[0]);
+                entity.setLastName(parts.length > 1 ? parts[1] : parts[0]);
+                entity.setEmail(email);
+                entity.setCourseChoice(course);
+                if (step != null) entity.setCurrentStep(step);
+                entity.setRegistrationFeePaid(paid);
+                entity.setUpdatedAt(java.time.LocalDateTime.now());
+                candidateJpaRepository.save(entity);
             }
         }
-        if (body.containsKey("campaigns") && body.get("campaigns") instanceof List<?> list) {
-            portalCampaigns.clear();
-            for (Object item : list) {
-                if (item instanceof Map<?, ?> m) {
-                    portalCampaigns.add((Map<String, Object>) m);
-                }
-            }
-        }
-        if (body.containsKey("auditLogs") && body.get("auditLogs") instanceof List<?> list) {
-            portalAuditLogs.clear();
-            for (Object item : list) {
-                if (item instanceof Map<?, ?> m) {
-                    portalAuditLogs.add((Map<String, Object>) m);
-                }
-            }
-        }
-        if (body.containsKey("messages") && body.get("messages") instanceof List<?> list) {
-            portalMessages.clear();
-            for (Object item : list) {
-                if (item instanceof Map<?, ?> m) {
-                    portalMessages.add((Map<String, Object>) m);
-                }
-            }
-        }
+        if (campagnes != null) remplacerElements(ElementPortailAdmissionJpaEntity.CAMPAGNE, campagnes);
+        if (journal != null) remplacerElements(ElementPortailAdmissionJpaEntity.AUDIT, journal);
+        if (messages != null) remplacerElements(ElementPortailAdmissionJpaEntity.MESSAGE, messages);
         return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    private static String texte(Object v) {
+        if (v == null) return null;
+        String s = v.toString().trim();
+        return s.isEmpty() ? null : s;
     }
 }

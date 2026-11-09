@@ -19,6 +19,14 @@ public class ClasseFactory {
     /**
      * Reconstruit une classe existante (pour la persistance).
      */
+    /** Reconstruit une classe avec son niveau et sa capacité réellement saisis (peuvent être null). */
+    public static Classe reconstruct(String id, String name, String filiereId, String level, Integer capacity) {
+        Classe c = new Classe(id, name, filiereId);
+        c.setLevel(level);
+        c.setCapacity(capacity);
+        return c;
+    }
+
     public static Classe reconstruct(String id, String name, String filiereId) {
         return new Classe(id, name, filiereId);
     }

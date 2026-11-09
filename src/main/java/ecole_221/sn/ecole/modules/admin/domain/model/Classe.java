@@ -11,6 +11,9 @@ public class Classe {
     private final String id;
     private String name;
     private final String filiereId;
+    /** Niveau et capacité tels que saisis par l'école (null si non renseignés). */
+    private String level;
+    private Integer capacity;
     
     // Constructeur package-private (accessible par Factory dans le même package)
     Classe(String id, String name, String filiereId) {
@@ -23,6 +26,10 @@ public class Classe {
     public String getId() { return id; }
     public String getName() { return name; }
     public String getFiliereId() { return filiereId; }
+    public String getLevel() { return level; }
+    public Integer getCapacity() { return capacity; }
+    void setLevel(String level) { this.level = level; }
+    void setCapacity(Integer capacity) { this.capacity = capacity; }
     
     // Comportements métier
     public void updateName(String newName) {

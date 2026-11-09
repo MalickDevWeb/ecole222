@@ -40,10 +40,10 @@ class ProfessorControllerTest {
 
     @Test
     void testGetCourseStudents() throws Exception {
+        // sans professeur authentifié : refusé (avant : tous les étudiants de toutes les écoles)
         mockMvc.perform(get("/professor/courses/course-001/students")
                 .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test

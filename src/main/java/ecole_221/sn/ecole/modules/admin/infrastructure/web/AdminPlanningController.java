@@ -11,6 +11,7 @@ import ecole_221.sn.ecole.modules.admin.application.port.usecase.PlanningUseCase
 import ecole_221.sn.ecole.modules.admin.domain.model.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/admin/planning")
@@ -33,7 +34,8 @@ public class AdminPlanningController {
 
     @PutMapping("/rooms")
     @Operation(summary = "Mettre a jour les salles", description = "Met a jour la liste complete des salles.")
-    public ResponseEntity<Void> updateRooms(@RequestBody List<Room> rooms) {
+    public ResponseEntity<Void> updateRooms(@RequestBody List<Map<String, Object>> corps) {
+        List<Room> rooms = PlanningPayloads.salles(corps);
         logger.info("PUT /admin/planning/rooms - Mise a jour des salles: {} salles", rooms.size());
         planningUseCase.updateRooms(rooms);
         return ResponseEntity.ok().build();
@@ -48,7 +50,8 @@ public class AdminPlanningController {
 
     @PutMapping("/filieres")
     @Operation(summary = "Mettre a jour les filieres", description = "Met a jour la liste complete des filieres.")
-    public ResponseEntity<Void> updateFilieres(@RequestBody List<Filiere> filieres) {
+    public ResponseEntity<Void> updateFilieres(@RequestBody List<Map<String, Object>> corps) {
+        List<Filiere> filieres = PlanningPayloads.filieres(corps);
         logger.info("PUT /admin/planning/filieres - Mise a jour des filieres: {} filieres", filieres.size());
         planningUseCase.updateFilieres(filieres);
         return ResponseEntity.ok().build();
@@ -63,7 +66,8 @@ public class AdminPlanningController {
 
     @PutMapping("/classes")
     @Operation(summary = "Mettre a jour les classes", description = "Met a jour la liste complete des classes.")
-    public ResponseEntity<Void> updateClasses(@RequestBody List<Classe> classes) {
+    public ResponseEntity<Void> updateClasses(@RequestBody List<Map<String, Object>> corps) {
+        List<Classe> classes = PlanningPayloads.classes(corps);
         logger.info("PUT /admin/planning/classes - Mise a jour des classes: {} classes", classes.size());
         planningUseCase.updateClasses(classes);
         return ResponseEntity.ok().build();
@@ -78,7 +82,8 @@ public class AdminPlanningController {
 
     @PutMapping("/slots")
     @Operation(summary = "Mettre a jour les crenaux", description = "Met a jour la liste complete des crenaux horaires.")
-    public ResponseEntity<Void> updateSlots(@RequestBody List<TimeSlot> slots) {
+    public ResponseEntity<Void> updateSlots(@RequestBody List<Map<String, Object>> corps) {
+        List<TimeSlot> slots = PlanningPayloads.creneaux(corps);
         logger.info("PUT /admin/planning/slots - Mise a jour des crenaux: {} crenaux", slots.size());
         planningUseCase.updateSlots(slots);
         return ResponseEntity.ok().build();
