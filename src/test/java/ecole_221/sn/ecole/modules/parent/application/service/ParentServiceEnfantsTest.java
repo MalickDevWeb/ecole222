@@ -72,4 +72,37 @@ class ParentServiceEnfantsTest {
         Mockito.when(parents.findNotesByEnfantId("e0")).thenReturn(List.of());
         assertTrue(service.getChildGrades("e0").isEmpty());
     }
+
+    @Test
+    void presencesEtStatistiquesReelles() {
+        var P = ecole_221.sn.ecole.modules.parent.domain.model.PresenceEnfant.class;
+        Mockito.when(parents.findPresencesByEnfantId("e42")).thenReturn(List.of(
+                new ecole_221.sn.ecole.modules.parent.domain.model.PresenceEnfant("a1", "2026-11-03", "PRESENT", "c1", "Algo", null),
+                new ecole_221.sn.ecole.modules.parent.domain.model.PresenceEnfant("a2", "2026-11-04", "ABSENT", "c1", "Algo", null),
+                new ecole_221.sn.ecole.modules.parent.domain.model.PresenceEnfant("a3", "2026-10-28", "RETARD", "c1", "Algo", null),
+                new ecole_221.sn.ecole.modules.parent.domain.model.PresenceEnfant("a4", "2026-11-05", "PRESENT", "c1", "Algo", null)));
+        Mockito.when(parents.findNotesByEnfantId("e42")).thenReturn(List.of(
+                new ecole_221.sn.ecole.modules.parent.domain.model.NoteEnfant("g1", "c1", "Algo", null, 16.5, 15.0)));
+
+        assertEquals(3, service.getChildPresences("e42", "2026-11").size(), "filtre par mois");
+        var stats = service.getChildStats("e42");
+        assertEquals(75.0, stats.tauxPresence());
+        assertEquals(1, stats.nombreAbsences());
+        assertEquals(1, stats.nombreRetards());
+        assertEquals(15.6, stats.moyenneGenerale());
+        assertNull(stats.creditValides(), "aucune source : rien d'inventé");
+        assertTrue(stats.prochainsExamens().isEmpty());
+    }
+
+    @Test
+    void sansDonneeStatistiquesNulles() {
+        Mockito.when(parents.findPresencesByEnfantId("e0")).thenReturn(List.of());
+        Mockito.when(parents.findNotesByEnfantId("e0")).thenReturn(List.of());
+        var stats = service.getChildStats("e0");
+        assertNull(stats.tauxPresence());
+        assertNull(stats.moyenneGenerale());
+        assertTrue(service.getChildSchedule("e0").isEmpty());
+        assertTrue(service.getParentMessages("p0").isEmpty());
+        assertTrue(service.getParentApplications("p0").isEmpty());
+    }
 }
