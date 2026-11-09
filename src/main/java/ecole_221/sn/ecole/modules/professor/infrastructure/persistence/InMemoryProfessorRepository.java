@@ -75,6 +75,15 @@ public class InMemoryProfessorRepository implements ProfessorRepositoryPort {
 
     @Override
     public void saveGrade(String studentId, String courseId, Double cc, Double exam) {
+        // Saisir une seule note ne doit pas effacer l'autre (FEAT-003 Q2)
+        // (lecture directe : getGrade renvoie une note par défaut à 0.0 qu'il ne faut pas reprendre)
+        Map<String, Object> ancienne = grades.stream()
+                .filter(g -> g.get("studentId").equals(studentId) && g.get("courseId").equals(courseId))
+                .findFirst().orElse(null);
+        if (ancienne != null) {
+            if (cc == null && ancienne.get("cc") instanceof Double v) cc = v;
+            if (exam == null && ancienne.get("examen") instanceof Double v) exam = v;
+        }
         grades.removeIf(g -> g.get("studentId").equals(studentId) && g.get("courseId").equals(courseId));
         Map<String, Object> g = new HashMap<>();
         g.put("studentId", studentId);

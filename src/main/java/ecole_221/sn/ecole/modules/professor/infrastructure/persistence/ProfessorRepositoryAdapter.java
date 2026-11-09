@@ -139,6 +139,9 @@ public class ProfessorRepositoryAdapter implements ProfessorRepositoryPort {
         }
         grade.setStudentId(studentId);
         grade.setCourseId(courseId);
+        // Saisir une seule note ne doit pas effacer l'autre (relevé par l'Agent 01, FEAT-003 Q2)
+        cc = cc != null ? cc : grade.getCc();
+        exam = exam != null ? exam : grade.getExamen();
         grade.setCc(cc);
         grade.setExamen(exam);
         double average = (cc != null && exam != null)
