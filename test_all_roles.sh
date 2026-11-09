@@ -8,7 +8,7 @@ function test_endpoint {
 
 # --- STUDENT ---
 echo "--- TESTING STUDENT ENDPOINTS ---"
-STUDENT_TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"etudiant221@gmail.com","password":"ecole221"}' http://127.0.0.1:8080/api/auth/login | jq -r '.token')
+STUDENT_TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"etudiant221@gmail.com","password":"'"${DEMO_ACCOUNTS_PASSWORD:?Exportez DEMO_ACCOUNTS_PASSWORD}"'"}' http://127.0.0.1:8080/api/auth/login | jq -r '.token')
 test_endpoint "/student/profile" $STUDENT_TOKEN
 test_endpoint "/student/dashboard" $STUDENT_TOKEN
 test_endpoint "/student/digital-badge" $STUDENT_TOKEN
@@ -19,7 +19,7 @@ echo ""
 
 # --- ADMIN ---
 echo "--- TESTING ADMIN ENDPOINTS ---"
-ADMIN_TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"admin221@gmail.com","password":"ecole221"}' http://127.0.0.1:8080/api/auth/login | jq -r '.token')
+ADMIN_TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"admin221@gmail.com","password":"'"${DEMO_ACCOUNTS_PASSWORD:?Exportez DEMO_ACCOUNTS_PASSWORD}"'"}' http://127.0.0.1:8080/api/auth/login | jq -r '.token')
 test_endpoint "/planning/rooms" $ADMIN_TOKEN
 test_endpoint "/planning/filieres" $ADMIN_TOKEN
 test_endpoint "/planning/classes" $ADMIN_TOKEN
@@ -29,7 +29,7 @@ echo ""
 
 # --- VIGIL ---
 echo "--- TESTING VIGIL ENDPOINTS ---"
-VIGIL_TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"vigil@ecole221.sn","password":"vigil123"}' http://127.0.0.1:8080/api/auth/login | jq -r '.token')
+VIGIL_TOKEN=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"vigil@ecole221.sn","password":"'"${DEMO_ACCOUNTS_PASSWORD:?Exportez DEMO_ACCOUNTS_PASSWORD}"'"}' http://127.0.0.1:8080/api/auth/login | jq -r '.token')
 test_endpoint "/security/checkpoint-status" $VIGIL_TOKEN
 test_endpoint "/vigil/check-ins" $VIGIL_TOKEN
 

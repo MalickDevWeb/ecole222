@@ -81,7 +81,7 @@ run_test() {
 echo "🔐 Authentification admin..."
 auth_response=$(curl -s -X POST "http://localhost:8080/api/auth/login-token" \
     -H "Content-Type: application/json" \
-    -d '{"email":"admin221@gmail.com","password":"ecole221"}')
+    -d '{"email":"admin221@gmail.com","password":"'"${DEMO_ACCOUNTS_PASSWORD:?Exportez DEMO_ACCOUNTS_PASSWORD}"'"}')
 AUTH_TOKEN=$(echo "$auth_response" | jq -r '.token // empty')
 if [ -n "$AUTH_TOKEN" ] && [ "$AUTH_TOKEN" != "null" ]; then
     AUTH_HEADER=(-H "Authorization: Bearer $AUTH_TOKEN")
