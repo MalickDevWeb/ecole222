@@ -72,6 +72,7 @@ public class GeminiAIService implements AIServicePort {
         logger.info("Utilisation de la réponse fallback pour: {}", message);
         
         // Réponse fallback simple qui simule une IA
-        return "Je suis votre assistant IA (mode développement). Je suis actuellement en mode simulation car le service Gemini n'est pas configuré. Votre message : \"" + message + "\" sera traité une fois le service IA activé avec une clé API valide.";
+        // Pas de réponse imitant l'IA (avant : « Je suis votre assistant IA… votre message sera traité »)
+        return "L'assistant IA n'est pas disponible : aucun service d'IA n'est configuré pour cet établissement.";
     }
 }
