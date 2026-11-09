@@ -37,4 +37,23 @@ class Profile360SansDonneesInventeesTest {
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.extra.sante").value("A+"));
     }
+
+    @Test
+    void donneesDUneEcoleInvisiblesDepuisUneAutre() throws Exception {
+        var ecoleA = ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationFactory.create("A",
+                ecole_221.sn.ecole.modules.platform.organization.domain.valueobject.OrganizationType.ECOLE, "a@exemple.sn");
+        var ecoleB = ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationFactory.create("B",
+                ecole_221.sn.ecole.modules.platform.organization.domain.valueobject.OrganizationType.ECOLE, "b@exemple.sn");
+        try {
+            ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.setCurrentOrganization(ecoleA);
+            mvc.perform(post("/admin/students/e44/profile360").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"bloodGroup\":\"B-\"}")).andExpect(status().isOk());
+            ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.setCurrentOrganization(ecoleB);
+            mvc.perform(get("/admin/students/e44/profile360"))
+                    .andExpect(status().isOk())
+                    .andExpect(content().string(not(containsString("B-"))));
+        } finally {
+            ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.clear();
+        }
+    }
 }
