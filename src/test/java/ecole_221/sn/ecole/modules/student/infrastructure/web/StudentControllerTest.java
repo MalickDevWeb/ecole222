@@ -71,21 +71,17 @@ class StudentControllerTest {
     }
 
     @Test
-    void testGetProfile() throws Exception {
-        Map<String, Object> mockProfile = new HashMap<>();
-        mockProfile.put("id", "usr-001");
-        mockProfile.put("name", "Test Student");
-        mockProfile.put("email", "test@ecole221.sn");
-        
+    void profilConstruitDepuisLeCompteReel() throws Exception {
+        // avant : profil lu dans StudentData seul → vide pour un vrai compte (« Matricule non renseigné »)
         Mockito.when(studentDataRepository.findById(anyString())).thenReturn(java.util.Optional.empty());
-        Mockito.when(studentUseCase.getStudentProfile(anyString())).thenReturn(mockProfile);
 
         mockMvc.perform(get("/student/profile")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value("usr-001"));
-
-        Mockito.verify(studentUseCase, Mockito.times(1)).getStudentProfile("usr-001");
+                .andExpect(jsonPath("$.id").value("usr-001"))
+                .andExpect(jsonPath("$.nom").value("Ba"))
+                .andExpect(jsonPath("$.prenom").value("Fatou"))
+                .andExpect(jsonPath("$.matricule").value("ETU-1"));
     }
 
     @Test
@@ -105,19 +101,19 @@ class StudentControllerTest {
     }
 
     @Test
-    void testGetDigitalBadge() throws Exception {
-        Map<String, Object> mockBadge = new HashMap<>();
-        mockBadge.put("matricule", "2026-EC-001");
-        mockBadge.put("qrCode", "test-qr-code");
-        
-        Mockito.when(studentUseCase.getDigitalBadge(anyString())).thenReturn(mockBadge);
+    void badgeAvecLeMatriculeReel() throws Exception {
+        // avant : matricule inventé « SN-2026-<hash> » sur le QR d'accès
+        Mockito.when(studentDataRepository.findById(anyString())).thenReturn(java.util.Optional.empty());
+        Map<String, Object> badge = new HashMap<>();
+        badge.put("matricule", "ETU-1");
+        Mockito.when(studentUseCase.getDigitalBadge(anyString(), anyString(), anyString(), Mockito.any())).thenReturn(badge);
 
         mockMvc.perform(get("/student/digital-badge")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.matricule").value("2026-EC-001"));
+                .andExpect(jsonPath("$.matricule").value("ETU-1"));
 
-        Mockito.verify(studentUseCase, Mockito.times(1)).getDigitalBadge("usr-001");
+        Mockito.verify(studentUseCase).getDigitalBadge(Mockito.eq("usr-001"), Mockito.eq("ETU-1"), Mockito.eq("Fatou Ba"), Mockito.any());
     }
 
     @Test
