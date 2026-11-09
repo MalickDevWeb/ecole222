@@ -49,6 +49,14 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
         return jpaRepository.findById(id)
                 .map(this::toUser);
     }
+
+    @Override
+    public Optional<User> findByMatricule(String matricule) {
+        if (matricule == null || matricule.isBlank()) {
+            return Optional.empty();
+        }
+        return jpaRepository.findFirstByMatricule(matricule.trim()).map(this::toUser);
+    }
     
     @Override
     public List<User> findAll() {
