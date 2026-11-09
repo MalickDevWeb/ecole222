@@ -57,23 +57,19 @@ public class SecurityConfig {
         // WebSocket
         "/ws/**",
         // Admissions : seules les routes du portail candidat sont publiques, voir PORTAIL_CANDIDAT_* (APP-SEC-12)
-        "/notifications/**",
         // Dashboard étudiant & planning consultation
         "/meet/active",
         "/schedule",
-        // Collaboration & Wiki partagé
-        "/collaboration/**",
-        "/wiki/**",
-        // Synchronisation offline / online
-        "/sync/**",
-        // Upload multimédia Cloudinary public pour admissions & documents
-        "/media/**"
+        // APP-SEC-15 : /collaboration, /wiki, /notifications, /sync, /media ne sont plus publics
+        // (seules exceptions, par méthode : GET /sync/check et POST /media/upload, voir PORTAIL_CANDIDAT_*)
     };
 
     /** Lectures publiques du portail candidat (APP-SEC-12). */
     static final String[] PORTAIL_CANDIDAT_LECTURE = {
         "/candidatures/settings",
         "/admissions/settings", "/v1/admissions/settings",
+        // APP-SEC-15 : indicateur hors ligne appelé sans compte (OfflineSyncToast)
+        "/sync/check",
         // TEMPORAIRE (carte APP-TL-10) : le portail télécharge toute la base des admissions
         "/admissions/db", "/v1/admissions/db"
     };
@@ -81,6 +77,8 @@ public class SecurityConfig {
     /** Écritures publiques du portail candidat (APP-SEC-12). */
     static final String[] PORTAIL_CANDIDAT_ECRITURE = {
         "/candidatures/submit",
+        // APP-SEC-15 : pièces du dossier de candidature envoyées sans compte (cloudinaryUpload.ts)
+        "/media/upload",
         // TEMPORAIRE (carte APP-TL-10)
         "/admissions/db", "/v1/admissions/db"
     };

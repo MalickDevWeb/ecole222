@@ -33,4 +33,12 @@ class PortailCandidatPublicTest {
             assertFalse(Arrays.asList(tout).contains(admin), admin + " ne doit pas être public");
         }
     }
+
+    @Test
+    void collaborationWikiSyncMediaNotificationsNonPublics() {
+        // APP-SEC-15 (relevé par l'Agent 11) : ces espaces étaient ouverts sans connexion
+        for (String p : SecurityConfig.PUBLIC_PATHS) {
+            assertFalse(p.matches("/(collaboration|wiki|sync|media|notifications)(/.*)?"), p + " ne doit pas être public");
+        }
+    }
 }
