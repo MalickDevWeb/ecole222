@@ -43,8 +43,11 @@ final class PlanningPayloads {
         for (Map<String, Object> m : lignes(corps)) {
             String nom = obligatoire(m, "le nom de la classe", "name", "nom");
             String filiere = texte(m, "filiereId");
+            Integer frais = entier(m, "price", "fraisAnnuels", "frais");
+            if (frais != null && frais < 0) throw mauvais("Les frais annuels de la classe « " + nom + " » ne peuvent pas être négatifs.");
             res.add(ClasseFactory.reconstruct(id(m), nom, filiere == null ? "" : filiere,
-                    texte(m, "level", "niveau"), entier(m, "capacityMax", "capacity", "capacite")));
+                    texte(m, "level", "niveau"), entier(m, "capacityMax", "capacity", "capacite"),
+                    frais == null ? null : frais.longValue()));
         }
         return res;
     }

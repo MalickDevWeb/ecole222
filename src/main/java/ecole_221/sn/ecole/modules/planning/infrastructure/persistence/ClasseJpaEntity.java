@@ -25,6 +25,9 @@ public class ClasseJpaEntity {
     private String niveau;
     private int capacity;
     private int currentSize;
+    /** Frais de scolarité annuels (FCFA) ; null = non renseignés. Avant : saisis à l'écran puis perdus. */
+    @jakarta.persistence.Column(name = "frais_annuels")
+    private Long fraisAnnuels;
 
     @jakarta.persistence.PrePersist
     @jakarta.persistence.PreUpdate
@@ -58,6 +61,8 @@ public class ClasseJpaEntity {
     public int getCapacity() { return capacity; }
     public void setCapacity(int capacity) { this.capacity = capacity; }
     
+    public Long getFraisAnnuels() { return fraisAnnuels; }
+    public void setFraisAnnuels(Long fraisAnnuels) { this.fraisAnnuels = fraisAnnuels; }
     public int getCurrentSize() { return currentSize; }
     public void setCurrentSize(int currentSize) { this.currentSize = currentSize; }
 }
