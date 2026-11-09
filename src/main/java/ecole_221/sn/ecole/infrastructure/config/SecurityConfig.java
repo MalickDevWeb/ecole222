@@ -3,6 +3,7 @@ package ecole_221.sn.ecole.infrastructure.config;
 import ecole_221.sn.ecole.infrastructure.security.JwtAuthenticationFilter;
 import ecole_221.sn.ecole.infrastructure.security.TokenAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
@@ -33,7 +34,7 @@ public class SecurityConfig {
         this.tokenAuthFilter = tokenAuthFilter;
     }
 
-    private static final String[] PUBLIC_PATHS = {
+    static final String[] PUBLIC_PATHS = {
         "/auth/login",
         "/auth/login-token",
         "/auth/logout",
@@ -41,8 +42,6 @@ public class SecurityConfig {
         "/register-school",
         "/public/**",
         "/v1/public/**",
-        "/candidatures/settings",
-        "/candidatures/submit",
         "/health",
         "/error",
         "/student/qr-validate", // Ajouté pour permettre aux vigiles de scanner les QR
@@ -57,10 +56,7 @@ public class SecurityConfig {
         "/h2-console/**",
         // WebSocket
         "/ws/**",
-        // Admissions publiques & portail candidat
-        "/candidatures/**",
-        "/admissions/**",
-        "/v1/admissions/**",
+        // Admissions : seules les routes du portail candidat sont publiques, voir PORTAIL_CANDIDAT_* (APP-SEC-12)
         "/notifications/**",
         // Dashboard étudiant & planning consultation
         "/meet/active",
@@ -74,6 +70,21 @@ public class SecurityConfig {
         "/media/**"
     };
 
+    /** Lectures publiques du portail candidat (APP-SEC-12). */
+    static final String[] PORTAIL_CANDIDAT_LECTURE = {
+        "/candidatures/settings",
+        "/admissions/settings", "/v1/admissions/settings",
+        // TEMPORAIRE (carte APP-TL-10) : le portail télécharge toute la base des admissions
+        "/admissions/db", "/v1/admissions/db"
+    };
+
+    /** Écritures publiques du portail candidat (APP-SEC-12). */
+    static final String[] PORTAIL_CANDIDAT_ECRITURE = {
+        "/candidatures/submit",
+        // TEMPORAIRE (carte APP-TL-10)
+        "/admissions/db", "/v1/admissions/db"
+    };
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http
@@ -82,6 +93,12 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_PATHS).permitAll()
+                // APP-SEC-12 : portail candidat (sans compte) limité aux routes qu'il appelle réellement
+                .requestMatchers(HttpMethod.GET, PORTAIL_CANDIDAT_LECTURE).permitAll()
+                .requestMatchers(HttpMethod.POST, PORTAIL_CANDIDAT_ECRITURE).permitAll()
+                // le reste des admissions (liste, CRUD, statuts, réglages) : administration de l'école
+                .requestMatchers("/candidatures/**", "/admissions/**", "/v1/admissions/**")
+                    .hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
                 // Routes exclusivement réservées au SUPER_ADMIN / PLATFORM_ADMIN
                 .requestMatchers("/super-admin/**", "/platform/**", "/v1/super-admin/**", "/v1/platform/**")
                     .hasAnyRole("SUPER_ADMIN", "PLATFORM_ADMIN")
