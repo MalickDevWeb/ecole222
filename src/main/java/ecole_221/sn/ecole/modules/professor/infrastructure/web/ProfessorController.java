@@ -284,6 +284,7 @@ public class ProfessorController {
             @RequestBody Map<String, String> body) {
         logger.info("POST /professor/planning/{}/cancel - reason={}", sessionId, body.get("reason"));
         try {
+            ProfExtraController.verifierSeanceDuProfesseur(professorUseCase, sessionId);
             professorUseCase.cancelScheduleSession(sessionId, body.get("reason"));
             actionLogger.logProfessorAction("CANCEL_COURSE", auteur(), "Professeur", sessionId, 
                 "Cours annulé: " + body.get("reason"));
@@ -302,6 +303,7 @@ public class ProfessorController {
         logger.info("POST /professor/planning/{}/reschedule - day={}, time={}, room={}", 
             sessionId, body.get("day"), body.get("time"), body.get("room"));
         try {
+            ProfExtraController.verifierSeanceDuProfesseur(professorUseCase, sessionId);
             professorUseCase.rescheduleScheduleSession(sessionId, body.get("day"), body.get("time"), body.get("room"));
             actionLogger.logProfessorAction("RESCHEDULE_COURSE", auteur(), "Professeur", sessionId, 
                 "Cours reprogrammé: " + body.get("day") + " " + body.get("time"));
