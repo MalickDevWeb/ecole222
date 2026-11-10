@@ -25,9 +25,9 @@ spring:
       enabled: false
   
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://ep-patient-darkness-avnjut8j-pooler.c-11.us-east-1.aws.neon.tech/221-db?sslmode=require&channelBinding=require}
-    username: ${DATABASE_USERNAME:neondb_owner}
-    password: ${DATABASE_PASSWORD:npg_4yY7uSBEPobK}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/ecole221}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 15
@@ -70,7 +70,7 @@ spring:
     redis:
       repositories:
         enabled: false
-      url: ${REDIS_URL:rediss://default:gQAAAAAAArCqAAIgcDExMDg4N2E5MjkwZjM0YTEwOWE1ODRmNzU3ODI4ZmJmNA@crisp-tortoise-176298.upstash.io:6379}
+      url: ${REDIS_URL:redis://localhost:6379}
       ssl:
         enabled: true
       # Court : si Redis tombe, le cache est contourné (RedisConfig) au lieu de bloquer chaque requête
@@ -135,9 +135,9 @@ springdoc:
     display-request-duration: true
 
 cloudinary:
-  cloud-name: ${CLOUDINARY_CLOUD_NAME:qudmvipg}
-  api-key: ${CLOUDINARY_API_KEY:512985687338673}
-  api-secret: ${CLOUDINARY_API_SECRET:iF7CTcBpQrS11jszJKQ2-Qu3V6k}
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
 
 jwt:
   secret: ${JWT_SECRET:}

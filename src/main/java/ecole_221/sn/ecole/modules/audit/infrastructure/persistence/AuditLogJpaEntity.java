@@ -10,6 +10,13 @@ import java.time.LocalDateTime;
 @Table(name = "audit_logs")
 public class AuditLogJpaEntity {
 
+    @org.hibernate.annotations.TenantId
+    @jakarta.persistence.Column(name = "organization_id")
+    private String organizationId;
+
+    public String getOrganizationId() { return organizationId; }
+    public void setOrganizationId(String organizationId) { this.organizationId = organizationId; }
+
     @Id
     private String id;
     
