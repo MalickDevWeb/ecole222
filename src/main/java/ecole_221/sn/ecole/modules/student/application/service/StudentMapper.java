@@ -35,19 +35,28 @@ public final class StudentMapper {
             return null;
         }
         
+        // Valeur absente → null (avant : String.valueOf(null) affichait « null » à l'élève)
         return new StudentProfileDto(
-            String.valueOf(profileMap.getOrDefault("id", "")),
-            String.valueOf(profileMap.getOrDefault("nom", "")),
-            String.valueOf(profileMap.getOrDefault("prenom", "")),
-            String.valueOf(profileMap.getOrDefault("email", "")),
-            String.valueOf(profileMap.getOrDefault("matricule", "")),
+            texte(profileMap, "id"),
+            texte(profileMap, "nom"),
+            texte(profileMap, "prenom"),
+            texte(profileMap, "email"),
+            texte(profileMap, "matricule"),
             parseLocalDate(profileMap.get("dateNaissance")),
-            String.valueOf(profileMap.getOrDefault("telephone", "")),
-            String.valueOf(profileMap.getOrDefault("adresse", "")),
-            String.valueOf(profileMap.getOrDefault("filiere", "")),
-            String.valueOf(profileMap.getOrDefault("niveau", "")),
-            String.valueOf(profileMap.getOrDefault("photoUrl", ""))
+            texte(profileMap, "telephone"),
+            texte(profileMap, "adresse"),
+            texte(profileMap, "filiere"),
+            texte(profileMap, "niveau"),
+            texte(profileMap, "photoUrl"),
+            texte(profileMap, "classe")
         );
+    }
+
+    private static String texte(Map<String, Object> m, String cle) {
+        Object v = m.get(cle);
+        if (v == null) return null;
+        String t = String.valueOf(v).trim();
+        return t.isEmpty() || "null".equals(t) ? null : t;
     }
 
     // ==================== DASHBOARD MAPPING ====================
