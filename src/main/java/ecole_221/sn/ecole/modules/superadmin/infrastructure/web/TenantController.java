@@ -66,7 +66,7 @@ public class TenantController {
     @PatchMapping("/{id}")
     public ResponseEntity<TenantDto> updateTenant(
             @PathVariable String id,
-            @RequestBody UpdateTenantCommand command) {
+            @jakarta.validation.Valid @RequestBody UpdateTenantCommand command) {
         return ResponseEntity.ok(tenantService.updateTenant(id, command));
     }
 

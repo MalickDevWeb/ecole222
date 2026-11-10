@@ -18,15 +18,29 @@ public class SubscriptionService {
     
     private final SubscriptionRepositoryPort subscriptionRepository;
     private final PlanRepositoryPort planRepository;
+    private final ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationRepositoryPort etablissements;
 
-    public SubscriptionService(SubscriptionRepositoryPort subscriptionRepository, PlanRepositoryPort planRepository) {
+    public SubscriptionService(SubscriptionRepositoryPort subscriptionRepository, PlanRepositoryPort planRepository,
+                               ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationRepositoryPort etablissements) {
         this.subscriptionRepository = subscriptionRepository;
         this.planRepository = planRepository;
+        this.etablissements = etablissements;
+    }
+
+    private static org.springframework.web.server.ResponseStatusException erreur(org.springframework.http.HttpStatus s, String m) {
+        return new org.springframework.web.server.ResponseStatusException(s, m);
     }
 
     @Transactional
     public SubscriptionDto subscribeTenant(AssignPlanCommand cmd) {
-        Plan plan = planRepository.findById(cmd.planId()).orElseThrow(() -> new IllegalArgumentException("Plan non trouvé"));
+        // test du 2026-11-10 : un abonnement était créé pour un établissement INEXISTANT, et avec une date de fin passée
+        etablissements.findById(cmd.organizationId())
+                .orElseThrow(() -> erreur(org.springframework.http.HttpStatus.NOT_FOUND, "Établissement introuvable."));
+        Plan plan = planRepository.findById(cmd.planId())
+                .orElseThrow(() -> erreur(org.springframework.http.HttpStatus.NOT_FOUND, "Offre introuvable."));
+        if (cmd.endDate() != null && cmd.endDate().isBefore(java.time.LocalDateTime.now())) {
+            throw erreur(org.springframework.http.HttpStatus.BAD_REQUEST, "La date de fin d'abonnement est déjà passée.");
+        }
         
         Optional<Subscription> existing = subscriptionRepository.findByOrganizationId(cmd.organizationId());
         Subscription subscription;
@@ -45,7 +59,7 @@ public class SubscriptionService {
     @Transactional(readOnly = true)
     public SubscriptionDto getSubscriptionForTenant(String tenantId) {
         Subscription subscription = subscriptionRepository.findByOrganizationId(tenantId)
-            .orElseThrow(() -> new IllegalArgumentException("Aucun abonnement trouvé pour ce tenant"));
+            .orElseThrow(() -> erreur(org.springframework.http.HttpStatus.NOT_FOUND, "Aucun abonnement pour cet établissement."));
         return SubscriptionDto.fromDomain(subscription);
     }
     
@@ -59,7 +73,10 @@ public class SubscriptionService {
     @Transactional
     public void suspendSubscription(String subscriptionId) {
         Subscription subscription = subscriptionRepository.findById(subscriptionId)
-            .orElseThrow(() -> new IllegalArgumentException("Abonnement non trouvé"));
+            .orElseThrow(() -> erreur(org.springframework.http.HttpStatus.NOT_FOUND, "Abonnement introuvable."));
+        if ("SUSPENDED".equalsIgnoreCase(subscription.getStatus())) {
+            throw erreur(org.springframework.http.HttpStatus.CONFLICT, "Cet abonnement est déjà suspendu.");
+        }
         subscription.suspend();
         subscriptionRepository.save(subscription);
     }

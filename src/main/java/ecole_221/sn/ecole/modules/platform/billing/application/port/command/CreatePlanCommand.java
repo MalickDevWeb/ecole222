@@ -11,5 +11,8 @@ public record CreatePlanCommand(
     @NotNull(message = "Le prix mensuel est obligatoire")
     BigDecimal priceMonthly,
     @NotNull(message = "Le prix annuel est obligatoire")
-    BigDecimal priceYearly
+    BigDecimal priceYearly,
+    /** Quotas envoyés avec l'offre (avant : envoyés par le formulaire puis ignorés → offre sans quota). */
+    @jakarta.validation.Valid
+    java.util.List<AddEntitlementCommand> entitlements
 ) {}

@@ -14,6 +14,8 @@ import java.util.Map;
 /**
  * Gestion centralisée des exceptions pour le module Tenants.
  */
+// Avant le gestionnaire global (sinon ses 404 / 409 devenaient des 500 — test du 2026-11-10)
+@org.springframework.core.annotation.Order(org.springframework.core.Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(assignableTypes = TenantController.class)
 public class TenantExceptionHandler {
 
@@ -29,8 +31,8 @@ public class TenantExceptionHandler {
 
     @ExceptionHandler(IllegalStateException.class)
     public ResponseEntity<Map<String, Object>> handleInvalidState(IllegalStateException ex) {
-        // Levé par Organisation.validate() / suspend() / reactivate() si état invalide
-        return errorResponse(HttpStatus.UNPROCESSABLE_ENTITY, "Unprocessable Entity", ex.getMessage());
+        // Levé par Organisation.validate() / suspend() / reactivate() si l'état ne le permet pas (ex. approuver deux fois)
+        return errorResponse(HttpStatus.CONFLICT, "Conflict", ex.getMessage());
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

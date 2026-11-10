@@ -15,7 +15,7 @@ public record OrganizationStatus(String value) {
         
         String normalized = value.trim().toUpperCase(Locale.ROOT);
         if (!isValidStatus(normalized)) {
-            throw new IllegalArgumentException("Statut d'organization invalide: " + value + 
+            throw new IllegalArgumentException("Statut d'établissement invalide : " + value + 
                 ". Statuts autorisés: PENDING, ACTIVE, SUSPENDED, REJECTED, EXPIRED, CANCELLED, ARCHIVED");
         }
     }
