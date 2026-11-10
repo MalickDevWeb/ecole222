@@ -108,9 +108,11 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .exceptionHandling(exception -> exception
-                .authenticationEntryPoint((request, response, authException) -> {
-                    response.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
-                })
+                // réponses JSON en français (avant : « Unauthorized » / « Forbidden » bruts de Spring)
+                .authenticationEntryPoint((request, response, authException) ->
+                        reponseJson(response, 401, "AUTH_INVALID_CREDENTIALS", "Veuillez vous connecter pour accéder à cette page."))
+                .accessDeniedHandler((request, response, deniedException) ->
+                        reponseJson(response, 403, "AUTH_ACCESS_DENIED", "Votre rôle ne permet pas d'accéder à cette fonctionnalité."))
             )
             // Filtre Cookie HTTP-only pour l'application web
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
@@ -119,6 +121,14 @@ public class SecurityConfig {
             .headers(headers -> headers.frameOptions(HeadersConfigurer.FrameOptionsConfig::disable));
 
         return http.build();
+    }
+
+    private static void reponseJson(jakarta.servlet.http.HttpServletResponse response, int statut, String code, String message)
+            throws java.io.IOException {
+        response.setStatus(statut);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"success\":false,\"status\":" + statut + ",\"code\":\"" + code
+                + "\",\"message\":\"" + message + "\",\"error\":\"" + message + "\"}");
     }
 
     @Bean

@@ -80,7 +80,7 @@ class ProfessorControllerTest {
 
         mockMvc.perform(post("/professor/courses/course-001/homeworks")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"titre\":\"Devoir 1\",\"desc\":\"Description\",\"prio\":\"HIGH\",\"deadlineStr\":\"2024-12-31\"}"))
+                .content("{\"titre\":\"Devoir 1\",\"desc\":\"Description\",\"prio\":\"HIGH\",\"deadlineStr\":\"2099-12-31\"}"))
                 .andExpect(status().isOk());
 
         Mockito.verify(professorUseCase, Mockito.times(1)).saveHomework(anyString(), anyString(), anyString(), anyString(), anyString());

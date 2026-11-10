@@ -400,6 +400,8 @@ public class AdminController {
         if (profId == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le professeur du cours est obligatoire.");
         comptesEcole.membre(profId, "PROFESSEUR");   // professeur de CETTE école
         int heures = entier(premier(texte(body.get("volumeHoraire")), texte(body.get("totalHours"))));
+        // même règle que le modèle Course (sinon la liste des cours du professeur échouait : 500)
+        if (heures <= 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le volume horaire du cours doit être un nombre d'heures positif.");
 
         String id = "crs-" + UUID.randomUUID();
         courseJpaRepository.save(new CourseJpaEntity(id, titre, promoId, heures, profId));

@@ -19,6 +19,9 @@ public class ModuleJpaEntity {
     private String id;
     private String courseId;
     private String name;
+    /** Description du module (avant : non stockée, saisie perdue). */
+    @jakarta.persistence.Column(length = 2000)
+    private String description;
 
     public ModuleJpaEntity() {}
 
@@ -28,4 +31,7 @@ public class ModuleJpaEntity {
     public void setCourseId(String courseId) { this.courseId = courseId; }
     public String getName() { return name; }
     public void setName(String name) { this.name = name; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 }

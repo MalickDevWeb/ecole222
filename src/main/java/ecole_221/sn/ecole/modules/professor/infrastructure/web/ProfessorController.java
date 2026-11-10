@@ -34,6 +34,19 @@ public class ProfessorController {
     private static final Logger logger = LoggerFactory.getLogger(ProfessorController.class);
 
     private final ecole_221.sn.ecole.modules.professor.application.port.usecase.ProfessorUseCase professorUseCase;
+    /** Modules, supports et quiz réellement enregistrés (AccesCoursInterceptor contrôle le cours en amont). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.professor.application.service.ContenuPedagogiqueService contenus;
+
+    private ecole_221.sn.ecole.modules.professor.application.service.ContenuPedagogiqueService contenus() {
+        if (contenus == null) throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Contenus pédagogiques indisponibles.");
+        return contenus;
+    }
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository classesEcole;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaRepository inscriptions;
     private final ActionLogger actionLogger;
     private final CourseJpaRepository courses;
     private final GradeJpaRepository notes;
@@ -76,7 +89,17 @@ public class ProfessorController {
                 professorUseCase.getCourses(profId, page, size);
             
             logger.debug("Retrieved {} courses for professor {}", pageResult.getTotalElements(), profId);
-            return ResponseEntity.ok(ProfessorMapper.toCoursePageResponse(pageResult));
+            var page0 = ProfessorMapper.toCoursePageResponse(pageResult);
+            // classe et effectif RÉELS (avant : classe absente → « L3-GL » à l'écran, effectif 0)
+            var enrichis = page0.content().stream().map(c -> {
+                if (c.classeId() == null || classesEcole == null) return c;
+                var cl = classesEcole.findById(c.classeId()).orElse(null);
+                String nom = cl == null ? null : (cl.getName() != null ? cl.getName() : cl.getNom());
+                int effectif = inscriptions == null ? 0 : (int) inscriptions.countByClasseId(c.classeId());
+                return c.avecClasse(nom, effectif);
+            }).toList();
+            return ResponseEntity.ok(new ecole_221.sn.ecole.partage.dto.PageResponseDto<>(enrichis, page0.page(), page0.size(),
+                    page0.totalElements(), page0.totalPages(), page0.last()));
         } catch (Exception e) {
             logger.error("Error fetching courses for professor {}: {}", profId, e.getMessage());
             throw e;
@@ -116,10 +139,15 @@ public class ProfessorController {
                     String.valueOf(y.getDate()).compareTo(String.valueOf(x.getDate())) > 0 ? y : x);
         }
 
-        // Aucun modèle d'inscription élève ↔ classe n'existe encore : on renvoie les étudiants ACTIFS de l'école
-        // du professeur (jamais ceux d'une autre école), sans prétendre qu'ils sont inscrits dans la classe du cours.
+        // Élèves AFFECTÉS à la classe du cours (inscriptions_classes). Avant : tous les élèves de l'école apparaissaient
+        // dans l'appel et les notes de n'importe quel cours (test navigateur du 2026-11-10).
+        java.util.Set<String> eleveDeLaClasse = (inscriptions == null || cours.getClasse() == null) ? null
+                : inscriptions.findByClasseId(cours.getClasse()).stream()
+                    .map(ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaEntity::getUserId)
+                    .collect(java.util.stream.Collectors.toSet());
         List<StudentDto> etudiants = comptesEcole.membres("ETUDIANT").stream()
                 .filter(e -> "ACTIVE".equalsIgnoreCase(e.getValue().getStatus()))
+                .filter(e -> eleveDeLaClasse == null || eleveDeLaClasse.contains(e.getKey().getId()))
                 .map(Map.Entry::getKey)
                 .map(u -> new StudentDto(
                         u.getId(),
@@ -202,6 +230,10 @@ public class ProfessorController {
         logger.info("POST /professor/courses/{}/homeworks - creating homework", courseId);
         logger.debug("Homework request: titre={}, desc={}, prio={}, deadline={}", 
             request.titre(), request.desc(), request.prio(), request.deadlineStr());
+        java.time.LocalDate limite = dateValide(request.deadlineStr(), "date limite");
+        if (limite.isBefore(java.time.LocalDate.now())) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "La date limite du devoir est déjà passée.");
+        }
         try {
             Map<String, Object> homeworkMap = ProfessorMapper.toHomeworkMap(request);
             professorUseCase.saveHomework(courseId, 
@@ -216,81 +248,33 @@ public class ProfessorController {
     }
 
     @GetMapping("/professor/courses/{courseId}/lessons")
-    @Operation(summary = "Leçons d'un cours", description = "Retourne la liste des leçons d'un cours.")
-    public ResponseEntity<PageResponseDto<LessonDto>> getLessons(
-            @Parameter(description = "Identifiant du cours") @PathVariable("courseId") String courseId,
-            @Parameter(description = "Numéro de la page") @RequestParam(value = "page", defaultValue = "0") int page,
-            @Parameter(description = "Taille de la page") @RequestParam(value = "size", defaultValue = "10") int size) {
-        
-        logger.info("GET /professor/courses/{}/lessons - page={}, size={}", courseId, page, size);
-        try {
-            PageResult<Map<String, Object>> pageResult =
-                professorUseCase.getLessons(courseId, page, size);
-            logger.debug("Retrieved {} lessons for course {}", pageResult.getTotalElements(), courseId);
-            return ResponseEntity.ok(ProfessorMapper.toLessonPageResponse(pageResult));
-        } catch (Exception e) {
-            logger.error("Error fetching lessons for course {}: {}", courseId, e.getMessage());
-            throw e;
-        }
+    @Operation(summary = "Supports de cours", description = "Supports (leçons) d'un cours : titre, description, pièce jointe, module.")
+    public ResponseEntity<List<Map<String, Object>>> getLessons(@PathVariable("courseId") String courseId) {
+        return ResponseEntity.ok(contenus().supports(courseId));
     }
 
     @PostMapping("/professor/courses/{courseId}/lessons")
-    @Operation(summary = "Créer une leçon", description = "Ajoute une nouvelle leçon à un cours (titre, durée en minutes, date).")
-    public ResponseEntity<Map<String, Object>> createLesson(
-            @Parameter(description = "Identifiant du cours") @PathVariable("courseId") String courseId,
-            @Valid @RequestBody CreateLessonRequestDto request) {
-        
-        logger.info("POST /professor/courses/{}/lessons - creating lesson", courseId);
-        logger.debug("Lesson request: title={}, duration={}, date={}", 
-            request.title(), request.duration(), request.date());
-        try {
-            Map<String, Object> lessonMap = ProfessorMapper.toLessonMap(request);
-            professorUseCase.saveLesson(courseId, 
-                request.title(), request.duration(), request.date());
-            logger.info("Lesson created successfully for course {}", courseId);
-            return ResponseEntity.ok(ProfessorMapper.createSuccessResponse("Leçon créée avec succès"));
-        } catch (Exception e) {
-            logger.error("Error creating lesson for course {}: {}", courseId, e.getMessage());
-            throw e;
-        }
+    @Operation(summary = "Publier un support de cours", description = "Titre obligatoire ; description, pièce jointe (lien http/https) et module facultatifs.")
+    public ResponseEntity<Map<String, Object>> createLesson(@PathVariable("courseId") String courseId,
+                                                            @RequestBody(required = false) Map<String, Object> corps) {
+        Map<String, Object> cree = contenus().creerSupport(courseId, corps);
+        actionLogger.logProfessorAction("CREATE_LESSON", auteur(), "Professeur", courseId, "Support publié : " + cree.get("title"));
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(cree);
     }
 
     @GetMapping("/professor/courses/{courseId}/modules")
-    @Operation(summary = "Modules d'un cours", description = "Retourne la liste des modules d'un cours.")
-    public ResponseEntity<PageResponseDto<ModuleDto>> getModules(
-            @Parameter(description = "Identifiant du cours") @PathVariable("courseId") String courseId,
-            @Parameter(description = "Numéro de la page") @RequestParam(value = "page", defaultValue = "0") int page,
-            @Parameter(description = "Taille de la page") @RequestParam(value = "size", defaultValue = "10") int size) {
-        
-        logger.info("GET /professor/courses/{}/modules - page={}, size={}", courseId, page, size);
-        try {
-            PageResult<Map<String, Object>> pageResult =
-                professorUseCase.getModules(courseId, page, size);
-            logger.debug("Retrieved {} modules for course {}", pageResult.getTotalElements(), courseId);
-            return ResponseEntity.ok(ProfessorMapper.toModulePageResponse(pageResult));
-        } catch (Exception e) {
-            logger.error("Error fetching modules for course {}: {}", courseId, e.getMessage());
-            throw e;
-        }
+    @Operation(summary = "Modules d'un cours", description = "Modules (chapitres) d'un cours.")
+    public ResponseEntity<List<Map<String, Object>>> getModules(@PathVariable("courseId") String courseId) {
+        return ResponseEntity.ok(contenus().modules(courseId));
     }
 
     @PostMapping("/professor/courses/{courseId}/modules")
-    @Operation(summary = "Créer un module", description = "Ajoute un nouveau module à un cours.")
-    public ResponseEntity<Map<String, Object>> createModule(
-            @Parameter(description = "Identifiant du cours") @PathVariable("courseId") String courseId,
-            @Valid @RequestBody CreateModuleRequestDto request) {
-        
-        logger.info("POST /professor/courses/{}/modules - creating module", courseId);
-        logger.debug("Module request: name={}", request.name());
-        try {
-            Map<String, Object> moduleMap = ProfessorMapper.toModuleMap(request);
-            professorUseCase.saveModule(courseId, request.name());
-            logger.info("Module created successfully for course {}", courseId);
-            return ResponseEntity.ok(ProfessorMapper.createSuccessResponse("Module créé avec succès"));
-        } catch (Exception e) {
-            logger.error("Error creating module for course {}: {}", courseId, e.getMessage());
-            throw e;
-        }
+    @Operation(summary = "Créer un module", description = "Titre obligatoire (« title » ou « name »), description facultative.")
+    public ResponseEntity<Map<String, Object>> createModule(@PathVariable("courseId") String courseId,
+                                                            @RequestBody(required = false) Map<String, Object> corps) {
+        Map<String, Object> cree = contenus().creerModule(courseId, corps);
+        actionLogger.logProfessorAction("CREATE_MODULE", auteur(), "Professeur", courseId, "Module créé : " + cree.get("title"));
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(cree);
     }
 
     @GetMapping("/professor/planning")
@@ -371,11 +355,19 @@ public class ProfessorController {
             @RequestBody Map<String, Object> body) {
         logger.info("POST /professor/courses/{}/reminders - content={}, isUrgent={}", 
             courseId, body.get("content"), body.get("isUrgent"));
+        Object contenu = body == null ? null : body.get("content");
+        if (contenu == null || contenu.toString().isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Le texte du rappel est obligatoire.");
+        }
+        Object urgent = body.get("isUrgent");
+        if (urgent != null && !(urgent instanceof Boolean)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "« isUrgent » doit valoir true ou false.");
+        }
         try {
             professorUseCase.saveReminder(
                 courseId, 
                 (String) body.get("content"), 
-                (Boolean) body.get("isUrgent"),
+                Boolean.TRUE.equals(body.get("isUrgent")),
                 auteur()
             );
             actionLogger.logProfessorAction("CREATE_REMINDER", auteur(), "Professeur", courseId, 
@@ -388,17 +380,17 @@ public class ProfessorController {
     }
 
     @GetMapping("/professor/modules/{moduleId}/quizzes")
-    @Operation(summary = "Quiz d'un module", description = "Retourne les quiz d'un module.")
-    public ResponseEntity<List<Map<String, Object>>> getQuizzes(
-            @Parameter(description = "Identifiant du module") @PathVariable("moduleId") String moduleId) {
-        logger.info("GET /professor/modules/{}/quizzes", moduleId);
+    @Operation(summary = "Quiz d'un module", description = "Quiz QCM d'un module, avec leurs questions.")
+    public ResponseEntity<List<Map<String, Object>>> getQuizzes(@PathVariable("moduleId") String moduleId) {
+        return ResponseEntity.ok(contenus().quizDuModule(moduleId));
+    }
+
+    /** Date AAAA-MM-JJ (éventuellement suivie d'une heure) ; 400 lisible sinon (avant : « vendredi prochain » accepté). */
+    static java.time.LocalDate dateValide(String saisie, String libelle) {
         try {
-            PageResult<Map<String, Object>> pageResult = professorUseCase.getQuizzes(moduleId, 0, 10);
-            logger.debug("Retrieved {} quizzes for module {}", pageResult.getTotalElements(), moduleId);
-            return ResponseEntity.ok(pageResult.getContent());
-        } catch (Exception e) {
-            logger.error("Error fetching quizzes for module {}: {}", moduleId, e.getMessage());
-            throw e;
+            return java.time.LocalDate.parse(saisie.trim().substring(0, Math.min(10, saisie.trim().length())));
+        } catch (RuntimeException e) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "La " + libelle + " est invalide (format attendu AAAA-MM-JJ) : " + saisie);
         }
     }
 

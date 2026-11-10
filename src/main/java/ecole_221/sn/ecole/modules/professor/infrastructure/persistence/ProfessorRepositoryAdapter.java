@@ -200,6 +200,7 @@ public class ProfessorRepositoryAdapter implements ProfessorRepositoryPort {
             map.put("description", h.getDescription());
             map.put("priority", h.getPriority());
             map.put("deadline", h.getDeadline());
+            map.put("courseId", h.getCourseId());
             return map;
         }).collect(Collectors.toList());
         return new PageResult<>(content, springPage.getNumber(), springPage.getSize(), springPage.getTotalElements(), springPage.getTotalPages());

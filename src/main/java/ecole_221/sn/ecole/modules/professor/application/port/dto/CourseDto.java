@@ -31,8 +31,14 @@ public record CourseDto(
     int studentCount,
     
     @Schema(description = "Liste des modules")
-    List<ModuleDto> modules
+    List<ModuleDto> modules,
+    /** Nom RÉEL de la classe du cours (avant : absent, l'écran affichait « L3-GL » inventé). */
+    String classe
 ) {
+    public CourseDto avecClasse(String nomClasse, int effectif) {
+        return new CourseDto(id, titre, description, code, classeId, credits, effectif, modules, nomClasse);
+    }
+
     public CourseDto {
         // Validation can be added here
     }
