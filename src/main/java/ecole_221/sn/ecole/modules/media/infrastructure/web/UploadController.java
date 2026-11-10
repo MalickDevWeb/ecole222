@@ -59,13 +59,17 @@ public class UploadController {
         }
 
         String contentType = file.getContentType();
-        if (contentType == null || !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase())) {
-            throw new InvalidFileException("Format non autorisé (" + contentType + "). Seuls PDF, PNG, JPG et WEBP sont acceptés.");
+        // Lot B (espace professeur) : documents bureautiques acceptés en plus (supports de cours, rendus de devoirs)
+        boolean bureautique = ecole_221.sn.ecole.modules.media.domain.valueobject.FormatsDocumentsAutorises.estBureautique(contentType);
+        if (contentType == null || (!bureautique && !ALLOWED_CONTENT_TYPES.contains(contentType.toLowerCase()))) {
+            throw new InvalidFileException("Format non autorisé (" + contentType + "). Formats acceptés : "
+                    + ecole_221.sn.ecole.modules.media.domain.valueobject.FormatsDocumentsAutorises.LIBELLE + ".");
         }
 
         // APP-SEC-15 : le type déclaré par le client ne suffit pas — signature réelle du contenu
         byte[] contenu = file.getBytes();
-        if (!signatureConforme(contenu, contentType.toLowerCase())) {
+        if (bureautique ? !ecole_221.sn.ecole.modules.media.domain.valueobject.FormatsDocumentsAutorises.signatureBureautiqueConforme(contenu, contentType)
+                        : !signatureConforme(contenu, contentType.toLowerCase())) {
             throw new InvalidFileException("Le contenu du fichier ne correspond pas à son format déclaré (" + contentType + ").");
         }
 
