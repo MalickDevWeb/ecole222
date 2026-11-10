@@ -281,20 +281,7 @@ public class ParentController {
         return ResponseEntity.ok(result);
     }
 
-    // ==================== ENDPOINTS JUSTIFICATIFS ====================
-
-    @PostMapping("/presences/{presenceId}/justifier")
-    @Operation(summary = "Justifier une absence", description = "Soumet un justificatif pour une absence/retard")
-    public ResponseEntity<Map<String, Object>> justifyAbsence(
-            @Parameter(description = "ID de la présence") @PathVariable String presenceId,
-            @Parameter(description = "Motif de l'absence") @RequestParam String motif,
-            @Parameter(description = "URL du fichier justificatif") @RequestParam(required = false) String fileUrl,
-            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        String parentId = extractParentIdFromToken(authHeader);
-        logger.info("POST /parent/presences/{}/justifier - Justification absence", presenceId);
-        String justificatifId = parentUseCase.justifyAbsence(presenceId, parentId, motif, fileUrl);
-        return ResponseEntity.ok(Map.of("success", true, "justificatifId", justificatifId));
-    }
+    // Justificatifs d'absence : JustificatifsAbsenceParentController (enregistrés et validés par l'administration)
 
     // ==================== UTILITY METHODS ====================
 

@@ -43,6 +43,10 @@ public class StudentController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.FiliereJpaRepository filieresEcole;
 
+    /** Lot B : rendus des devoirs de classe (dépôt réel du fichier). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.professor.application.service.RendusDevoirsService rendusDevoirs;
+
     private final StudentUseCase studentUseCase;
     private final ecole_221.sn.ecole.modules.student.infrastructure.persistence.CourseDetailRepository courseDetailRepository;
     private final ecole_221.sn.ecole.modules.student.infrastructure.persistence.StudentDataRepository studentDataRepository;
@@ -145,7 +149,7 @@ public class StudentController {
     @Operation(summary = "Auto check-in", description = "Soumet une auto-declaration de presence.")
     public ResponseEntity<Map<String, Object>> selfCheckIn(@Valid @RequestBody AttendanceRequestDto request) {
         logger.info("POST /student/attendances - Auto check-in: type={}, method={}", request.type(), request.method());
-        studentUseCase.submitSelfAttendance(
+        String presenceId = studentUseCase.submitSelfAttendance(
             etudiant(), 
             request.type().name(), 
             request.method()
@@ -156,7 +160,7 @@ public class StudentController {
 
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
-        response.put("attendanceId", "att-" + System.currentTimeMillis() % 10000);
+        response.put("attendanceId", presenceId);   // identifiant réel de la présence enregistrée (avant : « att-<horloge> » inventé)
         response.put("timestamp", java.time.LocalDateTime.now().toString());
         response.put("status", "VALIDATED");
         return ResponseEntity.ok(response);
@@ -326,6 +330,16 @@ public class StudentController {
             @PathVariable("homeworkId") String homeworkId,
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
         logger.info("POST /student/courses/{}/homeworks/{}/submit - Soumission devoir: file={}", courseId, homeworkId, file.getOriginalFilename());
+        // Lot B : devoir de classe publié par le professeur → rendu réellement stocké (fichier vérifié), visible du professeur
+        if (rendusDevoirs != null && rendusDevoirs.estDevoirDeClasse(homeworkId)) {
+            try {
+                return ResponseEntity.ok(rendusDevoirs.deposer(etudiant(), courseId, homeworkId,
+                        file.getOriginalFilename(), file.getContentType(), file.getBytes()));
+            } catch (java.io.IOException e) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Le fichier envoyé est illisible.");
+            }
+        }
 
         String fileName = file.getOriginalFilename();
         studentUseCase.submitHomework(homeworkId, fileName);
