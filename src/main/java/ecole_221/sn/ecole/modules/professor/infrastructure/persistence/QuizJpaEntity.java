@@ -28,6 +28,9 @@ public class QuizJpaEntity {
     private String description;
     @jakarta.persistence.Column(name = "questions_json", columnDefinition = "TEXT")
     private String questionsJson;
+    /** Nombre maximal de tentatives par élève (null = 1). Lot D : quiz passés par les élèves. */
+    @jakarta.persistence.Column(name = "max_tentatives")
+    private Integer maxTentatives;
 
     public QuizJpaEntity() {}
 
@@ -46,4 +49,6 @@ public class QuizJpaEntity {
     public void setDescription(String description) { this.description = description; }
     public String getQuestionsJson() { return questionsJson; }
     public void setQuestionsJson(String questionsJson) { this.questionsJson = questionsJson; }
+    public Integer getMaxTentatives() { return maxTentatives; }
+    public void setMaxTentatives(Integer maxTentatives) { this.maxTentatives = maxTentatives; }
 }
