@@ -22,7 +22,7 @@ public class ActionLogger {
      * Log une action d'authentification
      */
     public void logAuthAction(String action, String email, String role, boolean success, String details) {
-        logAction("AUTHENTICATION", action, Map.of(
+        logAction("AUTHENTICATION", action, donnees(
             "email", email,
             "role", role,
             "success", success,
@@ -34,7 +34,7 @@ public class ActionLogger {
      * Log une action d'étudiant
      */
     public void logStudentAction(String action, String studentId, String studentName, String details) {
-        logAction("STUDENT", action, Map.of(
+        logAction("STUDENT", action, donnees(
             "studentId", studentId,
             "studentName", studentName,
             "details", details
@@ -45,7 +45,7 @@ public class ActionLogger {
      * Log une action de professeur
      */
     public void logProfessorAction(String action, String professorId, String professorName, String courseId, String details) {
-        logAction("PROFESSOR", action, Map.of(
+        logAction("PROFESSOR", action, donnees(
             "professorId", professorId,
             "professorName", professorName,
             "courseId", courseId,
@@ -57,7 +57,7 @@ public class ActionLogger {
      * Log une action d'administration
      */
     public void logAdminAction(String action, String adminId, String target, String details) {
-        logAction("ADMIN", action, Map.of(
+        logAction("ADMIN", action, donnees(
             "adminId", adminId,
             "target", target,
             "details", details
@@ -68,7 +68,7 @@ public class ActionLogger {
      * Log une action de sécurité
      */
     public void logSecurityAction(String action, String userId, String location, String details) {
-        logAction("SECURITY", action, Map.of(
+        logAction("SECURITY", action, donnees(
             "userId", userId,
             "location", location,
             "details", details
@@ -79,7 +79,7 @@ public class ActionLogger {
      * Log une action de collaboration
      */
     public void logCollaborationAction(String action, String userId, String groupId, String details) {
-        logAction("COLLABORATION", action, Map.of(
+        logAction("COLLABORATION", action, donnees(
             "userId", userId,
             "groupId", groupId,
             "details", details
@@ -90,7 +90,7 @@ public class ActionLogger {
      * Log une action de média/upload
      */
     public void logMediaAction(String action, String userId, String fileName, String details) {
-        logAction("MEDIA", action, Map.of(
+        logAction("MEDIA", action, donnees(
             "userId", userId,
             "fileName", fileName,
             "details", details
@@ -101,7 +101,7 @@ public class ActionLogger {
      * Log une action de synchronisation
      */
     public void logSyncAction(String action, String deviceId, String details) {
-        logAction("SYNC", action, Map.of(
+        logAction("SYNC", action, donnees(
             "deviceId", deviceId,
             "details", details
         ));
@@ -111,7 +111,7 @@ public class ActionLogger {
      * Log une erreur système
      */
     public void logSystemError(String component, String errorType, String errorMessage, Throwable throwable) {
-        logAction("SYSTEM_ERROR", errorType, Map.of(
+        logAction("SYSTEM_ERROR", errorType, donnees(
             "component", component,
             "errorMessage", errorMessage,
             "stackTrace", throwable != null ? getStackTrace(throwable) : "N/A"
@@ -174,5 +174,17 @@ public class ActionLogger {
             }
         }
         return sb.toString();
+    }
+
+    /**
+     * Comme Map.of(…) mais tolère les valeurs nulles (avant : un e-mail absent faisait échouer la journalisation
+     * avec une NullPointerException, transformant une simple erreur de saisie en « erreur 500 »).
+     */
+    private static java.util.Map<String, Object> donnees(Object... clesValeurs) {
+        java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();
+        for (int i = 0; i + 1 < clesValeurs.length; i += 2) {
+            m.put(String.valueOf(clesValeurs[i]), clesValeurs[i + 1] == null ? "—" : clesValeurs[i + 1]);
+        }
+        return m;
     }
 }

@@ -22,5 +22,12 @@ public record TenantDto(
         LocalDateTime createdAt,
         LocalDateTime updatedAt,
         LocalDateTime validatedAt,
-        LocalDateTime suspendedAt
-) {}
+        LocalDateTime suspendedAt,
+        /** Mot de passe provisoire de l'administrateur, renvoyé UNE SEULE FOIS à la création (null sinon). */
+        String motDePasseProvisoireAdmin
+) {
+    public TenantDto avecMotDePasse(String motDePasse) {
+        return new TenantDto(id, name, slug, type, status, country, city, address, phone, email, website, logo,
+                createdAt, updatedAt, validatedAt, suspendedAt, motDePasse);
+    }
+}

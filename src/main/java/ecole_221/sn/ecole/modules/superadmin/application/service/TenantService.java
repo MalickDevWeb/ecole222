@@ -77,11 +77,13 @@ public class TenantService {
     public TenantDto createTenant(CreateTenantCommand command) {
         // 1. Vérifier l'unicité email de l'établissement
         if (organizationRepositoryPort.existsByEmail(command.email())) {
-            throw new IllegalArgumentException("L'email de l'établissement (" + command.email() + ") est déjà enregistré.");
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
+                    "L'e-mail de l'établissement (" + command.email() + ") est déjà enregistré.");
         }
         
         if (userRepositoryPort.findByEmail(command.adminEmail()).isPresent()) {
-            throw new IllegalArgumentException("L'email de l'administrateur (" + command.adminEmail() + ") est déjà enregistré.");
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
+                    "L'e-mail de l'administrateur (" + command.adminEmail() + ") est déjà enregistré.");
         }
 
         // 2. Créer l'établissement (statut PENDING par défaut avec slug unique)
@@ -114,9 +116,11 @@ public class TenantService {
         Organization savedOrg = organizationRepositoryPort.save(org);
 
         // 3. Créer l'utilisateur admin initial de l'école
-        // Mot de passe temporaire : {email}221! — à changer dès la première connexion
+        // Mot de passe provisoire ALÉATOIRE, renvoyé une seule fois au super-admin (avant : « {email}221! »,
+        // devinable par quiconque connaissait l'e-mail — faille trouvée au test du 2026-11-10).
         String matricule = "ADM-" + System.currentTimeMillis();
-        String tempPassword = passwordEncoder.encode(command.adminEmail() + "221!");
+        String motDePasseProvisoire = motDePasseAleatoire();
+        String tempPassword = passwordEncoder.encode(motDePasseProvisoire);
         User adminUser = UserFactory.create(
                 command.adminNom(),
                 command.adminPrenom(),
@@ -137,7 +141,7 @@ public class TenantService {
         );
         organizationUserRepositoryPort.save(orgUser);
 
-        return toDto(savedOrg);
+        return toDto(savedOrg).avecMotDePasse(motDePasseProvisoire);
     }
 
     // ── UPDATE (PATCH partiel) ───────────────────────────────────────────────────
@@ -228,7 +232,16 @@ public class TenantService {
                 org.getCreatedAt(),
                 org.getUpdatedAt(),
                 org.getValidatedAt(),
-                org.getSuspendedAt()
-        );
+                org.getSuspendedAt(),
+                null);
+    }
+
+    private static final java.security.SecureRandom HASARD = new java.security.SecureRandom();
+    private static final String ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
+
+    private static String motDePasseAleatoire() {
+        StringBuilder sb = new StringBuilder(12);
+        for (int i = 0; i < 12; i++) sb.append(ALPHABET.charAt(HASARD.nextInt(ALPHABET.length())));
+        return sb.toString();
     }
 }

@@ -124,9 +124,15 @@ public class GlobalExceptionHandler {
             details.put(fieldError.getField(), fieldError.getDefaultMessage());
         }
         log.warn("[Validation Error] {}", details);
+        // message LISIBLE : les raisons réelles (avant : « Erreur de validation des champs du formulaire. » seul,
+        // l'utilisateur ne savait pas quel champ corriger — test navigateur du 2026-11-10)
+        String raisons = ex.getBindingResult().getFieldErrors().stream()
+                .map(FieldError::getDefaultMessage).filter(java.util.Objects::nonNull).distinct()
+                .collect(java.util.stream.Collectors.joining(" ; "));
         return ResponseEntity
                 .badRequest()
-                .body(ApiErrorResponse.of(ErrorCode.VALIDATION_ERROR, "Erreur de validation des champs du formulaire.", details));
+                .body(ApiErrorResponse.of(ErrorCode.VALIDATION_ERROR,
+                        raisons.isBlank() ? "Erreur de validation des champs du formulaire." : raisons, details));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

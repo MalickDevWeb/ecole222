@@ -44,6 +44,11 @@ public class LoginService implements LoginUseCase {
     @Override
     public LoginResponseDto login(LoginCommand command) {
         log.info("Tentative de connexion pour : {}", command.getEmail());
+        // corps vide / champs absents : 400 clair (avant : NullPointerException → 500)
+        if (command.getEmail() == null || command.getEmail().isBlank()
+                || command.getPassword() == null || command.getPassword().isBlank()) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "L'e-mail et le mot de passe sont obligatoires.");
+        }
 
         // SEC-002 : aucun compte n'est créé à la connexion (les comptes de démo sont créés au
         // démarrage par SuperAdminInitializer, hors profil prod) et aucun mot de passe universel.
