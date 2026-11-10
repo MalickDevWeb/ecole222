@@ -106,7 +106,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     // ==================== MAPPERS JPA ↔ DOMAIN ====================
     
     private User toUser(UserJpaEntity entity) {
-        return UserFactory.reconstruct(
+        User user = UserFactory.reconstruct(
             entity.getId(),
             entity.getNom(),
             entity.getPrenom(),
@@ -123,6 +123,8 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
             entity.getLanguage(),
             entity.getTimezone()
         );
+        user.setDoitChangerMotDePasse(Boolean.TRUE.equals(entity.getDoitChangerMotDePasse()));
+        return user;
     }
     
     private UserJpaEntity toUserEntity(User user) {
@@ -144,6 +146,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
         entity.setLastLoginAt(user.getLastLoginAt());
         entity.setLanguage(user.getLanguage());
         entity.setTimezone(user.getTimezone());
+        entity.setDoitChangerMotDePasse(user.isDoitChangerMotDePasse() ? Boolean.TRUE : null);
         
         return entity;
     }

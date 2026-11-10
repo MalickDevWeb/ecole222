@@ -72,7 +72,7 @@ public class LoginService implements LoginUseCase {
         String token = jwtService.generateToken(user);
         String tenantSlug = resolveTenantSlug(user, command.getEmail());
 
-        return new LoginResponseDto(
+        LoginResponseDto reponse = new LoginResponseDto(
                 user.getId(),
                 user.getNom(),
                 user.getPrenom(),
@@ -81,6 +81,8 @@ public class LoginService implements LoginUseCase {
                 token,
                 tenantSlug
         );
+        reponse.setDoitChangerMotDePasse(user.isDoitChangerMotDePasse());
+        return reponse;
     }
 
     private String resolveTenantSlug(User user, String inputEmail) {

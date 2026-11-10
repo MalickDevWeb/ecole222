@@ -37,6 +37,8 @@ public class User implements UserDetails {
     private LocalDateTime lastLoginAt;
     private String language = "fr";
     private String timezone = "Africa/Dakar";
+    /** Mot de passe provisoire (généré) à remplacer avant tout accès métier ; null = false. */
+    private Boolean doitChangerMotDePasse = false;
     
     // Constructeur privé
     private User(String id, String nom, String prenom, String email, String password, 
@@ -93,6 +95,8 @@ public class User implements UserDetails {
     public LocalDateTime getLastLoginAt() { return lastLoginAt; }
     public String getLanguage() { return language; }
     public String getTimezone() { return timezone; }
+    public boolean isDoitChangerMotDePasse() { return Boolean.TRUE.equals(doitChangerMotDePasse); }
+    public void setDoitChangerMotDePasse(Boolean doitChangerMotDePasse) { this.doitChangerMotDePasse = doitChangerMotDePasse; }
     
     // Setters (pour comportements métier)
     public void setNom(String nom) { 
