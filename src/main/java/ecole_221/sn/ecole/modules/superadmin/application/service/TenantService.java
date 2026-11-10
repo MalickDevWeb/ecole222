@@ -130,6 +130,7 @@ public class TenantService {
                 RoleUtilisateur.fromString("ADMIN"),
                 null   // photoUrl — aucune photo à la création
         );
+        adminUser.setDoitChangerMotDePasse(true);   // mot de passe provisoire : changement exigé à la 1re connexion
         userRepositoryPort.save(adminUser);
 
         // 4. Lier l'admin à l'école via OrganizationUser

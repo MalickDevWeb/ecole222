@@ -10,6 +10,8 @@ public class LoginResponseDto {
     private RoleUtilisateur role;
     private String token;
     private String tenantSlug;
+    /** Vrai si le compte a un mot de passe provisoire à changer avant tout accès métier. */
+    private boolean doitChangerMotDePasse;
 
     public LoginResponseDto() {}
 
@@ -41,4 +43,6 @@ public class LoginResponseDto {
     public void setToken(String token) { this.token = token; }
     public String getTenantSlug() { return tenantSlug; }
     public void setTenantSlug(String tenantSlug) { this.tenantSlug = tenantSlug; }
+    public boolean isDoitChangerMotDePasse() { return doitChangerMotDePasse; }
+    public void setDoitChangerMotDePasse(boolean doitChangerMotDePasse) { this.doitChangerMotDePasse = doitChangerMotDePasse; }
 }

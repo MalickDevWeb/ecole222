@@ -154,6 +154,8 @@ public class ComptesEcoleService {
         u.setMatricule(mat);
         u.setRole(role);
         u.setPassword(encodeur.encode(clair));
+        // mot de passe GÉNÉRÉ : à changer à la première connexion (un mot de passe choisi par l'admin ne l'est pas)
+        u.setDoitChangerMotDePasse(provisoire != null ? Boolean.TRUE : null);
         comptes.save(u);
 
         // appartenance explicite (le UserMembershipListener ne crée pas de doublon)

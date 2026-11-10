@@ -48,6 +48,10 @@ public class UserJpaEntity {
     @Column(name = "timezone")
     private String timezone = "Africa/Dakar";
 
+    /** Mot de passe provisoire (généré) à changer à la première connexion ; null (comptes existants) = false. */
+    @Column(name = "doit_changer_mot_de_passe")
+    private Boolean doitChangerMotDePasse;
+
     public UserJpaEntity() {}
 
     public UserJpaEntity(String id, String nom, String prenom, String email, String password, 
@@ -99,4 +103,7 @@ public class UserJpaEntity {
     
     public String getTimezone() { return timezone; }
     public void setTimezone(String timezone) { this.timezone = timezone; }
+
+    public Boolean getDoitChangerMotDePasse() { return doitChangerMotDePasse; }
+    public void setDoitChangerMotDePasse(Boolean doitChangerMotDePasse) { this.doitChangerMotDePasse = doitChangerMotDePasse; }
 }
