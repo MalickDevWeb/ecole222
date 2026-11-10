@@ -47,6 +47,9 @@ public class ProfessorController {
     private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository classesEcole;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaRepository inscriptions;
+    /** Lot B : notification des élèves à la création d'un devoir. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.professor.application.service.RendusDevoirsService rendusDevoirs;
     private final ActionLogger actionLogger;
     private final CourseJpaRepository courses;
     private final GradeJpaRepository notes;
@@ -240,7 +243,12 @@ public class ProfessorController {
                 request.titre(), request.desc(), 
                 request.prio().name(), request.deadlineStr());
             logger.info("Homework created successfully for course {}", courseId);
-            return ResponseEntity.ok(ProfessorMapper.createSuccessResponse("Devoir créé avec succès"));
+            Map<String, Object> reponse = ProfessorMapper.createSuccessResponse("Devoir créé avec succès");
+            // Lot B : élèves de la classe notifiés ; un échec n'annule pas le devoir (résultat renvoyé au professeur)
+            if (rendusDevoirs != null) {
+                reponse.put("notification", rendusDevoirs.notifierNouveauDevoir(courseId, request.titre(), request.deadlineStr()));
+            }
+            return ResponseEntity.ok(reponse);
         } catch (Exception e) {
             logger.error("Error creating homework for course {}: {}", courseId, e.getMessage());
             throw e;
@@ -321,6 +329,7 @@ public class ProfessorController {
             @RequestBody Map<String, String> body) {
         logger.info("POST /professor/planning/{}/reschedule - day={}, time={}, room={}", 
             sessionId, body.get("day"), body.get("time"), body.get("room"));
+        ProfExtraController.reportDirectReserveAdministration();   // lot E : le professeur fait une demande
         try {
             ProfExtraController.verifierSeanceDuProfesseur(professorUseCase, sessionId);
             professorUseCase.rescheduleScheduleSession(sessionId, body.get("day"), body.get("time"), body.get("room"));

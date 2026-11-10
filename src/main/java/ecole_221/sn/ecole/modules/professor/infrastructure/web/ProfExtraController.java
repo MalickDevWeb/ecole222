@@ -218,6 +218,7 @@ public class ProfExtraController {
         
         logger.info("POST /professor/schedule/{}/reschedule - day={}, time={}, room={}", 
             sessionId, request.day(), request.time(), request.room());
+        reportDirectReserveAdministration();
         try {
             verifierSeanceDuProfesseur(professorUseCase, sessionId);
             professorUseCase.rescheduleScheduleSession(sessionId, request.day(), request.time(), request.room());
@@ -243,6 +244,18 @@ public class ProfExtraController {
 
     private static final java.util.Set<String> ROLES_ADMIN =
             java.util.Set.of("ROLE_ADMIN", "ROLE_ADMINISTRATOR", "ROLE_SUPER_ADMIN", "ROLE_PLATFORM_ADMIN");
+
+    /**
+     * Lot E (2026-11-10) : le report DIRECT d'une séance est réservé à l'administration ; le professeur passe
+     * par POST /professor/schedule/{sessionId}/demandes-report (validation par l'administration).
+     */
+    static void reportDirectReserveAdministration() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getAuthorities().stream().noneMatch(a -> ROLES_ADMIN.contains(a.getAuthority()))) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "Demandez un report à l'administration");
+        }
+    }
 
     /**
      * Un professeur ne peut annuler / reporter que SES séances (relevé par l'Agent 06, APP-SEC-16).

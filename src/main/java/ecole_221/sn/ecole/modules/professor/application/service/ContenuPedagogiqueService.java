@@ -142,6 +142,7 @@ public class ContenuPedagogiqueService {
         q.setTitle(titre);
         q.setDescription(facultatif(premier(corps, "description"), 2000));
         q.setDuration(minutes);
+        q.setMaxTentatives(ReglesQuiz.maxTentativesSaisi(corps.get("maxTentatives")));   // lot D (null = 1)
         try {
             q.setQuestionsJson(JSON.writeValueAsString(questions));
         } catch (Exception e) {
@@ -235,6 +236,7 @@ public class ContenuPedagogiqueService {
             }
         }
         v.put("questions", questions);
+        v.put("maxTentatives", ReglesQuiz.maxTentatives(q.getMaxTentatives()));   // lot D
         return v;
     }
 
