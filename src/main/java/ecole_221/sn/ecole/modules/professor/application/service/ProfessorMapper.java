@@ -47,10 +47,11 @@ public final class ProfessorMapper {
             course.getName(), // titre standardisé
             course.getDescription(),
             course.getCode(),
-            null, // classeId - not in domain model
-            0,  // credits - not in domain model
-            0,  // studentCount - not in domain model
-            List.of()  // modules - not in domain model
+            course.getClasse(),   // identifiant RÉEL de la classe (avant : null)
+            0,  // credits - non géré
+            0,  // effectif : complété par le contrôleur (élèves affectés à la classe)
+            List.of(),
+            null   // nom de la classe : complété par le contrôleur
         );
         logger.debug("Successfully converted Course to CourseDto: {}", dto);
         return dto;
@@ -82,7 +83,8 @@ public final class ProfessorMapper {
             String.valueOf(courseMap.getOrDefault("classeId", "")), // classeId ajouté
             toInt(courseMap.getOrDefault("credits", 0)),
             toInt(courseMap.getOrDefault("studentCount", 0)),
-            modules
+            modules,
+            courseMap.get("classe") == null ? null : String.valueOf(courseMap.get("classe"))
         );
         logger.debug("Successfully converted Map to CourseDto with id={}", dto.id());
         return dto;
@@ -237,10 +239,12 @@ public final class ProfessorMapper {
         
         return new HomeworkDto(
             String.valueOf(homeworkMap.getOrDefault("id", "")),
-            String.valueOf(homeworkMap.getOrDefault("titre", "")),
-            String.valueOf(homeworkMap.getOrDefault("desc", "")),
-            parsePriority(String.valueOf(homeworkMap.getOrDefault("prio", "MEDIUM"))),
-            parseLocalDate(homeworkMap.get("deadlineStr")),
+            // le dépôt renvoie title / description / priority / deadline (avant : seules les clés titre / desc /
+            // prio / deadlineStr étaient lues → devoirs relus VIDES — test du 2026-11-10)
+            String.valueOf(homeworkMap.getOrDefault("titre", homeworkMap.getOrDefault("title", ""))),
+            String.valueOf(homeworkMap.getOrDefault("desc", homeworkMap.getOrDefault("description", ""))),
+            parsePriority(String.valueOf(homeworkMap.getOrDefault("prio", homeworkMap.getOrDefault("priority", "MEDIUM")))),
+            parseLocalDate(homeworkMap.containsKey("deadlineStr") ? homeworkMap.get("deadlineStr") : homeworkMap.get("deadline")),
             String.valueOf(homeworkMap.getOrDefault("courseId", ""))
         );
     }
@@ -330,7 +334,8 @@ public final class ProfessorMapper {
             String.valueOf(scheduleMap.getOrDefault("courseId", "")),
             parseSessionType(String.valueOf(scheduleMap.getOrDefault("type", "CM"))),
             parseLocalDate(scheduleMap.get("dateStr")),
-            parseSessionStatus(String.valueOf(scheduleMap.getOrDefault("status", "SCHEDULED")))
+            parseSessionStatus(String.valueOf(scheduleMap.getOrDefault("status", "SCHEDULED"))),
+            scheduleMap.get("classe") == null ? null : String.valueOf(scheduleMap.get("classe"))
         );
     }
 
@@ -528,8 +533,20 @@ public final class ProfessorMapper {
             return SessionStatus.SCHEDULED;
         }
         
+        // statuts enregistrés en français par l'annulation / le report (avant : « annule » n'était pas reconnu
+        // → une séance ANNULÉE réapparaissait comme « planifiée » — test du 2026-11-10)
+        String v = java.text.Normalizer.normalize(status.trim().toUpperCase(), java.text.Normalizer.Form.NFD)
+                .replaceAll("\\p{M}", "").replace('-', '_').replace(' ', '_');
+        switch (v) {
+            case "ANNULE", "ANNULEE", "CANCELED" -> v = "CANCELLED";
+            case "REPORTE", "REPORTEE" -> v = "RESCHEDULED";
+            case "PLANIFIE", "PLANIFIEE", "PREVU" -> v = "SCHEDULED";
+            case "EN_COURS" -> v = "IN_PROGRESS";
+            case "TERMINE", "TERMINEE", "FAIT" -> v = "COMPLETED";
+            default -> { }
+        }
         try {
-            return SessionStatus.valueOf(status.toUpperCase().replace('-', '_'));
+            return SessionStatus.valueOf(v);
         } catch (IllegalArgumentException e) {
             return SessionStatus.SCHEDULED;
         }

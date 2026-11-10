@@ -11,4 +11,6 @@ import java.util.Optional;
 public interface InscriptionClasseJpaRepository extends JpaRepository<InscriptionClasseJpaEntity, String> {
     Optional<InscriptionClasseJpaEntity> findFirstByUserId(String userId);
     List<InscriptionClasseJpaEntity> findByUserId(String userId);
+    long countByClasseId(String classeId);
+    List<InscriptionClasseJpaEntity> findByClasseId(String classeId);
 }

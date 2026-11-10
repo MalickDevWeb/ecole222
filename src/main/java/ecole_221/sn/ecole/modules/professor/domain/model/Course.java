@@ -31,8 +31,9 @@ public class Course {
         }
         this.totalHours = totalHours;
         this.profId = Objects.requireNonNull(profId, "L'ID professeur ne peut pas être null");
-        this.code = code != null ? code : "DEFAULT-CODE";
-        this.description = description != null ? description : "Description par défaut";
+        // non renseignés = null (avant : « DEFAULT-CODE » / « Description par défaut » affichés comme réels)
+        this.code = code;
+        this.description = description;
     }
 
     // Méthode package-private pour la Factory
@@ -74,7 +75,7 @@ public class Course {
     }
     
     public boolean isDefaultCode() {
-        return "DEFAULT-CODE".equals(this.code);
+        return this.code == null || this.code.isBlank();
     }
     
     @Override

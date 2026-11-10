@@ -6,4 +6,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface ModuleJpaRepository extends JpaRepository<ModuleJpaEntity, String> {
     Page<ModuleJpaEntity> findByCourseId(String courseId, Pageable pageable);
+    java.util.List<ModuleJpaEntity> findByCourseIdOrderByNameAsc(String courseId);
 }

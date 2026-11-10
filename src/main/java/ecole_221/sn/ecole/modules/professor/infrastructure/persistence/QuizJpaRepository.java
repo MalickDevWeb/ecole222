@@ -6,4 +6,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 public interface QuizJpaRepository extends JpaRepository<QuizJpaEntity, String> {
     Page<QuizJpaEntity> findByCourseId(String courseId, Pageable pageable);
+    java.util.List<QuizJpaEntity> findByCourseId(String courseId);
+    java.util.List<QuizJpaEntity> findByModuleId(String moduleId);
 }
