@@ -39,7 +39,10 @@ public record StudentProfileDto(
     String niveau,
     
     @Schema(description = "URL de la photo de profil")
-    String photoUrl
+    String photoUrl,
+
+    @Schema(description = "Classe actuelle de l'étudiant", example = "L3 Génie logiciel")
+    String classe
 ) {
     public StudentProfileDto {
         // Compact constructor - can add validation here
