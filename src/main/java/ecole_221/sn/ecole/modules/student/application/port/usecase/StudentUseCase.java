@@ -10,7 +10,8 @@ public interface StudentUseCase {
     Map<String, Object> getDigitalBadge(String studentId, String matricule, String nomComplet, String classe);
     boolean validateQrToken(String matricule, long minuteEpoch, String token);
     PageResult<Map<String, Object>> getStudentAttendances(String studentId, int page, int size);
-    void submitSelfAttendance(String studentId, String type, String method);
+    /** Enregistre l'auto-pointage et renvoie l'identifiant RÉEL de la présence créée. */
+    String submitSelfAttendance(String studentId, String type, String method);
     
     PageResult<Map<String, Object>> getActiveLiveSessions(int page, int size);
     void submitReaction(String sessionId, String reactionType);

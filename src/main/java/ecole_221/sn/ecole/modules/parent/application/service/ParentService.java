@@ -1,5 +1,7 @@
 package ecole_221.sn.ecole.modules.parent.application.service;
 
+import ecole_221.sn.ecole.modules.professor.application.service.FeuilleAppelService;
+
 import ecole_221.sn.ecole.modules.parent.application.port.dto.*;
 import ecole_221.sn.ecole.modules.parent.application.port.usecase.ParentUseCase;
 import ecole_221.sn.ecole.modules.parent.domain.model.Parent;
@@ -76,14 +78,16 @@ public class ParentService implements ParentUseCase {
         // APP-BE-19 : calculées UNIQUEMENT à partir des présences et notes réellement saisies.
         // Avant : 87 % de présence, 14,5 de moyenne, examens et cours « Dr. Sall » inventés.
         // Sans donnée : null (rien d'inventé). Crédits, devoirs, examens, cours du jour : pas de source → null / vide.
-        var presences = parentRepositoryPort.findPresencesByEnfantId(enfantId);
+        // Même règle que la feuille d'appel : taux = (présences + retards) / séances notées (excusées comprises)
+        var presences = parentRepositoryPort.findPresencesByEnfantId(enfantId).stream()
+                .filter(p -> p.coursNom() != null && FeuilleAppelService.statutAffiche(p.statut()) != null).toList();
         Double taux = null;
         Integer absences = null;
         Integer retards = null;
         if (!presences.isEmpty()) {
-            long presents = presences.stream().filter(p -> "PRESENT".equalsIgnoreCase(p.statut())).count();
-            long retardsN = presences.stream().filter(p -> "RETARD".equalsIgnoreCase(p.statut()) || "LATE".equalsIgnoreCase(p.statut())).count();
-            long absN = presences.stream().filter(p -> "ABSENT".equalsIgnoreCase(p.statut())).count();
+            long presents = presences.stream().filter(p -> "PRESENT".equals(FeuilleAppelService.statutAffiche(p.statut()))).count();
+            long retardsN = presences.stream().filter(p -> "RETARD".equals(FeuilleAppelService.statutAffiche(p.statut()))).count();
+            long absN = presences.stream().filter(p -> "ABSENT".equals(FeuilleAppelService.statutAffiche(p.statut()))).count();
             taux = Math.round((presents + retardsN) * 1000.0 / presences.size()) / 10.0;
             absences = (int) absN;
             retards = (int) retardsN;
@@ -98,9 +102,12 @@ public class ParentService implements ParentUseCase {
     public List<PresenceDto> getChildPresences(String enfantId, String mois) {
         logger.info("Récupération des présences pour l'enfant: {}, mois: {}", enfantId, mois);
         // APP-BE-19 : présences réellement saisies par les professeurs (table attendances), filtrées par mois si fourni
+        // Statuts normalisés comme la feuille d'appel (LATE → RETARD, EXCUSED → EXCUSE) ; les auto-pointages
+        // et statuts inconnus sont écartés (avant : « LATE » brut faisait planter la page Présences du parent).
         return parentRepositoryPort.findPresencesByEnfantId(enfantId).stream()
                 .filter(p -> mois == null || mois.isBlank() || (p.date() != null && p.date().startsWith(mois)))
-                .map(p -> new PresenceDto(p.id(), p.date(), p.statut(),
+                .filter(p -> p.coursNom() != null && FeuilleAppelService.statutAffiche(p.statut()) != null)
+                .map(p -> new PresenceDto(p.id(), p.date(), FeuilleAppelService.statutAffiche(p.statut()),
                         p.coursNom() != null ? p.coursNom() : p.coursId(), nomProfesseur(p.professeurId()), null))
                 .toList();
     }
@@ -266,16 +273,6 @@ public class ParentService implements ParentUseCase {
             map.put("createdAt", a.getCreatedAt() != null ? a.getCreatedAt().toString() : "");
             return map;
         }).toList();
-    }
-
-    @Override
-    public String justifyAbsence(String presenceId, String parentId, String motif, String fileUrl) {
-        logger.info("Justification d'absence {} par le parent: {}, motif: {}", 
-                   presenceId, parentId, motif);
-        
-        // TODO: Implémenter avec sauvegarde en base de données
-        
-        return "justif-" + UUID.randomUUID().toString().substring(0, 8);
     }
 
     // Helper method to get current day in French

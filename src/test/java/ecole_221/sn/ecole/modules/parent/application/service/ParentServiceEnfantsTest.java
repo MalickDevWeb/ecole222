@@ -95,6 +95,26 @@ class ParentServiceEnfantsTest {
     }
 
     @Test
+    void statutsDeLaFeuilleDAppelNormalisesEtAutoPointagesEcartes() {
+        var PE = ecole_221.sn.ecole.modules.parent.domain.model.PresenceEnfant.class;
+        Mockito.when(parents.findPresencesByEnfantId("e7")).thenReturn(List.of(
+                new ecole_221.sn.ecole.modules.parent.domain.model.PresenceEnfant("b1", "2026-11-03", "LATE", "c1", "Algo", null),
+                new ecole_221.sn.ecole.modules.parent.domain.model.PresenceEnfant("b2", "2026-11-04", "EXCUSED", "c1", "Algo", null),
+                new ecole_221.sn.ecole.modules.parent.domain.model.PresenceEnfant("b3", "2026-11-05", "PRESENT", "c1", "Algo", null),
+                new ecole_221.sn.ecole.modules.parent.domain.model.PresenceEnfant("q1", "2026-11-05T08:01", "ENTREE", "QR", null, null),
+                new ecole_221.sn.ecole.modules.parent.domain.model.PresenceEnfant("q2", "2026-11-05T08:01", "PRESENT", "self-check", null, null)));
+        Mockito.when(parents.findNotesByEnfantId("e7")).thenReturn(List.of());
+
+        var liste = service.getChildPresences("e7", null);
+        assertEquals(List.of("RETARD", "EXCUSE", "PRESENT"), liste.stream().map(p -> p.statut()).toList(),
+                "LATE / EXCUSED normalisés (avant : statut brut → page parent en erreur) ; auto-pointages écartés");
+        var stats = service.getChildStats("e7");
+        assertEquals(66.7, stats.tauxPresence(), "même règle que la feuille d'appel : excusé compté comme séance notée");
+        assertEquals(1, stats.nombreRetards());
+        assertEquals(0, stats.nombreAbsences());
+    }
+
+    @Test
     void sansDonneeStatistiquesNulles() {
         Mockito.when(parents.findPresencesByEnfantId("e0")).thenReturn(List.of());
         Mockito.when(parents.findNotesByEnfantId("e0")).thenReturn(List.of());

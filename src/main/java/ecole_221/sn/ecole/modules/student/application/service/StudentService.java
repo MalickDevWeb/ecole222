@@ -127,7 +127,7 @@ public class StudentService implements StudentUseCase {
     }
 
     @Override
-    public void submitSelfAttendance(String studentId, String type, String method) {
+    public String submitSelfAttendance(String studentId, String type, String method) {
         AttendanceJpaEntity attendance = new AttendanceJpaEntity();
         attendance.setId("att-" + UUID.randomUUID().toString().substring(0, 8));
         attendance.setDate(LocalDateTime.now().toString());
@@ -136,6 +136,7 @@ public class StudentService implements StudentUseCase {
         attendance.setStudentName(String.valueOf(getStudentProfile(studentId).getOrDefault("prenom", "")) + " " + getStudentProfile(studentId).getOrDefault("nom", ""));
         attendance.setCourseId(method == null ? "self-check" : method);
         attendanceJpaRepository.save(attendance);
+        return attendance.getId();
     }
 
     @Override
