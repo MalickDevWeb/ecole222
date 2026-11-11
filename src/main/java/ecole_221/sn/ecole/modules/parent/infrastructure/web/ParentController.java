@@ -220,6 +220,13 @@ public class ParentController {
 
     // ==================== ENDPOINTS PROFIL ====================
 
+    @GetMapping("/profil")
+    @Operation(summary = "Profil du parent", description = "Coordonnées enregistrées du parent connecté")
+    public ResponseEntity<ParentProfileDto> getProfile(
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        return ResponseEntity.ok(parentUseCase.getParentProfile(extractParentIdFromToken(authHeader)));
+    }
+
     @PatchMapping("/profil")
     @Operation(summary = "Mettre à jour le profil", description = "Met à jour les informations du profil parent")
     public ResponseEntity<ParentProfileDto> updateProfile(
