@@ -187,6 +187,7 @@ public class ParentService implements ParentUseCase {
         if (!email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
             throw new IllegalArgumentException("L'adresse e-mail « " + email + " » n'est pas valide.");
         }
+        candidaturesPort.exigerOuverture();   // l'école doit accepter des candidatures aujourd'hui (403 sinon)
         String filiere = obligatoire(payload.filiere(), "La filière demandée est obligatoire.");
         String niveau = obligatoire(payload.niveau(), "Le niveau demandé est obligatoire.");
         if (candidaturesPort.emailDejaCandidat(email)) {

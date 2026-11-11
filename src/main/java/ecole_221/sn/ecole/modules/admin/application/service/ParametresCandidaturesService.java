@@ -26,9 +26,47 @@ public class ParametresCandidaturesService {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private final ParametresCandidaturesJpaRepository depot;
+    private final java.time.Clock horloge;
 
+    @org.springframework.beans.factory.annotation.Autowired
     public ParametresCandidaturesService(ParametresCandidaturesJpaRepository depot) {
+        this(depot, java.time.Clock.systemDefaultZone());
+    }
+
+    ParametresCandidaturesService(ParametresCandidaturesJpaRepository depot, java.time.Clock horloge) {
         this.depot = depot;
+        this.horloge = horloge;
+    }
+
+    /**
+     * Refuse un dépôt de candidature quand l'école n'accepte pas de candidatures aujourd'hui (APP-BE-15) :
+     * non configurée, fermée, pas encore ouverte ou déjà close. Avant : seul le portail masquait le formulaire ;
+     * un appel direct (ou un onglet resté ouvert après la clôture) déposait quand même un dossier.
+     */
+    @Transactional(readOnly = true)
+    public void exigerOuverture() {
+        Map<String, Object> p = lire();
+        if (!Boolean.TRUE.equals(p.get("ouvert"))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Les candidatures ne sont pas ouvertes dans cette école.");
+        }
+        LocalDate aujourdhui = LocalDate.now(horloge);
+        LocalDate ouverture = date(p.get("dateOuverture")), fermeture = date(p.get("dateFermeture"));
+        java.time.format.DateTimeFormatter fr = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        if (ouverture != null && aujourdhui.isBefore(ouverture)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Les candidatures ouvriront le " + ouverture.format(fr) + ".");
+        }
+        if (fermeture != null && aujourdhui.isAfter(fermeture)) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Les candidatures sont closes depuis le " + fermeture.format(fr) + ".");
+        }
+    }
+
+    private static LocalDate date(Object v) {
+        if (v == null || String.valueOf(v).isBlank()) return null;
+        try {
+            return LocalDate.parse(String.valueOf(v).substring(0, Math.min(10, String.valueOf(v).length())));
+        } catch (DateTimeParseException e) {
+            return null;
+        }
     }
 
     @Transactional(readOnly = true)
