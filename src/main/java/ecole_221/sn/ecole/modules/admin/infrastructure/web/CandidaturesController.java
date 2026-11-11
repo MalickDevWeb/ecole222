@@ -32,11 +32,20 @@ public class CandidaturesController {
      * les écoles, pré-remplie d'une campagne « ouverte du 2026-06-01 au 2026-08-31 » inventée.
      */
     private final ParametresCandidaturesService parametres;
+    /** Vérification du dépôt et suivi en ligne par le candidat (APP-BE-12). */
+    private final ecole_221.sn.ecole.modules.admissions.application.service.SuiviCandidatureService suivi;
 
     @Autowired
-    public CandidaturesController(CandidateJpaRepository candidateJpaRepository, ParametresCandidaturesService parametres) {
+    public CandidaturesController(CandidateJpaRepository candidateJpaRepository, ParametresCandidaturesService parametres,
+                                  ecole_221.sn.ecole.modules.admissions.application.service.SuiviCandidatureService suivi) {
         this.candidateJpaRepository = candidateJpaRepository;
         this.parametres = parametres;
+        this.suivi = suivi;
+    }
+
+    /** Compatibilité (tests) : sans vérification du dépôt ni suivi. */
+    public CandidaturesController(CandidateJpaRepository candidateJpaRepository, ParametresCandidaturesService parametres) {
+        this(candidateJpaRepository, parametres, null);
     }
 
     @GetMapping("/settings")
@@ -59,9 +68,12 @@ public class CandidaturesController {
     @PostMapping("/submit")
     @Operation(summary = "Soumettre une candidature", description = "Soumet une nouvelle candidature d'admission avec persistance PostgreSQL.")
     public ResponseEntity<Map<String, Object>> submitCandidature(@RequestBody Map<String, Object> body) {
-        String candidatureId = body.containsKey("id") && body.get("id") != null 
-            ? String.valueOf(body.get("id")) 
-            : "CAND-2026-" + UUID.randomUUID().toString().substring(0, 8);
+        // L'identifiant est TOUJOURS attribué par le serveur. Avant : un « id » fourni par le client était
+        // repris tel quel, et ce dépôt public (sans compte) écrasait le dossier existant portant cet identifiant.
+        String candidatureId = "CAND-" + java.time.Year.now() + "-" + UUID.randomUUID().toString().substring(0, 8);
+        // Vérifications AVANT toute écriture (400 / 409) ; le mot de passe de suivi est haché.
+        ecole_221.sn.ecole.modules.admissions.application.service.SuiviCandidatureService.Depot depot =
+                suivi == null ? null : suivi.verifierDepot(body);
 
         {
             try {
@@ -75,7 +87,12 @@ public class CandidaturesController {
                 String modePaiement = textOrNull(body.get("modePaiement"));
                 String refPaiement = textOrNull(body.get("referencePaiement"));
 
-                CandidateJpaEntity entity = new CandidateJpaEntity(candidatureId, prenom, nom, email, telephone, filiere);
+                CandidateJpaEntity entity = depot == null
+                        ? new CandidateJpaEntity(candidatureId, prenom, nom, email, telephone, filiere)
+                        : new CandidateJpaEntity(candidatureId, depot.prenom(), depot.nom(), depot.email(), telephone, depot.filiere());
+                if (depot != null) {
+                    entity.setMotDePasseSuivi(depot.motDePasseHache());
+                }
                 entity.setRegistrationFeePaid(fraisPayes);
                 entity.setRegistrationFeeReference(refPaiement);
                 // Pièces : déclarées par le portail (docs.idCard / docs.diploma), jamais présumées fournies
@@ -105,6 +122,19 @@ public class CandidaturesController {
             "id", candidatureId,
             "message", "Candidature soumise avec succès"
         ));
+    }
+
+    @PostMapping("/suivi")
+    @Operation(summary = "Suivre sa candidature",
+            description = "Public (portail candidat). Corps {email, motDePasse} : renvoie uniquement le(s) dossier(s) de ce candidat "
+                    + "dans l'école courante. Échec : 401 avec un message générique ; 429 après 5 échecs en 15 minutes.")
+    public ResponseEntity<List<Map<String, Object>>> suivre(@RequestBody(required = false) Map<String, Object> corps) {
+        if (suivi == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Suivi de candidature indisponible.");
+        }
+        Map<String, Object> c = corps == null ? Map.of() : corps;
+        Object mdp = c.get("motDePasse");
+        return ResponseEntity.ok(suivi.suivre(textOrNull(c.get("email")), mdp == null ? null : String.valueOf(mdp)));
     }
 
     /** Valeur texte non vide, sinon null (évite aussi la chaîne « null » produite par String.valueOf(null)). */
