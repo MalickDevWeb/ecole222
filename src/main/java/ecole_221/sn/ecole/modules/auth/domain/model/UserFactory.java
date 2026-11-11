@@ -12,7 +12,7 @@ import java.util.UUID;
 public class UserFactory {
     
     /**
-     * Crée un nouvel utilisateur avec un ID généré et un matricule par défaut.
+     * Crée un nouvel utilisateur avec un ID généré, sans matricule (attribué plus tard par l'école).
      */
     public static User create(String nom, String prenom, String email, String password, RoleUtilisateur globalRole) {
         String id = UUID.randomUUID().toString();
