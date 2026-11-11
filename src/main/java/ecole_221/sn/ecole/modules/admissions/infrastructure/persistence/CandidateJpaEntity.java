@@ -19,6 +19,13 @@ public class CandidateJpaEntity {
 
     @Id
     private String id;
+
+    /** Compte parent qui a déposé le dossier pour son enfant (null : candidature directe). */
+    @Column(name = "parent_id")
+    private String parentId;
+
+    public String getParentId() { return parentId; }
+    public void setParentId(String parentId) { this.parentId = parentId; }
     
     @Column(name = "first_name")
     private String firstName;
@@ -77,7 +84,7 @@ public class CandidateJpaEntity {
     @Column(name = "total_score")
     private Double totalScore;
     
-    @Column(name = "additional_info")
+    @Column(name = "additional_info", columnDefinition = "text")
     private String additionalInfo; // JSON pour données supplémentaires
     
     @Column(name = "submitted_at")

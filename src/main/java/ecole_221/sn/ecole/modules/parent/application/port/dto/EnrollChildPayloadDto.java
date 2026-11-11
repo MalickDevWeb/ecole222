@@ -15,7 +15,10 @@ public record EnrollChildPayloadDto(
     String filiere,
     String niveau,
     String diplomePrecedent,
-    String etablissementPrecedent
+    String etablissementPrecedent,
+    String adresse,
+    String anneeBac,
+    String mentionBac
 ) {
     public EnrollChildPayloadDto {
         // Validation can be added here
