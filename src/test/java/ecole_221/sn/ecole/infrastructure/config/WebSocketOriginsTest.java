@@ -25,7 +25,7 @@ class WebSocketOriginsTest {
         StompEndpointRegistry registry = Mockito.mock(StompEndpointRegistry.class,
                 inv -> "addEndpoint".equals(inv.getMethod().getName()) ? registration : null);
 
-        new WebSocketConfig().registerStompEndpoints(registry);
+        new WebSocketConfig(null).registerStompEndpoints(registry);
 
         Invocation appel = Mockito.mockingDetails(registration).getInvocations().stream()
                 .filter(i -> "setAllowedOriginPatterns".equals(i.getMethod().getName()))
