@@ -85,6 +85,18 @@ public class AdminPlanningController {
     public ResponseEntity<Void> updateSlots(@RequestBody List<Map<String, Object>> corps) {
         List<TimeSlot> slots = PlanningPayloads.creneaux(corps);
         logger.info("PUT /admin/planning/slots - Mise a jour des crenaux: {} crenaux", slots.size());
+        // Doubles réservations refusées par le SERVEUR (avant : seul le navigateur les signalait)
+        Map<String, String> nomsClasses = new java.util.HashMap<>();
+        for (Classe c : planningUseCase.getClasses()) {
+            if (c.getId() != null && c.getName() != null) nomsClasses.put(c.getId(), c.getName());
+        }
+        List<String> conflits = ConflitsPlanning.detecter(slots, nomsClasses);
+        if (!conflits.isEmpty()) {
+            String detail = String.join(" ; ", conflits.subList(0, Math.min(5, conflits.size())))
+                    + (conflits.size() > 5 ? " ; et " + (conflits.size() - 5) + " autre(s)." : ".");
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
+                    "Emploi du temps non enregistré : " + conflits.size() + " conflit" + (conflits.size() > 1 ? "s" : "") + ". " + detail);
+        }
         planningUseCase.updateSlots(slots);
         return ResponseEntity.ok().build();
     }
