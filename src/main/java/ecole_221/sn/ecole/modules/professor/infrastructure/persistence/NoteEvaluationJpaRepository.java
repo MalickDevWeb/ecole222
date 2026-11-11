@@ -10,5 +10,6 @@ import java.util.List;
 public interface NoteEvaluationJpaRepository extends JpaRepository<NoteEvaluationJpaEntity, String> {
     List<NoteEvaluationJpaEntity> findByEvaluationId(String evaluationId);
     List<NoteEvaluationJpaEntity> findByCourseId(String courseId);
+    List<NoteEvaluationJpaEntity> findByStudentId(String studentId);
     long countByEvaluationId(String evaluationId);
 }
