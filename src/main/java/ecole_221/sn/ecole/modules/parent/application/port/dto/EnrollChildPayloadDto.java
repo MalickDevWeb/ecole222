@@ -18,9 +18,10 @@ public record EnrollChildPayloadDto(
     String etablissementPrecedent,
     String adresse,
     String anneeBac,
-    String mentionBac
+    String mentionBac,
+    /** Pièces justificatives : liens renvoyés par POST /media/upload (obligatoires, http(s) uniquement). */
+    String photoIdentiteUrl,
+    String relevesNotesUrl,
+    String diplomeUrl
 ) {
-    public EnrollChildPayloadDto {
-        // Validation can be added here
-    }
 }

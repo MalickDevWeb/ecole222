@@ -60,8 +60,8 @@ public class CandidaturesParentAdapter implements CandidaturesParentPort {
         c.setCourseChoice(formation);
         c.setCurrentStep("new");
         c.setAdmissionStatus("EN_ATTENTE");
-        c.setDiplomaUploaded(false);
-        c.setIdCardUploaded(false);
+        c.setDiplomaUploaded(complement.get("diplomeUrl") != null);
+        c.setIdCardUploaded(complement.get("photoIdentiteUrl") != null);
         c.setMotivationLetterUploaded(false);
         c.setRegistrationFeePaid(false);
         c.setSubmittedAt(LocalDateTime.now());

@@ -55,7 +55,37 @@ class ParentServiceCandidaturesTest {
 
     private static EnrollChildPayloadDto dossier(String prenom, String nom, String email, String filiere, String niveau) {
         return new EnrollChildPayloadDto(prenom, nom, "2010-05-02", "Dakar", "Sénégalaise", "F", email, "770000000",
-                filiere, niveau, "BFEM", "CEM Liberté 6", "Liberté 6, Dakar", "2026", "Bien");
+                filiere, niveau, "BFEM", "CEM Liberté 6", "Liberté 6, Dakar", "2026", "Bien",
+                PHOTO, RELEVES, DIPLOME);
+    }
+
+    private static final String PHOTO = "https://res.cloudinary.com/ecole/photo.jpg";
+    private static final String RELEVES = "https://res.cloudinary.com/ecole/releves.pdf";
+    private static final String DIPLOME = "https://res.cloudinary.com/ecole/diplome.pdf";
+
+    private static EnrollChildPayloadDto avecPieces(String photo, String releves, String diplome) {
+        return new EnrollChildPayloadDto("Awa", "Diop", "2010-05-02", "Dakar", "Sénégalaise", "F", "awa@exemple.sn",
+                "770000000", "Informatique", "L1", "BFEM", "CEM", "Dakar", "2026", "Bien", photo, releves, diplome);
+    }
+
+    @Test
+    void lesPiecesSontRattacheesAuDossier() {
+        service.enrollChild("parent-1", dossier("Awa", "Diop", "awa@exemple.sn", "Informatique", "L1"));
+        assertThat(port.complements.get(0)).containsEntry("photoIdentiteUrl", PHOTO)
+                .containsEntry("relevesNotesUrl", RELEVES).containsEntry("diplomeUrl", DIPLOME);
+    }
+
+    @Test
+    void unePieceManquanteOuInvalideEstRefuseeAvecUnMessagePrecis() {
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.enrollChild("parent-1", avecPieces(null, RELEVES, DIPLOME)))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining("photo d'identité");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.enrollChild("parent-1", avecPieces(PHOTO, "  ", DIPLOME)))
+                .hasMessageContaining("relevés de notes");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.enrollChild("parent-1", avecPieces(PHOTO, RELEVES, "diplome.pdf")))
+                .hasMessageContaining("n'est pas valide");
+        org.assertj.core.api.Assertions.assertThatThrownBy(() -> service.enrollChild("parent-1", avecPieces(PHOTO, RELEVES, "javascript:alert(1)")))
+                .hasMessageContaining("n'est pas valide");
+        assertThat(port.emails).isEmpty();
     }
 
     @Test

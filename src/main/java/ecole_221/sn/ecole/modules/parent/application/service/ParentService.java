@@ -190,6 +190,10 @@ public class ParentService implements ParentUseCase {
         candidaturesPort.exigerOuverture();   // l'école doit accepter des candidatures aujourd'hui (403 sinon)
         String filiere = obligatoire(payload.filiere(), "La filière demandée est obligatoire.");
         String niveau = obligatoire(payload.niveau(), "Le niveau demandé est obligatoire.");
+        // Pièces : avant, seul le NOM du fichier restait dans le navigateur, rien n'était envoyé ni rattaché au dossier.
+        String photo = piece(payload.photoIdentiteUrl(), "la photo d'identité");
+        String releves = piece(payload.relevesNotesUrl(), "les relevés de notes");
+        String diplome = piece(payload.diplomeUrl(), "le diplôme ou l'attestation");
         if (candidaturesPort.emailDejaCandidat(email)) {
             // « email » + « déjà » : renvoyé en 409 par le gestionnaire d'erreurs global
             throw new IllegalArgumentException("Une candidature existe déjà avec l'email " + email + " dans cette école.");
@@ -205,6 +209,9 @@ public class ParentService implements ParentUseCase {
         complement.put("etablissementPrecedent", vide(payload.etablissementPrecedent()));
         complement.put("anneeBac", vide(payload.anneeBac()));
         complement.put("mentionBac", vide(payload.mentionBac()));
+        complement.put("photoIdentiteUrl", photo);
+        complement.put("relevesNotesUrl", releves);
+        complement.put("diplomeUrl", diplome);
         complement.put("deposePar", "parent");
         String dossierId = candidaturesPort.deposer(parentId, prenom, nom, email, vide(payload.telephone()),
                 filiere + " — " + niveau, complement);
@@ -217,6 +224,18 @@ public class ParentService implements ParentUseCase {
             throw new IllegalArgumentException(message);
         }
         return valeur.trim();
+    }
+
+    /** Lien d'une pièce déposée via /media/upload : obligatoire, http(s) uniquement. */
+    private static String piece(String url, String libelle) {
+        if (url == null || url.isBlank()) {
+            throw new IllegalArgumentException("Joignez " + libelle + " : la pièce est obligatoire.");
+        }
+        String lien = url.trim();
+        if (!lien.matches("(?i)^https?://\\S+$")) {
+            throw new IllegalArgumentException("Le lien de " + libelle + " n'est pas valide : envoyez de nouveau le fichier.");
+        }
+        return lien;
     }
 
     private static String vide(String valeur) {

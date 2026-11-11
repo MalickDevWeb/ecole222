@@ -293,8 +293,8 @@ public class AdmissionController {
                 c.put("docs", Map.of(
                     "idCard", Boolean.TRUE.equals(e.getIdCardUploaded()),
                     "diploma", Boolean.TRUE.equals(e.getDiplomaUploaded()),
-                    // APP-BE-04 : aucune donnée réelle sur les relevés → jamais « true » en dur
-                    "transcripts", false
+                    // APP-BE-04 : jamais « true » en dur ; vrai seulement si un relevé a réellement été envoyé
+                    "transcripts", lireInfo(e.getAdditionalInfo(), "relevesNotesUrl") != null
                 ));
                 Map<String, Object> details = new java.util.HashMap<>();
                 details.put("cniNumber", null);   // APP-BE-17 : plus de numéro « CNI-<id> » inventé (non collecté en base)
@@ -303,6 +303,10 @@ public class AdmissionController {
                 details.put("cniStatus", "unknown");
                 // APP-BE-04 : moyen et référence de paiement réels uniquement, sinon null (jamais de fausse transaction)
                 details.put("paymentMethod", readPaymentMethod(e.getAdditionalInfo()));
+                // Pièces réellement envoyées (dossier déposé par un parent) : liens à ouvrir, sinon null
+                details.put("photoUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "photoIdentiteUrl")));
+                details.put("transcriptsUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "relevesNotesUrl")));
+                details.put("diplomaUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "diplomeUrl")));
                 details.put("paymentTransactionRef", blankToNull(e.getRegistrationFeeReference()));
                 details.put("paymentStatus", Boolean.TRUE.equals(e.getRegistrationFeePaid()) ? "approved" : "pending");
                 c.put("details", details);
@@ -321,17 +325,27 @@ public class AdmissionController {
 
     /** Lit la clé « paymentMethod » du JSON additionalInfo ; null si absente, vide ou JSON illisible. */
     static String readPaymentMethod(String additionalInfo) {
+        return lireInfo(additionalInfo, "paymentMethod");
+    }
+
+    /** Lien http(s) uniquement (jamais « javascript: » ni autre schéma dans un lien affiché à l'administration). */
+    static String lienHttp(String url) {
+        return url != null && url.matches("(?i)^https?://\\S+$") ? url : null;
+    }
+
+    /** Lit une clé texte du JSON additionalInfo ; null si absente, vide ou JSON illisible. */
+    static String lireInfo(String additionalInfo, String cle) {
         if (additionalInfo == null || additionalInfo.isBlank()) {
             return null;
         }
         try {
-            com.fasterxml.jackson.databind.JsonNode node = JSON.readTree(additionalInfo).get("paymentMethod");
+            com.fasterxml.jackson.databind.JsonNode node = JSON.readTree(additionalInfo).get(cle);
             if (node == null || node.isNull() || !node.isValueNode()) {
                 return null;
             }
             return blankToNull(node.asText());
         } catch (Exception ex) {
-            logger.warn("additionalInfo illisible pour la lecture du moyen de paiement");
+            logger.warn("additionalInfo illisible pour la lecture de « {} »", cle);
             return null;
         }
     }
