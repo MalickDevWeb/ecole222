@@ -216,6 +216,7 @@ public class CandidaturesController {
         CandidateJpaEntity e = candidateJpaRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Candidature introuvable : " + id));
         e.setAdmissionStatus(newStatut);
+        ecole_221.sn.ecole.modules.admissions.application.service.EtatsCandidature.apresDecision(e);   // l'étape suit (APP-BE-24)
         candidateJpaRepository.save(e);
         logger.info("Statut candidature {} mis à jour: {}", id, newStatut);
         return ResponseEntity.ok(Map.of("success", true, "statut", newStatut));

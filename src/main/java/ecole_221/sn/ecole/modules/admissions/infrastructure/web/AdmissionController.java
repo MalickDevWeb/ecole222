@@ -1,5 +1,7 @@
 package ecole_221.sn.ecole.modules.admissions.infrastructure.web;
 
+import ecole_221.sn.ecole.modules.admissions.application.service.EtatsCandidature;
+
 import ecole_221.sn.ecole.modules.admissions.application.port.dto.CandidateDto;
 import ecole_221.sn.ecole.modules.admissions.application.port.usecase.AdmissionUseCase;
 import io.swagger.v3.oas.annotations.Operation;
@@ -193,16 +195,20 @@ public class AdmissionController {
     @Operation(summary = "Envoyer invitations entretien", description = "Envoie les invitations d'entretien")
     public ResponseEntity<Map<String, Object>> sendInterviewInvitations() {
         logger.info("POST /admissions/automation/interviews - Envoi invitations entretien");
-        admissionUseCase.sendInterviewInvitations();
-        return ResponseEntity.ok(Map.of("success", true, "message", "Invitations d'entretien envoyées avec succès"));
+        // Avant : « Invitations d'entretien envoyées avec succès » alors qu'aucune invitation n'est envoyée.
+        int passes = admissionUseCase.sendInterviewInvitations();
+        return ResponseEntity.ok(Map.of("success", true, "dossiersPassesEnEntretien", passes,
+                "message", passes + " dossier(s) passé(s) à l'étape « entretien ». Aucune invitation n'est envoyée automatiquement : prévenez les candidats."));
     }
     
     @PostMapping("/automation/matricules")
     @Operation(summary = "Générer matricules", description = "Génère les matricules pour les candidats acceptés")
     public ResponseEntity<Map<String, Object>> generateMatricules() {
-        logger.info("POST /admissions/automation/matricules - Génération matricules");
-        admissionUseCase.generateMatricules();
-        return ResponseEntity.ok(Map.of("success", true, "message", "Matricules générées avec succès"));
+        // APP-BE-24 : la méthode calculait des matricules sans rien enregistrer ni créer de compte élève, puis
+        // répondait « Matricules générées avec succès ». Inscription réelle des admis : à concevoir (décision).
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_IMPLEMENTED,
+                "Génération des matricules non disponible : l'inscription automatique des candidats admis n'est pas encore en place. "
+                        + "Créez les comptes élèves depuis Gestion Élèves (création ou import).");
     }
 
     // ==================== ENDPOINT CANDIDATURE PORTAL DB ====================
@@ -389,7 +395,10 @@ public class AdmissionController {
                 entity.setLastName(parts.length > 1 ? parts[1] : parts[0]);
                 entity.setEmail(email);
                 entity.setCourseChoice(course);
-                if (step != null) entity.setCurrentStep(step);
+                if (step != null && !step.equals(entity.getCurrentStep())) {
+                    entity.setCurrentStep(EtatsCandidature.etape(step));
+                    EtatsCandidature.apresEtape(entity);   // la décision suit l'étape du Kanban (APP-BE-24)
+                }
                 entity.setRegistrationFeePaid(paid);
                 entity.setUpdatedAt(java.time.LocalDateTime.now());
                 candidateJpaRepository.save(entity);
