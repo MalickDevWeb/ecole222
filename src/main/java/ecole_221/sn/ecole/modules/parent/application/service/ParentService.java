@@ -297,12 +297,57 @@ public class ParentService implements ParentUseCase {
     }
 
     @Override
+    public ParentProfileDto getParentProfile(String parentId) {
+        // Coordonnées enregistrées (table parents) ; à défaut, l'email du compte et rien d'inventé.
+        var fiche = parentRepositoryPort.findParentByUserId(parentId);
+        String emailCompte = emailDuCompte(parentId);
+        return fiche.map(p -> new ParentProfileDto(emailCompte != null ? emailCompte : p.getEmail(),
+                        p.getTelephone(), p.getAdresse(), p.getProfession()))
+                .orElse(new ParentProfileDto(emailCompte, null, null, null));
+    }
+
+    @Override
+    @Transactional
     public ParentProfileDto updateParentProfile(String parentId, ParentProfileDto profileDto) {
         logger.info("Mise à jour du profil du parent: {}", parentId);
-        
-        // TODO: Implémenter avec mise à jour en base de données
-        
-        return profileDto;
+        // Avant : renvoyait le profil reçu sans rien enregistrer (faux succès, APP-TL-13).
+        if (profileDto == null) {
+            throw new IllegalArgumentException("Aucune information de profil reçue.");
+        }
+        String telephone = facultatif(profileDto.telephone());
+        if (telephone != null && !telephone.matches("^\\+?[0-9][0-9 .-]{6,18}[0-9]$")) {
+            throw new IllegalArgumentException("Le numéro de téléphone « " + telephone
+                    + " » n'est pas valide : chiffres uniquement, avec indicatif facultatif (ex. +221 77 123 45 67).");
+        }
+        String adresse = facultatif(profileDto.adresse());
+        String profession = facultatif(profileDto.profession());
+        if (adresse != null && adresse.length() > 255) {
+            throw new IllegalArgumentException("L'adresse est trop longue (255 caractères au plus).");
+        }
+        if (profession != null && profession.length() > 255) {
+            throw new IllegalArgumentException("La profession est trop longue (255 caractères au plus).");
+        }
+        var compte = userRepositoryPort == null ? Optional.<ecole_221.sn.ecole.modules.auth.domain.model.User>empty()
+                : userRepositoryPort.findById(parentId);
+        String email = compte.map(u -> u.getEmail()).orElse(null);   // l'email de connexion ne se change pas ici
+        Parent fiche = parentRepositoryPort.findParentByUserId(parentId)
+                .map(p -> Parent.reconstitute(p.getId(), p.getUserId(), p.getNom(), p.getPrenom(),
+                        email != null ? email : p.getEmail(), telephone, adresse, profession,
+                        p.getCreatedAt(), LocalDateTime.now()))
+                .orElseGet(() -> Parent.create(parentId, compte.map(u -> u.getNom()).orElse(null),
+                        compte.map(u -> u.getPrenom()).orElse(null), email, telephone, adresse, profession));
+        Parent enregistre = parentRepositoryPort.saveParent(fiche);
+        return new ParentProfileDto(enregistre.getEmail(), enregistre.getTelephone(),
+                enregistre.getAdresse(), enregistre.getProfession());
+    }
+
+    private String emailDuCompte(String userId) {
+        if (userRepositoryPort == null) return null;
+        return userRepositoryPort.findById(userId).map(u -> u.getEmail()).orElse(null);
+    }
+
+    private static String facultatif(String valeur) {
+        return valeur == null || valeur.isBlank() ? null : valeur.trim();
     }
 
     @Override

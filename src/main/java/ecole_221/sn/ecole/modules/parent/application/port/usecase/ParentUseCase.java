@@ -35,6 +35,7 @@ public interface ParentUseCase {
     PaymentDto getParentPayments(String parentId);
     
     // Profil
+    ParentProfileDto getParentProfile(String parentId);
     ParentProfileDto updateParentProfile(String parentId, ParentProfileDto profileDto);
     
     // Rendez-vous
