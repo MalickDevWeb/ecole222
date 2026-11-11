@@ -33,20 +33,30 @@ public class ParentService implements ParentUseCase {
     private final ParentRepositoryPort parentRepositoryPort;
     private final AppointmentRepositoryPort appointmentRepositoryPort;
     private final ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort userRepositoryPort;
+    private final ecole_221.sn.ecole.modules.parent.domain.repository.CandidaturesParentPort candidaturesPort;
 
     @org.springframework.beans.factory.annotation.Autowired
     public ParentService(ParentRepositoryPort parentRepositoryPort,
                          AppointmentRepositoryPort appointmentRepositoryPort,
-                         ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort userRepositoryPort) {
+                         ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort userRepositoryPort,
+                         ecole_221.sn.ecole.modules.parent.domain.repository.CandidaturesParentPort candidaturesPort) {
         this.parentRepositoryPort = parentRepositoryPort;
         this.appointmentRepositoryPort = appointmentRepositoryPort;
         this.userRepositoryPort = userRepositoryPort;
+        this.candidaturesPort = candidaturesPort;
+    }
+
+    /** Compatibilité (tests) : sans dossiers de candidature. */
+    public ParentService(ParentRepositoryPort parentRepositoryPort,
+                         AppointmentRepositoryPort appointmentRepositoryPort,
+                         ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort userRepositoryPort) {
+        this(parentRepositoryPort, appointmentRepositoryPort, userRepositoryPort, null);
     }
 
     /** Compatibilité (tests) : sans annuaire des comptes, les enfants sont renvoyés sans nom. */
     public ParentService(ParentRepositoryPort parentRepositoryPort,
                          AppointmentRepositoryPort appointmentRepositoryPort) {
-        this(parentRepositoryPort, appointmentRepositoryPort, null);
+        this(parentRepositoryPort, appointmentRepositoryPort, null, null);
     }
 
     @Override
@@ -197,20 +207,82 @@ public class ParentService implements ParentUseCase {
     @Override
     public List<ApplicationDto> getParentApplications(String parentId) {
         logger.info("Récupération des candidatures pour le parent: {}", parentId);
-        // APP-BE-19 : aucun lien parent → candidature persisté → liste vide (avant : dossier « Aminata Diallo » inventé)
-        return List.of();
+        if (candidaturesPort == null) {
+            return List.of();
+        }
+        // Vrais dossiers déposés par CE parent dans l'école courante (avant : liste vide ou dossier inventé)
+        return candidaturesPort.listerParParent(parentId).stream().map(ParentService::versDto).toList();
     }
 
     @Override
+    @Transactional
     public String enrollChild(String parentId, EnrollChildPayloadDto payload) {
-        logger.info("Soumission de dossier de candidature par le parent: {}, enfant: {} {}", 
-                   parentId, payload.nom(), payload.prenom());
-        
-        // TODO: Implémenter avec sauvegarde en base de données
-        // Générer un dossierId
-        String dossierId = "d-" + UUID.randomUUID().toString().substring(0, 8);
-        
+        if (candidaturesPort == null) {
+            throw new IllegalStateException("Le dépôt de candidature n'est pas disponible.");
+        }
+        if (payload == null) {
+            throw new IllegalArgumentException("Le dossier de candidature est vide.");
+        }
+        String prenom = obligatoire(payload.prenom(), "Le prénom de l'enfant est obligatoire.");
+        String nom = obligatoire(payload.nom(), "Le nom de l'enfant est obligatoire.");
+        String email = obligatoire(payload.email(), "L'adresse e-mail est obligatoire.").toLowerCase(java.util.Locale.ROOT);
+        if (!email.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            throw new IllegalArgumentException("L'adresse e-mail « " + email + " » n'est pas valide.");
+        }
+        String filiere = obligatoire(payload.filiere(), "La filière demandée est obligatoire.");
+        String niveau = obligatoire(payload.niveau(), "Le niveau demandé est obligatoire.");
+        if (candidaturesPort.emailDejaCandidat(email)) {
+            // « email » + « déjà » : renvoyé en 409 par le gestionnaire d'erreurs global
+            throw new IllegalArgumentException("Une candidature existe déjà avec l'email " + email + " dans cette école.");
+        }
+        java.util.Map<String, String> complement = new java.util.LinkedHashMap<>();
+        complement.put("niveau", niveau);
+        complement.put("dateNaissance", vide(payload.dateNaissance()));
+        complement.put("lieuNaissance", vide(payload.lieuNaissance()));
+        complement.put("nationalite", vide(payload.nationalite()));
+        complement.put("sexe", vide(payload.sexe()));
+        complement.put("adresse", vide(payload.adresse()));
+        complement.put("diplomePrecedent", vide(payload.diplomePrecedent()));
+        complement.put("etablissementPrecedent", vide(payload.etablissementPrecedent()));
+        complement.put("anneeBac", vide(payload.anneeBac()));
+        complement.put("mentionBac", vide(payload.mentionBac()));
+        complement.put("deposePar", "parent");
+        String dossierId = candidaturesPort.deposer(parentId, prenom, nom, email, vide(payload.telephone()),
+                filiere + " — " + niveau, complement);
+        logger.info("Candidature {} déposée par le parent {}", dossierId, parentId);
         return dossierId;
+    }
+
+    private static String obligatoire(String valeur, String message) {
+        if (valeur == null || valeur.isBlank()) {
+            throw new IllegalArgumentException(message);
+        }
+        return valeur.trim();
+    }
+
+    private static String vide(String valeur) {
+        return valeur == null || valeur.isBlank() ? null : valeur.trim();
+    }
+
+    /** Statut d'admission → vocabulaire de l'espace parent ; progression selon l'étape réelle du dossier. */
+    private static ApplicationDto versDto(ecole_221.sn.ecole.modules.parent.domain.model.CandidatureParent c) {
+        String statut = switch (c.statut() == null ? "" : c.statut()) {
+            case "ACCEPTED", "ACCEPTE", "FINALISE" -> "ACCEPTE";
+            case "REJECTED", "REFUSE" -> "REFUSE";
+            default -> "EN_ATTENTE";
+        };
+        int progression = switch (c.etape() == null ? "" : c.etape()) {
+            case "docs" -> 40;
+            case "interview" -> 70;
+            case "admitted", "rejected" -> 100;
+            default -> 15;
+        };
+        if (!"EN_ATTENTE".equals(statut)) {
+            progression = 100;
+        }
+        String depot = c.depot() == null ? null : c.depot().toLocalDate().toString();
+        return new ApplicationDto(c.id(), c.enfant(), c.filiere(), c.niveau(), depot, statut, progression,
+                c.etape(), c.commentaire());
     }
 
     @Override

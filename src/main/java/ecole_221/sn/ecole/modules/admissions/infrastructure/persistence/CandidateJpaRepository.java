@@ -7,6 +7,11 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CandidateJpaRepository extends JpaRepository<CandidateJpaEntity, String> {
+    /** Dossiers déposés par un parent, du plus récent au plus ancien (école courante, @TenantId). */
+    List<CandidateJpaEntity> findByParentIdOrderBySubmittedAtDesc(String parentId);
+
+    boolean existsByEmailIgnoreCase(String email);
+
     Optional<CandidateJpaEntity> findByEmail(String email);
     List<CandidateJpaEntity> findByCourseChoice(String courseChoice);
     List<CandidateJpaEntity> findByCurrentStep(String currentStep);
