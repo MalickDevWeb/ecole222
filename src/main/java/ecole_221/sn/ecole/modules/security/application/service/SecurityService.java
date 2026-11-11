@@ -26,25 +26,29 @@ public class SecurityService implements SecurityUseCase {
     private final AdminRepositoryPort adminRepository;
     private final SecurityRepositoryPort securityRepositoryPort;
     private final VigilProfileJpaRepository vigilProfileRepository;
-    private final List<Map<String, Object>> scanLogs = new CopyOnWriteArrayList<>();
+    private final Map<String, List<Map<String, Object>>> passagesParEcole = new java.util.concurrent.ConcurrentHashMap<>();
 
+    private final ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort comptes;
+    private final ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances;
+
+    @org.springframework.beans.factory.annotation.Autowired
     public SecurityService(AdminRepositoryPort adminRepository,
                           SecurityRepositoryPort securityRepositoryPort,
-                          VigilProfileJpaRepository vigilProfileRepository) {
+                          VigilProfileJpaRepository vigilProfileRepository,
+                          ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort comptes,
+                          ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances) {
         this.adminRepository = adminRepository;
         this.securityRepositoryPort = securityRepositoryPort;
         this.vigilProfileRepository = vigilProfileRepository;
-        
-        // Seed default scan log
-        Map<String, Object> log = new HashMap<>();
-        log.put("id", "scan-1");
-        log.put("studentName", "Mamadou Sall");
-        log.put("status", "ENTREE");
-        log.put("timestamp", LocalDateTime.now().minusMinutes(10).toString());
-        log.put("statutFrais", "En Règle");
-        log.put("accessGranted", true);
-        log.put("message", "Accès autorisé. Bienvenue à l'École 221.");
-        scanLogs.add(log);
+        this.comptes = comptes;
+        this.appartenances = appartenances;
+        // APP-SEC-18 : plus de passage « Mamadou Sall » inventé au démarrage
+    }
+
+    /** Journal des passages de l'école courante (APP-SEC-18 : avant, une seule liste pour toutes les écoles). */
+    private List<Map<String, Object>> journalEcole() {
+        String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse("sans-ecole");
+        return passagesParEcole.computeIfAbsent(ecole, k -> new CopyOnWriteArrayList<>());
     }
 
     // ==================== GESTION DES PROFILS DE VIGILANCE ====================
@@ -119,49 +123,77 @@ public class SecurityService implements SecurityUseCase {
     public Map<String, Object> getCheckpointStatus() {
         Map<String, String> assignment = adminRepository.getGateAssignment();
         Map<String, Object> status = new HashMap<>();
-        status.put("gate", assignment.getOrDefault("gate", "Porte Principale"));
-        status.put("guard", assignment.getOrDefault("guard", "Agent Mamadou Diallo"));
-        status.put("totalScansToday", scanLogs.size());
+        status.put("gate", assignment.getOrDefault("gate", "Non configuré"));   // plus de portail inventé
+        status.put("guard", assignment.getOrDefault("guard", "Non assigné"));   // plus de gardien inventé
+        status.put("totalScansToday", journalEcole().size());
         status.put("status", "ACTIVE");
         return status;
     }
 
     @Override
     public Map<String, Object> processBadgeScan(String badgeId) {
-        // Resolve student details based on badgeId
-        String studentId = "std-001";
-        String studentName = "Mamadou Sall";
-        
-        if (badgeId.contains("002") || badgeId.equals("badge-std-002")) {
-            studentId = "std-002";
-            studentName = "Awa Diop";
+        // APP-SEC-18 : le badge est rattaché à un compte RÉEL (identifiant ou matricule), membre ACTIF de
+        // l'école courante. Avant : tout badge était attribué à l'élève fictif « Mamadou Sall » (ou
+        // « Awa Diop ») et l'accès décidé d'après sa situation — un badge inconnu pouvait être accepté.
+        String brut = badgeId == null ? "" : badgeId.trim();
+        String sansPrefixe = brut.startsWith("badge-") ? brut.substring(6) : brut;
+        Optional<ecole_221.sn.ecole.modules.auth.domain.model.User> titulaire = comptes.findById(brut)
+                .or(() -> comptes.findById(sansPrefixe))
+                .or(() -> comptes.findByMatricule(brut))
+                .or(() -> comptes.findByMatricule(sansPrefixe));
+        String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse(null);
+
+        boolean accessGranted;
+        String nom;
+        String statutFrais = null;
+        String msg;
+        if (titulaire.isEmpty()) {
+            accessGranted = false;
+            nom = "Inconnu";
+            msg = "Accès refusé : badge non reconnu.";
+        } else {
+            var u = titulaire.get();
+            nom = ((u.getPrenom() == null ? "" : u.getPrenom() + " ") + (u.getNom() == null ? "" : u.getNom())).trim();
+            boolean membre = ecole != null && appartenances.findByUserIdAndOrganizationId(u.getId(), ecole)
+                    .map(m -> m.isActive() && !m.isExpired()).orElse(false);
+            if (!membre) {
+                accessGranted = false;
+                msg = "Accès refusé : ce badge n'appartient pas à cet établissement.";
+            } else if (u.getRole() != null && "ETUDIANT".equals(u.getRole().value())) {
+                StatutFrais frais = adminRepository.getStudentStatus(u.getId());
+                if (frais == null) {
+                    // statut jamais saisi : on ne présume ni « En Règle » ni « En Retard », on le signale
+                    statutFrais = "Non renseigné";
+                    accessGranted = true;
+                    msg = "Accès autorisé. Statut des frais non renseigné par l'administration.";
+                } else {
+                    statutFrais = frais.getDisplayName();
+                    accessGranted = frais == StatutFrais.EN_REGLE;
+                    msg = accessGranted ? "Accès autorisé."
+                            : "Accès refusé. Veuillez régulariser votre situation financière auprès de la comptabilité.";
+                }
+            } else {
+                accessGranted = true;   // personnel de l'école
+                msg = "Accès autorisé (personnel).";
+            }
         }
 
-        StatutFrais feesStatus = adminRepository.getStudentStatus(studentId);
-        boolean accessGranted = feesStatus == StatutFrais.EN_REGLE;
-        String statusText = accessGranted ? "ENTREE" : "BLOQUE";
-        String msg = accessGranted 
-            ? "Accès autorisé. Bienvenue à l'École 221." 
-            : "Accès refusé. Veuillez régulariser votre situation financière auprès de la comptabilité.";
-
         Map<String, Object> log = new HashMap<>();
-        log.put("id", "scan-" + UUID.randomUUID().toString().substring(0, 5));
-        log.put("studentName", studentName);
-        log.put("status", statusText);
+        log.put("id", "scan-" + UUID.randomUUID().toString().substring(0, 8));
+        log.put("studentName", nom);
+        log.put("status", accessGranted ? "ENTREE" : "BLOQUE");
         log.put("timestamp", LocalDateTime.now().toString());
-        log.put("statutFrais", feesStatus.getDisplayName());
+        log.put("statutFrais", statutFrais);
         log.put("accessGranted", accessGranted);
         log.put("message", msg);
-        
-        scanLogs.add(0, log);
-        adminRepository.addRealtimeLog("Scannage de badge '" + badgeId + "' pour '" + studentName + "' -> " + (accessGranted ? "AUTORISÉ" : "REFUSÉ"));
-
+        journalEcole().add(0, log);
+        adminRepository.addRealtimeLog("Scannage de badge pour '" + nom + "' -> " + (accessGranted ? "AUTORISÉ" : "REFUSÉ"));
         return log;
     }
 
     @Override
     public List<Map<String, Object>> getVigilCheckIns() {
-        return scanLogs;
+        return journalEcole();
     }
 
     @Override
@@ -181,17 +213,11 @@ public class SecurityService implements SecurityUseCase {
             return map;
         }
         
-        // Return default profile if not found
-        Map<String, Object> defaultProfile = new HashMap<>();
-        defaultProfile.put("id", "VIG-221");
-        defaultProfile.put("nom", "Diallo");
-        defaultProfile.put("prenom", "Mamadou");
-        defaultProfile.put("badgeId", "BADGE-VIG-001");
-        defaultProfile.put("equipe", "Jour");
-        defaultProfile.put("derniereConnexion", LocalDateTime.now().toString());
-        defaultProfile.put("statut", "Opérationnel");
-        defaultProfile.put("zone", "Portail Principal");
-        return defaultProfile;
+        // Profil non configuré : réponse explicite (avant : vigile « Mamadou Diallo » inventé)
+        Map<String, Object> nonConfigure = new HashMap<>();
+        nonConfigure.put("id", vigilId);
+        nonConfigure.put("statut", "non_configuré");
+        return nonConfigure;
     }
 
     // ==================== MAPPERS ====================

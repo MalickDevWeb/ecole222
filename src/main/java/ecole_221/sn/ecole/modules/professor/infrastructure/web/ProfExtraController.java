@@ -18,12 +18,26 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@CrossOrigin(origins = "*")
 @Tag(name = "Professor", description = "Espace professeur — quiz, présences, emploi du temps")
 public class ProfExtraController {
     private static final Logger logger = LoggerFactory.getLogger(ProfExtraController.class);
 
     private final ecole_221.sn.ecole.modules.professor.application.port.usecase.ProfessorUseCase professorUseCase;
+    /** Modules, supports et quiz réellement enregistrés (AccesCoursInterceptor contrôle le cours en amont). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.professor.application.service.ContenuPedagogiqueService contenus;
+
+    private ecole_221.sn.ecole.modules.professor.application.service.ContenuPedagogiqueService contenus() {
+        if (contenus == null) throw new org.springframework.web.server.ResponseStatusException(
+                org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Contenus pédagogiques indisponibles.");
+        return contenus;
+    }
+    /** Contrôle cours / élève de l'école (absent dans les tests unitaires autonomes). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AccesCoursInterceptor accesCours;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository classesEcole;
+    private static final java.util.Set<String> STATUTS_PRESENCE = java.util.Set.of("PRESENT", "ABSENT", "RETARD", "EXCUSE", "LATE", "EXCUSED");
 
     public ProfExtraController(ecole_221.sn.ecole.modules.professor.application.port.usecase.ProfessorUseCase professorUseCase) {
         logger.info("ProfExtraController initialized");
@@ -31,62 +45,29 @@ public class ProfExtraController {
     }
 
     @GetMapping("/professor/courses/{courseId}/quizzes")
-    @Operation(summary = "Quiz d'un cours", description = "Retourne la liste des quiz associés à un cours.")
-    public ResponseEntity<PageResponseDto<QuizDto>> getQuizzes(
-            @Parameter(description = "Identifiant du cours") @PathVariable("courseId") String courseId,
-            @Parameter(description = "Numéro de la page") @RequestParam(value = "page", defaultValue = "0") int page,
-            @Parameter(description = "Taille de la page") @RequestParam(value = "size", defaultValue = "10") int size) {
-        
-        logger.info("GET /professor/courses/{}/quizzes - page={}, size={}", courseId, page, size);
-        try {
-            PageResult<Map<String, Object>> pageResult =
-                professorUseCase.getQuizzes(courseId, page, size);
-            logger.debug("Retrieved {} quizzes for course {}", pageResult.getTotalElements(), courseId);
-            return ResponseEntity.ok(ProfessorMapper.toQuizPageResponse(pageResult));
-        } catch (Exception e) {
-            logger.error("Error fetching quizzes for course {}: {}", courseId, e.getMessage());
-            throw e;
-        }
+    @Operation(summary = "Quiz d'un cours", description = "Tous les quiz QCM du cours (tous modules).")
+    public ResponseEntity<List<Map<String, Object>>> getQuizzes(@PathVariable("courseId") String courseId) {
+        return ResponseEntity.ok(contenus().quizDuCours(courseId));
     }
 
     @PostMapping("/professor/modules/{moduleId}/quizzes")
-    @Operation(summary = "Créer un quiz dans un module", description = "Crée un nouveau quiz dans un module (titre, durée en minutes).")
-    public ResponseEntity<Map<String, Object>> createQuizInModule(
-            @Parameter(description = "Identifiant du module") @PathVariable("moduleId") String moduleId,
-            @Valid @RequestBody CreateQuizRequestDto request) {
-        
-        logger.info("POST /professor/modules/{}/quizzes - creating quiz", moduleId);
-        logger.debug("Quiz request: title={}, duration={}", request.title(), request.duration());
-        try {
-            Object durationObj = request.duration();
-            int duration = durationObj instanceof Integer ? (Integer) durationObj : Integer.parseInt(durationObj.toString());
-            professorUseCase.saveQuiz(moduleId, request.title(), duration);
-            logger.info("Quiz created successfully in module {}", moduleId);
-            return ResponseEntity.ok(ProfessorMapper.createSuccessResponse("Quiz créé dans le module avec succès"));
-        } catch (Exception e) {
-            logger.error("Error creating quiz in module {}: {}", moduleId, e.getMessage());
-            throw e;
-        }
+    @Operation(summary = "Créer un quiz dans un module", description = "Titre et au moins une question (énoncé, ≥ 2 choix, bonne réponse) obligatoires.")
+    public ResponseEntity<Map<String, Object>> createQuizInModule(@PathVariable("moduleId") String moduleId,
+                                                                  @RequestBody(required = false) Map<String, Object> corps) {
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED).body(contenus().creerQuiz(moduleId, corps));
     }
 
     @PostMapping("/professor/courses/{courseId}/quizzes")
-    @Operation(summary = "Créer un quiz dans un cours", description = "Crée un nouveau quiz directement dans un cours (titre, durée en minutes).")
-    public ResponseEntity<Map<String, Object>> createQuizInCourse(
-            @Parameter(description = "Identifiant du cours") @PathVariable("courseId") String courseId,
-            @Valid @RequestBody CreateQuizRequestDto request) {
-        
-        logger.info("POST /professor/courses/{}/quizzes - creating quiz", courseId);
-        logger.debug("Quiz request: title={}, duration={}", request.title(), request.duration());
-        try {
-            Object durationObj = request.duration();
-            int duration = durationObj instanceof Integer ? (Integer) durationObj : Integer.parseInt(durationObj.toString());
-            professorUseCase.saveQuiz(courseId, request.title(), duration);
-            logger.info("Quiz created successfully in course {}", courseId);
-            return ResponseEntity.ok(ProfessorMapper.createSuccessResponse("Quiz créé dans le cours avec succès"));
-        } catch (Exception e) {
-            logger.error("Error creating quiz in course {}: {}", courseId, e.getMessage());
-            throw e;
+    @Operation(summary = "Créer un quiz (ancien chemin)", description = "Un quiz appartient à un module : utiliser POST /professor/modules/{moduleId}/quizzes.")
+    public ResponseEntity<Map<String, Object>> createQuiz(@PathVariable("courseId") String courseId,
+                                                          @RequestBody(required = false) Map<String, Object> corps) {
+        Object moduleId = corps == null ? null : corps.get("moduleId");
+        if (moduleId == null || moduleId.toString().isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Indiquez le module du quiz (moduleId).");
         }
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
+                .body(contenus().creerQuizDansCours(courseId, moduleId.toString(), corps));
     }
 
     @GetMapping("/prof/classes/{classId}/students")
@@ -122,16 +103,56 @@ public class ProfExtraController {
             }
             
             logger.debug("Processing {} attendance records", records.size());
+            // Validation de TOUTE la feuille avant écriture. Avant : date « 2026-07-20 » et cours « course-1 »
+            // inventés quand ils manquaient → présences rattachées à un faux jour / un faux cours.
+            for (int i = 0; i < records.size(); i++) {
+                Map<String, Object> r = records.get(i);
+                String ligne = records.size() > 1 ? " (ligne " + (i + 1) + ")" : "";
+                if (r == null) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Présence vide" + ligne + ".");
+                }
+                for (String[] champ : new String[][]{{"date", "la date"}, {"courseId", "le cours"},
+                        {"studentId", "l'étudiant"}, {"status", "le statut"}}) {
+                    Object v = r.get(champ[0]);
+                    if (v == null || v.toString().isBlank()) {
+                        throw new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.BAD_REQUEST,
+                            "Champ obligatoire manquant : " + champ[1] + ligne + ".");
+                    }
+                }
+                java.time.LocalDate jour;
+                try {
+                    jour = java.time.LocalDate.parse(r.get("date").toString().trim());
+                } catch (java.time.format.DateTimeParseException ex) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST,
+                        "Date invalide (format attendu AAAA-MM-JJ)" + ligne + " : " + r.get("date"));
+                }
+                // test du 2026-11-10 : statut inventé, date future, élève inexistant et cours d'un collègue acceptés
+                if (jour.isAfter(java.time.LocalDate.now())) {
+                    throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "On ne peut pas faire l'appel pour une date future" + ligne + ".");
+                }
+                String statut = r.get("status").toString().trim().toUpperCase(java.util.Locale.ROOT);
+                if (!STATUTS_PRESENCE.contains(statut)) {
+                    throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "Statut de présence inconnu" + ligne + " : " + r.get("status")
+                            + " (attendu : PRESENT, ABSENT, RETARD ou EXCUSE).");
+                }
+                if (accesCours != null) {
+                    accesCours.verifierCours(r.get("courseId").toString().trim());
+                    accesCours.verifierEleve(r.get("studentId").toString().trim());
+                }
+            }
             for (Map<String, Object> record : records) {
-                String date = record.getOrDefault("date", "2026-07-20").toString();
-                String courseId = record.getOrDefault("courseId", "course-1").toString();
+                String date = record.get("date").toString().trim();
+                String courseId = record.get("courseId").toString().trim();
                 logger.debug("Submitting attendance: date={}, courseId={}, studentId={}, status={}",
                     date, courseId, record.get("studentId"), record.get("status"));
                 professorUseCase.submitAttendance(
                     date,
-                    (String) record.get("studentId"),
-                    (String) record.get("studentName"),
-                    (String) record.get("status"),
+                    record.get("studentId").toString(),
+                    record.get("studentName") == null ? null : record.get("studentName").toString(),
+                    record.get("status").toString(),
                     courseId
                 );
             }
@@ -147,10 +168,22 @@ public class ProfExtraController {
     @Operation(summary = "Emploi du temps du jour", description = "Retourne les sessions planifiées pour le professeur aujourd'hui.")
     public ResponseEntity<List<ScheduleDto>> getTodaySchedule() {
         logger.info("GET /professor/schedule - fetching today's schedule");
+        // APP-BE-16 : l'emploi du temps est celui du professeur authentifié (plus d'identifiant codé en dur)
+        String profId = utilisateurConnecte();
+        if (profId == null) {
+            return ResponseEntity.status(401).build();
+        }
         try {
-            List<Map<String, Object>> schedule = professorUseCase.getSchedule("usr-002");
+            List<Map<String, Object>> schedule = professorUseCase.getSchedule(profId);
             logger.debug("Retrieved {} schedule sessions", schedule.size());
-            return ResponseEntity.ok(ProfessorMapper.toScheduleDtoList(schedule));
+            var seances = ProfessorMapper.toScheduleDtoList(schedule);
+            // nom RÉEL de la classe (avant : absent → « L3-GL » / « M1 GL » inventés à l'écran)
+            if (classesEcole != null) {
+                seances = seances.stream().map(s -> s.classe() == null ? s : s.avecClasse(
+                        classesEcole.findById(s.classe()).map(c -> c.getName() != null ? c.getName() : c.getNom()).orElse(s.classe())))
+                        .toList();
+            }
+            return ResponseEntity.ok(seances);
         } catch (Exception e) {
             logger.error("Error fetching schedule: {}", e.getMessage());
             throw e;
@@ -165,6 +198,7 @@ public class ProfExtraController {
         
         logger.info("POST /professor/schedule/{}/cancel - reason={}", sessionId, request.reason());
         try {
+            verifierSeanceDuProfesseur(professorUseCase, sessionId);
             professorUseCase.cancelScheduleSession(sessionId, request.reason());
             logger.info("Session {} cancelled with reason: {}", sessionId, request.reason());
             return ResponseEntity.ok(ProfessorMapper.createSuccessResponse(
@@ -184,7 +218,9 @@ public class ProfExtraController {
         
         logger.info("POST /professor/schedule/{}/reschedule - day={}, time={}, room={}", 
             sessionId, request.day(), request.time(), request.room());
+        reportDirectReserveAdministration();
         try {
+            verifierSeanceDuProfesseur(professorUseCase, sessionId);
             professorUseCase.rescheduleScheduleSession(sessionId, request.day(), request.time(), request.room());
             logger.info("Session {} rescheduled to {} at {} in {}", 
                 sessionId, request.day(), request.time(), request.room());
@@ -194,6 +230,51 @@ public class ProfExtraController {
         } catch (Exception e) {
             logger.error("Error rescheduling session {}: {}", sessionId, e.getMessage());
             throw e;
+        }
+    }
+
+    /** Identifiant de l'utilisateur authentifié, ou null si la requête n'est pas authentifiée. */
+    static String utilisateurConnecte() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof User user) {
+            return user.getId();
+        }
+        return null;
+    }
+
+    private static final java.util.Set<String> ROLES_ADMIN =
+            java.util.Set.of("ROLE_ADMIN", "ROLE_ADMINISTRATOR", "ROLE_SUPER_ADMIN", "ROLE_PLATFORM_ADMIN");
+
+    /**
+     * Lot E (2026-11-10) : le report DIRECT d'une séance est réservé à l'administration ; le professeur passe
+     * par POST /professor/schedule/{sessionId}/demandes-report (validation par l'administration).
+     */
+    static void reportDirectReserveAdministration() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || auth.getAuthorities().stream().noneMatch(a -> ROLES_ADMIN.contains(a.getAuthority()))) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "Demandez un report à l'administration");
+        }
+    }
+
+    /**
+     * Un professeur ne peut annuler / reporter que SES séances (relevé par l'Agent 06, APP-SEC-16).
+     * Les administrateurs de l'école gardent la main sur toutes les séances.
+     */
+    static void verifierSeanceDuProfesseur(
+            ecole_221.sn.ecole.modules.professor.application.port.usecase.ProfessorUseCase useCase, String sessionId) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getAuthorities().stream().anyMatch(a -> ROLES_ADMIN.contains(a.getAuthority()))) {
+            return;
+        }
+        String profId = utilisateurConnecte();
+        if (profId == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED);
+        }
+        boolean sienne = useCase.getSchedule(profId).stream().anyMatch(m -> sessionId.equals(m.get("id")));
+        if (!sienne) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.FORBIDDEN, "Cette séance n'est pas la vôtre");
         }
     }
 }

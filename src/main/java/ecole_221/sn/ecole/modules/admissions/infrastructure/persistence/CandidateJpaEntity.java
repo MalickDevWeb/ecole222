@@ -19,6 +19,17 @@ public class CandidateJpaEntity {
 
     @Id
     private String id;
+
+    /** Compte parent qui a déposé le dossier pour son enfant (null : candidature directe). */
+    @Column(name = "parent_id")
+    private String parentId;
+
+    /** Mot de passe de suivi choisi par le candidat au dépôt (haché BCrypt) ; jamais renvoyé par l'API. */
+    @Column(name = "mot_de_passe_suivi", length = 100)
+    private String motDePasseSuivi;
+
+    public String getParentId() { return parentId; }
+    public void setParentId(String parentId) { this.parentId = parentId; }
     
     @Column(name = "first_name")
     private String firstName;
@@ -60,7 +71,7 @@ public class CandidateJpaEntity {
     private String registrationFeeReference;
     
     @Column(name = "admission_status")
-    private String admissionStatus; // 'pending', 'accepted', 'rejected', 'waitlist'
+    private String admissionStatus; // clé CandidateStatus (EN_ATTENTE, ACCEPTED, REJECTED, EN_COURS, FINALISE)
     
     @Column(name = "rejection_reason")
     private String rejectionReason;
@@ -77,7 +88,7 @@ public class CandidateJpaEntity {
     @Column(name = "total_score")
     private Double totalScore;
     
-    @Column(name = "additional_info")
+    @Column(name = "additional_info", columnDefinition = "text")
     private String additionalInfo; // JSON pour données supplémentaires
     
     @Column(name = "submitted_at")
@@ -93,7 +104,7 @@ public class CandidateJpaEntity {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
         this.currentStep = "new";
-        this.admissionStatus = "pending";
+        this.admissionStatus = "EN_ATTENTE"; // clé canonique (cf. CandidateStatus.from)
         this.registrationFeePaid = false;
     }
 
@@ -186,4 +197,7 @@ public class CandidateJpaEntity {
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
+    public String getMotDePasseSuivi() { return motDePasseSuivi; }
+    public void setMotDePasseSuivi(String motDePasseSuivi) { this.motDePasseSuivi = motDePasseSuivi; }
 }

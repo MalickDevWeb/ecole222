@@ -26,6 +26,11 @@ public interface UserRepositoryPort {
      * Récupère un utilisateur par son ID.
      */
     Optional<User> findById(String id);
+
+    /** Compte par matricule (badge d'accès) ; par défaut : non pris en charge. */
+    default Optional<User> findByMatricule(String matricule) {
+        return Optional.empty();
+    }
     
     /**
      * Récupère tous les utilisateurs.

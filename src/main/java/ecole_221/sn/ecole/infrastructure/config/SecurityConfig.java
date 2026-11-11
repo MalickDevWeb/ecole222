@@ -3,8 +3,10 @@ package ecole_221.sn.ecole.infrastructure.config;
 import ecole_221.sn.ecole.infrastructure.security.JwtAuthenticationFilter;
 import ecole_221.sn.ecole.infrastructure.security.TokenAuthenticationFilter;
 import org.springframework.context.annotation.Bean;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
@@ -21,6 +23,7 @@ import java.util.List;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity // active @PreAuthorize : seconde barrière derrière les règles d'URL ci-dessous
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthFilter;
@@ -31,7 +34,7 @@ public class SecurityConfig {
         this.tokenAuthFilter = tokenAuthFilter;
     }
 
-    private static final String[] PUBLIC_PATHS = {
+    static final String[] PUBLIC_PATHS = {
         "/auth/login",
         "/auth/login-token",
         "/auth/logout",
@@ -39,8 +42,6 @@ public class SecurityConfig {
         "/register-school",
         "/public/**",
         "/v1/public/**",
-        "/candidatures/settings",
-        "/candidatures/submit",
         "/health",
         "/error",
         "/student/qr-validate", // Ajouté pour permettre aux vigiles de scanner les QR
@@ -55,21 +56,31 @@ public class SecurityConfig {
         "/h2-console/**",
         // WebSocket
         "/ws/**",
-        // Admissions publiques & portail candidat
-        "/candidatures/**",
-        "/admissions/**",
-        "/v1/admissions/**",
-        "/notifications/**",
+        // Admissions : seules les routes du portail candidat sont publiques, voir PORTAIL_CANDIDAT_* (APP-SEC-12)
         // Dashboard étudiant & planning consultation
         "/meet/active",
         "/schedule",
-        // Collaboration & Wiki partagé
-        "/collaboration/**",
-        "/wiki/**",
-        // Synchronisation offline / online
-        "/sync/**",
-        // Upload multimédia Cloudinary public pour admissions & documents
-        "/media/**"
+        // APP-SEC-15 : /collaboration, /wiki, /notifications, /sync, /media ne sont plus publics
+        // (seules exceptions, par méthode : GET /sync/check et POST /media/upload, voir PORTAIL_CANDIDAT_*)
+    };
+
+    /** Lectures publiques du portail candidat (APP-SEC-12). */
+    static final String[] PORTAIL_CANDIDAT_LECTURE = {
+        "/candidatures/settings",
+        // campagnes publiées (liste blanche de champs, aucune donnée de candidat)
+        "/candidatures/campagnes",
+        "/admissions/settings", "/v1/admissions/settings",
+        // APP-SEC-15 : indicateur hors ligne appelé sans compte (OfflineSyncToast)
+        "/sync/check"
+    };
+
+    /** Écritures publiques du portail candidat (APP-SEC-12). */
+    static final String[] PORTAIL_CANDIDAT_ECRITURE = {
+        "/candidatures/submit",
+        // APP-BE-12 : suivi de SON dossier (email + mot de passe de suivi ; échecs freinés)
+        "/candidatures/suivi",
+        // APP-SEC-15 : pièces du dossier de candidature envoyées sans compte (cloudinaryUpload.ts)
+        "/media/upload"
     };
 
     @Bean
@@ -80,6 +91,12 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(PUBLIC_PATHS).permitAll()
+                // APP-SEC-12 : portail candidat (sans compte) limité aux routes qu'il appelle réellement
+                .requestMatchers(HttpMethod.GET, PORTAIL_CANDIDAT_LECTURE).permitAll()
+                .requestMatchers(HttpMethod.POST, PORTAIL_CANDIDAT_ECRITURE).permitAll()
+                // le reste des admissions (liste, CRUD, statuts, réglages) : administration de l'école
+                .requestMatchers("/candidatures/**", "/admissions/**", "/v1/admissions/**")
+                    .hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
                 // Routes exclusivement réservées au SUPER_ADMIN / PLATFORM_ADMIN
                 .requestMatchers("/super-admin/**", "/platform/**", "/v1/super-admin/**", "/v1/platform/**")
                     .hasAnyRole("SUPER_ADMIN", "PLATFORM_ADMIN")
@@ -89,13 +106,17 @@ public class SecurityConfig {
                 .requestMatchers("/vigil/check-ins").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "PROFESSEUR", "TEACHER", "SUPER_ADMIN")
                 .requestMatchers("/security/**", "/vigil/**").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "SUPER_ADMIN")
                 .requestMatchers("/professor/**", "/prof/**").hasAnyRole("PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR", "SUPER_ADMIN")
+                // APP-SEC-11 : espace parent réservé aux parents (le contrôleur vérifie aussi la filiation)
+                .requestMatchers("/parent/**").hasRole("PARENT")
                 .requestMatchers("/student/**").hasAnyRole("ETUDIANT", "STUDENT", "PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR", "SUPER_ADMIN")
                 .anyRequest().authenticated()
             )
             .exceptionHandling(exception -> exception
-                .authenticationEntryPoint((request, response, authException) -> {
-                    response.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
-                })
+                // réponses JSON en français (avant : « Unauthorized » / « Forbidden » bruts de Spring)
+                .authenticationEntryPoint((request, response, authException) ->
+                        reponseJson(response, 401, "AUTH_INVALID_CREDENTIALS", "Veuillez vous connecter pour accéder à cette page."))
+                .accessDeniedHandler((request, response, deniedException) ->
+                        reponseJson(response, 403, "AUTH_ACCESS_DENIED", "Votre rôle ne permet pas d'accéder à cette fonctionnalité."))
             )
             // Filtre Cookie HTTP-only pour l'application web
             .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
@@ -106,16 +127,20 @@ public class SecurityConfig {
         return http.build();
     }
 
+    private static void reponseJson(jakarta.servlet.http.HttpServletResponse response, int statut, String code, String message)
+            throws java.io.IOException {
+        response.setStatus(statut);
+        response.setContentType("application/json;charset=UTF-8");
+        response.getWriter().write("{\"success\":false,\"status\":" + statut + ",\"code\":\"" + code
+                + "\",\"message\":\"" + message + "\",\"error\":\"" + message + "\"}");
+    }
+
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration config = new CorsConfiguration();
         // Origines explicites requises quand allowCredentials=true
-        config.setAllowedOriginPatterns(List.of(
-            "http://localhost:*", "http://127.0.0.1:*",
-            "http://127.0.0.1:5173",
-            "http://192.168.1.239:5173",
-            "https://papa-221.vercel.app"
-        ));
+        // Source unique partagée avec le WebSocket (APP-SEC-01) : voir AllowedOrigins
+        config.setAllowedOriginPatterns(AllowedOrigins.PATTERNS);
         config.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         config.setAllowedHeaders(List.of("*"));
         config.setAllowCredentials(true);  // requis pour que les cookies soient envoyés

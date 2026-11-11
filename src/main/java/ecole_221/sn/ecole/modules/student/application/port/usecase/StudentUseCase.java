@@ -6,10 +6,12 @@ import ecole_221.sn.ecole.partage.PageResult;
 public interface StudentUseCase {
     Map<String, Object> getStudentProfile(String studentId);
     Map<String, Object> getStudentDashboard(String studentId);
-    Map<String, Object> getDigitalBadge(String studentId);
+    /** Badge QR de l'élève à partir de son matricule RÉEL (avant : matricule inventé « SN-2026-<hash> »). */
+    Map<String, Object> getDigitalBadge(String studentId, String matricule, String nomComplet, String classe);
     boolean validateQrToken(String matricule, long minuteEpoch, String token);
     PageResult<Map<String, Object>> getStudentAttendances(String studentId, int page, int size);
-    void submitSelfAttendance(String studentId, String type, String method);
+    /** Enregistre l'auto-pointage et renvoie l'identifiant RÉEL de la présence créée. */
+    String submitSelfAttendance(String studentId, String type, String method);
     
     PageResult<Map<String, Object>> getActiveLiveSessions(int page, int size);
     void submitReaction(String sessionId, String reactionType);

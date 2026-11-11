@@ -35,8 +35,14 @@ public record ScheduleDto(
     LocalDate date,
     
     @Schema(description = "Statut de la session")
-    SessionStatus status
+    SessionStatus status,
+    /** Classe de la séance (identifiant, puis nom réel une fois résolu par le contrôleur). */
+    String classe
 ) {
+    public ScheduleDto avecClasse(String nomClasse) {
+        return new ScheduleDto(id, courseTitle, day, time, room, courseId, type, date, status, nomClasse);
+    }
+
     public ScheduleDto {
         // Validation can be added here
     }

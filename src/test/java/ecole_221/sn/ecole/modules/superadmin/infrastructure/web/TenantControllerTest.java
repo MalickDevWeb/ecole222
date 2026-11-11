@@ -42,7 +42,7 @@ class TenantControllerTest {
     private TenantDto createDummyDto(String id, String name, String status) {
         return new TenantDto(
                 id, name, "ecole-test", "ECOLE", status, "Senegal", "Dakar", "Fann", "+221770000000",
-                "contact@test.com", "www.test.com", null, LocalDateTime.now(), LocalDateTime.now(), null, null
+                "contact@test.com", "www.test.com", null, LocalDateTime.now(), LocalDateTime.now(), null, null, null
         );
     }
 
@@ -236,7 +236,7 @@ class TenantControllerTest {
 
             mockMvc.perform(post("/api/v1/super-admin/tenants/id-2/approve")
                             .contentType(MediaType.APPLICATION_JSON))
-                    .andExpect(status().isUnprocessableEntity())
+                    .andExpect(status().isConflict())
                     .andExpect(jsonPath("$.message").exists());
         }
     }

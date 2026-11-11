@@ -5,6 +5,7 @@ import ecole_221.sn.ecole.modules.finance.application.port.usecase.CreateExpense
 import ecole_221.sn.ecole.modules.finance.domain.model.Expense;
 import ecole_221.sn.ecole.modules.finance.domain.model.ExpenseFactory;
 import ecole_221.sn.ecole.modules.finance.domain.port.repository.ExpenseRepositoryPort;
+import ecole_221.sn.ecole.modules.finance.domain.port.ExpenseCategoryCatalog;
 import ecole_221.sn.ecole.modules.finance.domain.valueobject.ExpenseCategory;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -19,9 +20,11 @@ public class CreateExpenseService implements CreateExpenseUseCase {
     private static final Logger logger = LoggerFactory.getLogger(CreateExpenseService.class);
     
     private final ExpenseRepositoryPort expenseRepositoryPort;
+    private final ExpenseCategoryCatalog categoryCatalog;
     
-    public CreateExpenseService(ExpenseRepositoryPort expenseRepositoryPort) {
+    public CreateExpenseService(ExpenseRepositoryPort expenseRepositoryPort, ExpenseCategoryCatalog categoryCatalog) {
         this.expenseRepositoryPort = expenseRepositoryPort;
+        this.categoryCatalog = categoryCatalog;
     }
     
     @Override
@@ -29,7 +32,7 @@ public class CreateExpenseService implements CreateExpenseUseCase {
         logger.info("Création d'une nouvelle dépense: {}", command.label());
         
         // Conversion des types simples vers Value Objects
-        ExpenseCategory category = new ExpenseCategory(command.category());
+        ExpenseCategory category = categoryCatalog.resolve(command.category());
         
         // Création via Factory
         Expense expense = ExpenseFactory.create(

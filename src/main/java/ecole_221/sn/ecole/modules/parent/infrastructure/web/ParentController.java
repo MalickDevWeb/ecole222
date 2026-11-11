@@ -25,7 +25,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/parent")
-@CrossOrigin(origins = "*")
 @Tag(name = "Parent", description = "Gestion des parents - enfants, stats, messages, paiements")
 public class ParentController {
 
@@ -33,11 +32,20 @@ public class ParentController {
     private final ParentUseCase parentUseCase;
     private final JwtService jwtService;
     private final UserRepositoryPort userRepositoryPort;
+    private final ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances;
 
-    public ParentController(ParentUseCase parentUseCase, JwtService jwtService, UserRepositoryPort userRepositoryPort) {
+    @org.springframework.beans.factory.annotation.Autowired
+    public ParentController(ParentUseCase parentUseCase, JwtService jwtService, UserRepositoryPort userRepositoryPort,
+                            ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances) {
         this.parentUseCase = parentUseCase;
         this.jwtService = jwtService;
         this.userRepositoryPort = userRepositoryPort;
+        this.appartenances = appartenances;
+    }
+
+    /** Compatibilité (tests) : sans annuaire des appartenances, aucun professeur n'est listé. */
+    public ParentController(ParentUseCase parentUseCase, JwtService jwtService, UserRepositoryPort userRepositoryPort) {
+        this(parentUseCase, jwtService, userRepositoryPort, null);
     }
 
     // ==================== ENDPOINTS ENFANTS ====================
@@ -45,7 +53,7 @@ public class ParentController {
     @GetMapping("/enfants")
     @Operation(summary = "Liste des enfants du parent", description = "Retourne la liste des enfants liés au parent connecté")
     public ResponseEntity<List<ChildDto>> getEnfants(
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader) {
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
         String parentId = extractParentIdFromToken(authHeader);
         logger.info("GET /parent/enfants - Récupération enfants du parent: {}", parentId);
         List<ChildDto> enfants = parentUseCase.getEnfantsByParentId(parentId);
@@ -58,7 +66,7 @@ public class ParentController {
     @Operation(summary = "Stats d'un enfant", description = "Retourne le tableau de bord complet d'un enfant")
     public ResponseEntity<ChildStatsDto> getChildStats(
             @Parameter(description = "ID de l'enfant") @PathVariable String enfantId,
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader) {
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
         String parentId = extractParentIdFromToken(authHeader);
         
         // Vérifier que l'enfant appartient bien au parent (sécurité)
@@ -79,7 +87,7 @@ public class ParentController {
     public ResponseEntity<List<PresenceDto>> getChildPresences(
             @Parameter(description = "ID de l'enfant") @PathVariable String enfantId,
             @Parameter(description = "Mois au format YYYY-MM") @RequestParam(required = false) String mois,
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader) {
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
         String parentId = extractParentIdFromToken(authHeader);
         
         // Vérifier que l'enfant appartient bien au parent
@@ -99,7 +107,7 @@ public class ParentController {
     @Operation(summary = "Notes de l'enfant", description = "Retourne les notes et résultats académiques de l'enfant")
     public ResponseEntity<List<GradeDto>> getChildGrades(
             @Parameter(description = "ID de l'enfant") @PathVariable String enfantId,
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader) {
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
         String parentId = extractParentIdFromToken(authHeader);
         
         // Vérifier que l'enfant appartient bien au parent
@@ -119,7 +127,7 @@ public class ParentController {
     @Operation(summary = "Emploi du temps de l'enfant", description = "Retourne l'emploi du temps hebdomadaire de l'enfant")
     public ResponseEntity<List<ScheduleDto>> getChildSchedule(
             @Parameter(description = "ID de l'enfant") @PathVariable String enfantId,
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader) {
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
         String parentId = extractParentIdFromToken(authHeader);
         
         // Vérifier que l'enfant appartient bien au parent
@@ -135,52 +143,14 @@ public class ParentController {
 
     // ==================== ENDPOINTS MESSAGES ====================
 
-    @GetMapping("/messages")
-    @Operation(summary = "Boîte de réception", description = "Retourne la liste des messages reçus par le parent")
-    public ResponseEntity<List<MessageDto>> getMessages(
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader) {
-        String parentId = extractParentIdFromToken(authHeader);
-        logger.info("GET /parent/messages - Messages du parent: {}", parentId);
-        List<MessageDto> messages = parentUseCase.getParentMessages(parentId);
-        return ResponseEntity.ok(messages);
-    }
-
-    @PostMapping("/messages")
-    @Operation(summary = "Envoyer un message", description = "Le parent envoie un message à un professeur ou à l'administration")
-    public ResponseEntity<Map<String, Object>> sendMessage(
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader,
-            @RequestBody SendMessageRequestDto request) {
-        String parentId = extractParentIdFromToken(authHeader);
-        
-        // Validation
-        if (request.destinataireId() == null || request.destinataireId().isBlank() ||
-            request.sujet() == null || request.sujet().isBlank() ||
-            request.message() == null || request.message().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Tous les champs sont obligatoires"));
-        }
-        
-        logger.info("POST /parent/messages - Envoi message par: {}", parentId);
-        MessageDto message = parentUseCase.sendMessage(parentId, request);
-        return ResponseEntity.ok(Map.of("success", true, "message", message));
-    }
-
-    @PatchMapping("/messages/{messageId}/lu")
-    @Operation(summary = "Marquer comme lu", description = "Marque un message comme lu")
-    public ResponseEntity<Map<String, Object>> markMessageAsRead(
-            @Parameter(description = "ID du message") @PathVariable String messageId,
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader) {
-        String parentId = extractParentIdFromToken(authHeader);
-        logger.info("PATCH /parent/messages/{}/lu - Marquer message comme lu", messageId);
-        MessageDto message = parentUseCase.markMessageAsRead(messageId, parentId);
-        return ResponseEntity.ok(Map.of("success", true));
-    }
+    // Messagerie parent ↔ école : MessagerieParentsController (messages réellement enregistrés)
 
     // ==================== ENDPOINTS CANDIDATURES ====================
 
     @GetMapping("/candidatures")
     @Operation(summary = "Liste des candidatures", description = "Retourne la liste des dossiers d'inscription soumis par le parent")
     public ResponseEntity<List<ApplicationDto>> getApplications(
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader) {
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
         String parentId = extractParentIdFromToken(authHeader);
         logger.info("GET /parent/candidatures - Candidatures du parent: {}", parentId);
         List<ApplicationDto> applications = parentUseCase.getParentApplications(parentId);
@@ -190,7 +160,7 @@ public class ParentController {
     @PostMapping("/inscrire-enfant")
     @Operation(summary = "Soumettre un dossier de candidature", description = "Soumet un nouveau dossier de candidature pour un enfant")
     public ResponseEntity<Map<String, Object>> enrollChild(
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader,
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody EnrollChildPayloadDto payload) {
         String parentId = extractParentIdFromToken(authHeader);
         logger.info("POST /parent/inscrire-enfant - Candidature par: {}", parentId);
@@ -203,7 +173,7 @@ public class ParentController {
     @GetMapping("/paiements")
     @Operation(summary = "Détail des paiements", description = "Retourne le détail de la scolarité et des échéances de paiement")
     public ResponseEntity<PaymentDto> getPayments(
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader) {
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
         String parentId = extractParentIdFromToken(authHeader);
         logger.info("GET /parent/paiements - Paiements du parent: {}", parentId);
         PaymentDto payments = parentUseCase.getParentPayments(parentId);
@@ -212,10 +182,17 @@ public class ParentController {
 
     // ==================== ENDPOINTS PROFIL ====================
 
+    @GetMapping("/profil")
+    @Operation(summary = "Profil du parent", description = "Coordonnées enregistrées du parent connecté")
+    public ResponseEntity<ParentProfileDto> getProfile(
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
+        return ResponseEntity.ok(parentUseCase.getParentProfile(extractParentIdFromToken(authHeader)));
+    }
+
     @PatchMapping("/profil")
     @Operation(summary = "Mettre à jour le profil", description = "Met à jour les informations du profil parent")
     public ResponseEntity<ParentProfileDto> updateProfile(
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader,
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody ParentProfileDto profileDto) {
         String parentId = extractParentIdFromToken(authHeader);
         logger.info("PATCH /parent/profil - Mise à jour profil parent: {}", parentId);
@@ -228,7 +205,7 @@ public class ParentController {
     @PostMapping("/rdv")
     @Operation(summary = "Demander un rendez-vous", description = "Demande un rendez-vous avec un professeur")
     public ResponseEntity<Map<String, Object>> requestAppointment(
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader,
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader,
             @RequestBody AppointmentRequestDto request) {
         String parentId = extractParentIdFromToken(authHeader);
         logger.info("POST /parent/rdv - Demande RDV par: {}", parentId);
@@ -239,7 +216,7 @@ public class ParentController {
     @GetMapping("/rdv")
     @Operation(summary = "Liste des rendez-vous", description = "Retourne la liste des rendez-vous et visioconférences planifiés pour le parent")
     public ResponseEntity<List<Map<String, Object>>> getAppointments(
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader) {
+            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
         String parentId = extractParentIdFromToken(authHeader);
         logger.info("GET /parent/rdv - Récupération rendez-vous parent: {}", parentId);
         return ResponseEntity.ok(parentUseCase.getParentAppointments(parentId));
@@ -249,60 +226,51 @@ public class ParentController {
     @Operation(summary = "Liste des professeurs", description = "Retourne la liste des professeurs pour la prise de rendez-vous")
     public ResponseEntity<List<Map<String, Object>>> getProfesseurs(
             @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        List<User> profs = userRepositoryPort.findByRole(RoleUtilisateur.PROFESSEUR);
-        List<Map<String, Object>> result = new java.util.ArrayList<>(profs.stream().map(p -> {
-            Map<String, Object> map = new java.util.HashMap<String, Object>();
-            map.put("id", p.getId());
-            map.put("nom", p.getNom());
-            map.put("prenom", p.getPrenom());
-            map.put("email", p.getEmail());
-            map.put("displayName", "Dr. " + p.getNom() + " " + p.getPrenom() + " (" + p.getEmail() + ")");
-            return map;
-        }).toList());
-        if (result.isEmpty()) {
-            result.add(Map.of("id", "usr-002", "nom", "Sall", "prenom", "Moustapha", "email", "prof@bonsoir.sn", "displayName", "Dr. Sall — Algorithmique & Systèmes"));
-            result.add(Map.of("id", "usr-003", "nom", "Ndiaye", "prenom", "Awa", "email", "awa.ndiaye@bonsoir.sn", "displayName", "Prof. Ndiaye — Bases de Données"));
+        // APP-BE-17 / APP-SEC-17 : uniquement les professeurs ACTIFS de l'école courante.
+        // Avant : tous les comptes PROFESSEUR de toutes les écoles (emails compris), titre « Dr. »
+        // ajouté à tous, et deux professeurs inventés si la liste était vide.
+        String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse(null);
+        List<Map<String, Object>> result = new java.util.ArrayList<>();
+        if (ecole != null && appartenances != null) {
+            for (var m : appartenances.findByOrganizationIdAndRole(ecole, RoleUtilisateur.PROFESSEUR.value())) {
+                if (!m.isActive()) {
+                    continue;
+                }
+                userRepositoryPort.findById(m.getUserId()).ifPresent(p -> {
+                    Map<String, Object> map = new java.util.HashMap<String, Object>();
+                    map.put("id", p.getId());
+                    map.put("nom", p.getNom());
+                    map.put("prenom", p.getPrenom());
+                    map.put("email", p.getEmail());
+                    map.put("displayName", ((p.getPrenom() == null ? "" : p.getPrenom() + " ") + (p.getNom() == null ? "" : p.getNom())).trim());
+                    result.add(map);
+                });
+            }
         }
         return ResponseEntity.ok(result);
     }
 
-    // ==================== ENDPOINTS JUSTIFICATIFS ====================
-
-    @PostMapping("/presences/{presenceId}/justifier")
-    @Operation(summary = "Justifier une absence", description = "Soumet un justificatif pour une absence/retard")
-    public ResponseEntity<Map<String, Object>> justifyAbsence(
-            @Parameter(description = "ID de la présence") @PathVariable String presenceId,
-            @Parameter(description = "Motif de l'absence") @RequestParam String motif,
-            @Parameter(description = "URL du fichier justificatif") @RequestParam(required = false) String fileUrl,
-            @Parameter(hidden = true) @RequestHeader("Authorization") String authHeader) {
-        String parentId = extractParentIdFromToken(authHeader);
-        logger.info("POST /parent/presences/{}/justifier - Justification absence", presenceId);
-        String justificatifId = parentUseCase.justifyAbsence(presenceId, parentId, motif, fileUrl);
-        return ResponseEntity.ok(Map.of("success", true, "justificatifId", justificatifId));
-    }
+    // Justificatifs d'absence : JustificatifsAbsenceParentController (enregistrés et validés par l'administration)
 
     // ==================== UTILITY METHODS ====================
 
     /**
      * Extrait l'ID du parent à partir du token JWT et vérifie le rôle.
      */
+    /**
+     * Identifiant du parent connecté (APP-SEC-11).
+     * L'utilisateur est celui authentifié par le filtre JWT (cookie ou en-tête Bearer) ; l'en-tête
+     * n'est plus redécodé ici, ce qui faisait échouer les appels authentifiés par cookie.
+     * Le paramètre authHeader est conservé pour la signature des routes (documentation OpenAPI masquée).
+     */
     private String extractParentIdFromToken(String authHeader) {
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
-            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token JWT manquant ou invalide");
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth == null || !auth.isAuthenticated() || !(auth.getPrincipal() instanceof User user)) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Authentification requise");
         }
-        
-        String token = authHeader.substring(7);
-        String username = jwtService.extractUsername(token);
-        
-        // Trouver l'utilisateur et vérifier le rôle
-        User user = userRepositoryPort.findByEmail(username)
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Utilisateur non trouvé"));
-        
-        // Vérifier que l'utilisateur a le rôle PARENT
-        if (!"PARENT".equals(user.getRole().value())) {
+        if (user.getRole() == null || !"PARENT".equals(user.getRole().value())) {
             throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Accès refusé: rôle incorrect. Rôle requis: PARENT");
         }
-        
         return user.getId();
     }
 }

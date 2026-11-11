@@ -11,6 +11,7 @@ import java.util.List;
 @Repository
 public interface UserJpaRepository extends JpaRepository<UserJpaEntity, String> {
     Optional<UserJpaEntity> findByEmail(String email);
+    Optional<UserJpaEntity> findFirstByMatricule(String matricule);
     List<UserJpaEntity> findByRole(String role);
     boolean existsByEmail(String email);
     

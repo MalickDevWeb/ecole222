@@ -64,10 +64,5 @@ public interface FinanceUseCase {
     Long getTotalCollected();
     Map<String, Long> getExpensesByCategory();
     List<Map<String, Object>> getPaymentTrends();
-    
-    // ==================== AUTOMATION (compatibilité JPA) ====================
-    
-    void triggerPaymentReminders();
-    void blockDebtors();
     Map<String, Object> getFinancialReport(String period);
 }

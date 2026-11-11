@@ -30,10 +30,11 @@ public class TimeSlot {
         this.day = Objects.requireNonNull(day, "Le jour ne peut pas être null");
         this.heureDebut = Objects.requireNonNull(heureDebut, "L'heure de début ne peut pas être null");
         this.heureFin = Objects.requireNonNull(heureFin, "L'heure de fin ne peut pas être null");
-        this.nom = nom != null ? nom : "Cours";
-        this.type = type != null ? type : "CM";
-        this.professeur = professeur != null ? professeur : "Professeur";
-        this.salle = salle != null ? salle : "Salle";
+        // Aucune valeur inventée (avant : « Cours », « CM », « Professeur », « Salle ») : null si non saisi
+        this.nom = nom;
+        this.type = type;
+        this.professeur = professeur;
+        this.salle = salle;
         this.description = description;
         this.classeId = Objects.requireNonNull(classeId, "L'ID classe ne peut pas être null");
     }

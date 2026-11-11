@@ -44,15 +44,17 @@ class AdmissionControllerTest {
         Mockito.verify(admissionUseCase, Mockito.times(1)).getAllCandidates();
     }
 
+    /** APP-BE-15 : /admissions/settings lit la source unique (mêmes réglages que /candidatures/settings). */
     @Test
     void testGetAdmissionSettings() throws Exception {
-        Mockito.when(admissionUseCase.getAdmissionSettings()).thenReturn(null);
-
-        mockMvc.perform(get("/admissions/settings")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isNotFound());
-
-        Mockito.verify(admissionUseCase, Mockito.times(1)).getAdmissionSettings();
+        var parametres = Mockito.mock(ecole_221.sn.ecole.modules.admin.application.service.ParametresCandidaturesService.class);
+        Mockito.when(parametres.lire()).thenReturn(java.util.Map.of("ouvert", false, "configure", false));
+        MockMvcBuilders.standaloneSetup(new AdmissionController(admissionUseCase, null, null, parametres)).build()
+                .perform(get("/admissions/settings").contentType(MediaType.APPLICATION_JSON))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.ouvert").value(false));
+        Mockito.verify(parametres).lire();
+        Mockito.verify(admissionUseCase, Mockito.never()).getAdmissionSettings();   // l'ancienne table n'est plus lue
     }
 
     @Test

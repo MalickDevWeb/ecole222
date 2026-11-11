@@ -22,4 +22,11 @@ public class RoomFactory {
     public static Room reconstruct(String id, String name, int capacity) {
         return new Room(id, name, capacity);
     }
+
+    /** Reconstruit une salle avec ses équipements réellement saisis. */
+    public static Room reconstruct(String id, String name, int capacity, java.util.List<String> equipment) {
+        Room room = new Room(id, name, capacity);
+        room.setEquipment(equipment);
+        return room;
+    }
 }

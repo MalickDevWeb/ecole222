@@ -14,6 +14,7 @@ import ecole_221.sn.ecole.modules.professor.domain.model.CourseFactory;
 import ecole_221.sn.ecole.modules.professor.domain.port.repository.ProfessorRepositoryPort;
 import ecole_221.sn.ecole.partage.PageResult;
 
+import ecole_221.sn.ecole.modules.admin.application.service.ComptesEcoleService;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -32,6 +33,7 @@ public class ProfessorRepositoryAdapter implements ProfessorRepositoryPort {
     private final GradeJpaRepository gradeJpaRepository;
     private final AttendanceJpaRepository attendanceJpaRepository;
     private final UserJpaRepository userJpaRepository;
+    private final ComptesEcoleService comptesEcole;
 
     public ProfessorRepositoryAdapter(CourseJpaRepository courseJpaRepository, 
                                       HomeworkJpaRepository homeworkJpaRepository,
@@ -40,7 +42,8 @@ public class ProfessorRepositoryAdapter implements ProfessorRepositoryPort {
                                       QuizJpaRepository quizJpaRepository,
                                       GradeJpaRepository gradeJpaRepository,
                                       AttendanceJpaRepository attendanceJpaRepository,
-                                      UserJpaRepository userJpaRepository) {
+                                      UserJpaRepository userJpaRepository,
+                                      ComptesEcoleService comptesEcole) {
         this.courseJpaRepository = courseJpaRepository;
         this.homeworkJpaRepository = homeworkJpaRepository;
         this.lessonJpaRepository = lessonJpaRepository;
@@ -49,6 +52,7 @@ public class ProfessorRepositoryAdapter implements ProfessorRepositoryPort {
         this.gradeJpaRepository = gradeJpaRepository;
         this.attendanceJpaRepository = attendanceJpaRepository;
         this.userJpaRepository = userJpaRepository;
+        this.comptesEcole = comptesEcole;
     }
 
     @Override
@@ -76,10 +80,17 @@ public class ProfessorRepositoryAdapter implements ProfessorRepositoryPort {
         );
     }
 
-    // For now, keep the other methods returning dummy data until we create JPA entities for them
+    /**
+     * Étudiants ACTIFS de l'école courante. Avant : tous les étudiants de toutes les écoles.
+     * Aucun modèle d'inscription élève ↔ classe n'existe encore (UserJpaEntity n'a pas de classe et
+     * OrganizationUserJpaEntity non plus) : le paramètre « classe » ne peut donc pas filtrer ; on renvoie
+     * les étudiants de l'école sans prétendre qu'ils appartiennent à cette classe.
+     */
     @Override
     public List<User> getStudentsByClass(String classe) {
-        return userJpaRepository.findByRole("ETUDIANT").stream()
+        return comptesEcole.membres("ETUDIANT").stream()
+            .filter(m -> "ACTIVE".equalsIgnoreCase(m.getValue().getStatus()))
+            .map(Map.Entry::getKey)
             .map(entity -> {
                 try {
                     return UserFactory.reconstructSimple(
@@ -139,6 +150,9 @@ public class ProfessorRepositoryAdapter implements ProfessorRepositoryPort {
         }
         grade.setStudentId(studentId);
         grade.setCourseId(courseId);
+        // Saisir une seule note ne doit pas effacer l'autre (relevé par l'Agent 01, FEAT-003 Q2)
+        cc = cc != null ? cc : grade.getCc();
+        exam = exam != null ? exam : grade.getExamen();
         grade.setCc(cc);
         grade.setExamen(exam);
         double average = (cc != null && exam != null)
@@ -186,6 +200,7 @@ public class ProfessorRepositoryAdapter implements ProfessorRepositoryPort {
             map.put("description", h.getDescription());
             map.put("priority", h.getPriority());
             map.put("deadline", h.getDeadline());
+            map.put("courseId", h.getCourseId());
             return map;
         }).collect(Collectors.toList());
         return new PageResult<>(content, springPage.getNumber(), springPage.getSize(), springPage.getTotalElements(), springPage.getTotalPages());

@@ -32,7 +32,8 @@ public class PublicOnboardingController {
     public ResponseEntity<Organization> registerSchool(@RequestBody SchoolRegistrationRequest request) {
         log.info("[register-school] Inscription demandée pour: {}", request.getSchoolName());
         Organization org = organizationService.registerSchool(request);
-        return ResponseEntity.ok(org);
+        // US-02 [FEAT-001-SC-03] : création → 201 Created (relevé OBS-01, Agent 05)
+        return ResponseEntity.status(201).body(org);
     }
 
     @GetMapping({"/public/check-availability", "/v1/public/check-availability"})
@@ -72,12 +73,8 @@ public class PublicOnboardingController {
                     if (org.getLogo() != null && !org.getLogo().isBlank()) {
                         branding.put("logoUrl", org.getLogo());
                     }
-                    return ResponseEntity.ok(Map.of(
-                        "id", org.getId(),
-                        "name", org.getName(),
-                        "slug", "ecole-221",
-                        "branding", branding
-                    ));
+                    return ResponseEntity.ok(publique(org.getId(), org.getName(), "ecole-221", branding,
+                            org.getPhone(), org.getEmail(), org.getCity()));
                 })
                 .orElseGet(() -> ResponseEntity.ok(Map.of(
                     "id", "default-tenant-id",
@@ -99,15 +96,27 @@ public class PublicOnboardingController {
                 branding.put("primaryColor", primaryColor);
                 branding.put("logoUrl", org.getLogo());
 
-                return ResponseEntity.ok(Map.of(
-                    "id", org.getId(),
-                    "name", org.getName(),
-                    "slug", org.getSlug(),
-                    "branding", branding
-                ));
+                return ResponseEntity.ok(publique(org.getId(), org.getName(), org.getSlug(), branding,
+                        org.getPhone(), org.getEmail(), org.getCity()));
             })
             .orElseGet(() -> ResponseEntity.status(404).body(Map.of("error", "Établissement non trouvé pour le slug: " + slug)));
     }
+
+    /**
+     * Fiche publique de l'école : identité, couleurs et COORDONNÉES RÉELLES (téléphone, e-mail, ville saisis à
+     * l'inscription). Avant : le portail candidat affichait « +221 33 800 00 00 » pour toutes les écoles.
+     * Valeur absente = null (jamais de coordonnée inventée).
+     */
+    private static Map<String, Object> publique(String id, String nom, String slug, Map<String, Object> branding,
+                                                String telephone, String email, String ville) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("id", id);
+        m.put("name", nom);
+        m.put("slug", slug);
+        m.put("branding", branding);
+        m.put("phone", telephone);
+        m.put("email", email);
+        m.put("city", ville);
+        return m;
+    }
 }
-
-

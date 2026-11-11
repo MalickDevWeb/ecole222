@@ -20,6 +20,17 @@ public class QuizJpaEntity {
     private String courseId;
     private String title;
     private int duration;
+    // Quiz QCM complet (avant : seuls titre et durée étaient gardés ; questions perdues ; l'identifiant du
+    // module était enregistré à la place de celui du cours)
+    @jakarta.persistence.Column(name = "module_id")
+    private String moduleId;
+    @jakarta.persistence.Column(length = 2000)
+    private String description;
+    @jakarta.persistence.Column(name = "questions_json", columnDefinition = "TEXT")
+    private String questionsJson;
+    /** Nombre maximal de tentatives par élève (null = 1). Lot D : quiz passés par les élèves. */
+    @jakarta.persistence.Column(name = "max_tentatives")
+    private Integer maxTentatives;
 
     public QuizJpaEntity() {}
 
@@ -31,4 +42,13 @@ public class QuizJpaEntity {
     public void setTitle(String title) { this.title = title; }
     public int getDuration() { return duration; }
     public void setDuration(int duration) { this.duration = duration; }
+
+    public String getModuleId() { return moduleId; }
+    public void setModuleId(String moduleId) { this.moduleId = moduleId; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public String getQuestionsJson() { return questionsJson; }
+    public void setQuestionsJson(String questionsJson) { this.questionsJson = questionsJson; }
+    public Integer getMaxTentatives() { return maxTentatives; }
+    public void setMaxTentatives(Integer maxTentatives) { this.maxTentatives = maxTentatives; }
 }

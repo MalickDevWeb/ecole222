@@ -109,7 +109,7 @@ public class AdmissionRepositoryAdapter implements AdmissionRepositoryPort {
             entity.getFirstName(),
             entity.getEmail(),
             entity.getPhone(),
-            CandidateStatus.valueOf(entity.getAdmissionStatus()),
+            CandidateStatus.from(entity.getAdmissionStatus()),
             entity.getTotalScore(),
             entity.getCourseChoice()
         );

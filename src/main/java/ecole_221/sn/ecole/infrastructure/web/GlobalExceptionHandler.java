@@ -56,6 +56,67 @@ public class GlobalExceptionHandler {
                 .body(ApiErrorResponse.of(ErrorCode.TENANT_NOT_FOUND, ex.getMessage()));
     }
 
+    /** Cours introuvable : 404 (et non 500), quel que soit le module qui lève l'exception. */
+    @ExceptionHandler({ecole_221.sn.ecole.partage.exception.CourseNotFoundException.class,
+            ecole_221.sn.ecole.modules.professor.domain.exception.CourseNotFoundException.class})
+    public ResponseEntity<ApiErrorResponse> handleCourseNotFound(RuntimeException ex) {
+        log.warn("[Course Not Found] {}", ex.getMessage());
+        return ResponseEntity
+                .status(ErrorCode.COURSE_NOT_FOUND.getHttpStatus())
+                .body(ApiErrorResponse.of(ErrorCode.COURSE_NOT_FOUND, ex.getMessage()));
+    }
+
+    /** Route inexistante : 404 (avant : 500 « erreur interne » via le gestionnaire générique). */
+    @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoResource(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
+        log.debug("[Not Found] {}", ex.getMessage());
+        return ResponseEntity
+                .status(ErrorCode.RESOURCE_NOT_FOUND.getHttpStatus())
+                .body(ApiErrorResponse.of(ErrorCode.RESOURCE_NOT_FOUND, "Route inexistante."));
+    }
+
+    /**
+     * Requête mal formée (paramètre obligatoire absent, valeur de mauvais type, corps JSON illisible) :
+     * 400 avec un message en français. Avant : 500 « erreur interne » (balayage des routes du 2026-11-09).
+     */
+    @ExceptionHandler({org.springframework.web.bind.MissingServletRequestParameterException.class,
+            org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
+            org.springframework.http.converter.HttpMessageNotReadableException.class,
+            org.springframework.web.bind.MissingRequestHeaderException.class})
+    public ResponseEntity<ApiErrorResponse> handleRequeteMalFormee(Exception ex) {
+        String message;
+        if (ex instanceof org.springframework.web.bind.MissingServletRequestParameterException m) {
+            message = "Paramètre obligatoire manquant : " + m.getParameterName() + ".";
+        } else if (ex instanceof org.springframework.web.method.annotation.MethodArgumentTypeMismatchException m) {
+            message = "Valeur invalide pour le paramètre « " + m.getName() + " ».";
+        } else if (ex instanceof org.springframework.web.bind.MissingRequestHeaderException m) {
+            message = "En-tête obligatoire manquant : " + m.getHeaderName() + ".";
+        } else {
+            message = "Corps de requête illisible ou mal formé.";
+        }
+        log.debug("[Bad Request] {}", ex.getMessage());
+        return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
+                .body(ApiErrorResponse.of(ErrorCode.VALIDATION_ERROR, message));
+    }
+
+    /** Stockage indisponible : 503 explicite (APP-BE-05), jamais de faux succès. */
+    @ExceptionHandler(ecole_221.sn.ecole.modules.media.domain.exception.StockageIndisponibleException.class)
+    public ResponseEntity<ApiErrorResponse> handleStockageIndisponible(RuntimeException ex) {
+        log.warn("[Storage Unavailable] {}", ex.getMessage());
+        return ResponseEntity
+                .status(ErrorCode.STORAGE_UNAVAILABLE.getHttpStatus())
+                .body(ApiErrorResponse.of(ErrorCode.STORAGE_UNAVAILABLE, ex.getMessage()));
+    }
+
+    /** Fichier refusé (vide, trop volumineux, format ou contenu non conforme) : 400 et non 500. */
+    @ExceptionHandler(ecole_221.sn.ecole.modules.media.domain.exception.InvalidFileException.class)
+    public ResponseEntity<ApiErrorResponse> handleInvalidFile(RuntimeException ex) {
+        log.warn("[Invalid File] {}", ex.getMessage());
+        return ResponseEntity
+                .status(ErrorCode.VALIDATION_ERROR.getHttpStatus())
+                .body(ApiErrorResponse.of(ErrorCode.VALIDATION_ERROR, ex.getMessage()));
+    }
+
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<ApiErrorResponse> handleValidationErrors(MethodArgumentNotValidException ex) {
         Map<String, Object> details = new HashMap<>();
@@ -63,9 +124,15 @@ public class GlobalExceptionHandler {
             details.put(fieldError.getField(), fieldError.getDefaultMessage());
         }
         log.warn("[Validation Error] {}", details);
+        // message LISIBLE : les raisons réelles (avant : « Erreur de validation des champs du formulaire. » seul,
+        // l'utilisateur ne savait pas quel champ corriger — test navigateur du 2026-11-10)
+        String raisons = ex.getBindingResult().getFieldErrors().stream()
+                .map(FieldError::getDefaultMessage).filter(java.util.Objects::nonNull).distinct()
+                .collect(java.util.stream.Collectors.joining(" ; "));
         return ResponseEntity
                 .badRequest()
-                .body(ApiErrorResponse.of(ErrorCode.VALIDATION_ERROR, "Erreur de validation des champs du formulaire.", details));
+                .body(ApiErrorResponse.of(ErrorCode.VALIDATION_ERROR,
+                        raisons.isBlank() ? "Erreur de validation des champs du formulaire." : raisons, details));
     }
 
     @ExceptionHandler(IllegalArgumentException.class)

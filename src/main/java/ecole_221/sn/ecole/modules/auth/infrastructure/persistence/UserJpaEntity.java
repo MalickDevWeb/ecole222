@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
+// SEC-003 : tout compte créé dans le contexte d'une école en devient membre
+@jakarta.persistence.EntityListeners(ecole_221.sn.ecole.shared.infrastructure.tenant.UserMembershipListener.class)
 public class UserJpaEntity {
 
     @Id
@@ -45,6 +47,10 @@ public class UserJpaEntity {
     
     @Column(name = "timezone")
     private String timezone = "Africa/Dakar";
+
+    /** Mot de passe provisoire (généré) à changer à la première connexion ; null (comptes existants) = false. */
+    @Column(name = "doit_changer_mot_de_passe")
+    private Boolean doitChangerMotDePasse;
 
     public UserJpaEntity() {}
 
@@ -97,4 +103,7 @@ public class UserJpaEntity {
     
     public String getTimezone() { return timezone; }
     public void setTimezone(String timezone) { this.timezone = timezone; }
+
+    public Boolean getDoitChangerMotDePasse() { return doitChangerMotDePasse; }
+    public void setDoitChangerMotDePasse(Boolean doitChangerMotDePasse) { this.doitChangerMotDePasse = doitChangerMotDePasse; }
 }

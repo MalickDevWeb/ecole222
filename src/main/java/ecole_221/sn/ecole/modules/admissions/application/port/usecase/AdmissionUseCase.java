@@ -101,13 +101,6 @@ public interface AdmissionUseCase {
      */
     void processAdmissions();
     
-    /**
-     * Envoie les invitations aux entretiens.
-     */
-    void sendInterviewInvitations();
-    
-    /**
-     * Génère les matricules pour les candidats acceptés.
-     */
-    void generateMatricules();
+    /** Fait passer à l'étape « interview » les dossiers complets de l'étape « docs » ; renvoie leur nombre. */
+    int sendInterviewInvitations();
 }

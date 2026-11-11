@@ -16,7 +16,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/collaboration")
-@CrossOrigin(origins = "*")
 @Tag(name = "Collaboration", description = "Collaboration — groupes de travail, documents, tâches, messages, réunions")
 public class CollaborationController {
     private static final Logger logger = LoggerFactory.getLogger(CollaborationController.class);
@@ -24,9 +23,22 @@ public class CollaborationController {
     private final CollaborationUseCase collaborationUseCase;
     private final ActionLogger actionLogger;
 
-    public CollaborationController(CollaborationUseCase collaborationUseCase, ActionLogger actionLogger) {
+    private final ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances;
+    private final ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort comptes;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CollaborationController(CollaborationUseCase collaborationUseCase, ActionLogger actionLogger,
+                                   ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances,
+                                   ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort comptes) {
         this.collaborationUseCase = collaborationUseCase;
         this.actionLogger = actionLogger;
+        this.appartenances = appartenances;
+        this.comptes = comptes;
+    }
+
+    /** Compatibilité (tests) : sans annuaire, aucun étudiant n'est listé. */
+    public CollaborationController(CollaborationUseCase collaborationUseCase, ActionLogger actionLogger) {
+        this(collaborationUseCase, actionLogger, null, null);
     }
 
     @GetMapping("/workgroups")
@@ -50,16 +62,21 @@ public class CollaborationController {
     @GetMapping("/students")
     @Operation(summary = "Liste des étudiants", description = "Retourne la liste des étudiants pour la formation de groupes.")
     public ResponseEntity<List<Map<String, Object>>> getStudents() {
-        List<Map<String, Object>> students = List.of(
-            Map.of("id", "stud-1", "name", "Amadou Diop", "email", "amadou.diop@ecole221.sn", "gpa", 3.8, "gender", "M"),
-            Map.of("id", "stud-2", "name", "Fatou Sow", "email", "fatou.sow@ecole221.sn", "gpa", 3.9, "gender", "F"),
-            Map.of("id", "stud-3", "name", "Ousmane Sy", "email", "ousmane.sy@ecole221.sn", "gpa", 2.7, "gender", "M"),
-            Map.of("id", "stud-4", "name", "Aissatou Diallo", "email", "aissatou.diallo@ecole221.sn", "gpa", 3.5, "gender", "F"),
-            Map.of("id", "stud-5", "name", "Cheikh Ndiaye", "email", "cheikh.ndiaye@ecole221.sn", "gpa", 3.1, "gender", "M"),
-            Map.of("id", "stud-6", "name", "Mariama Ba", "email", "mariama.ba@ecole221.sn", "gpa", 3.6, "gender", "F"),
-            Map.of("id", "stud-7", "name", "Boubacar Cisse", "email", "boubacar.cisse@ecole221.sn", "gpa", 2.9, "gender", "M"),
-            Map.of("id", "stud-8", "name", "Khadija Gueye", "email", "khadija.gueye@ecole221.sn", "gpa", 3.4, "gender", "F")
-        );
+        // Étudiants ACTIFS de l'école courante (avant : 8 étudiants inventés, moyennes comprises)
+        List<Map<String, Object>> students = new java.util.ArrayList<>();
+        String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse(null);
+        if (ecole != null && appartenances != null && comptes != null) {
+            for (var m : appartenances.findByOrganizationIdAndRole(ecole, "ETUDIANT")) {
+                if (!m.isActive()) continue;
+                comptes.findById(m.getUserId()).ifPresent(u -> {
+                    Map<String, Object> e = new java.util.HashMap<>();
+                    e.put("id", u.getId());
+                    e.put("name", ((u.getPrenom() == null ? "" : u.getPrenom() + " ") + (u.getNom() == null ? "" : u.getNom())).trim());
+                    e.put("email", u.getEmail());
+                    students.add(e);
+                });
+            }
+        }
         return ResponseEntity.ok(students);
     }
 
@@ -68,7 +85,10 @@ public class CollaborationController {
     public ResponseEntity<Map<String, Object>> createWorkgroup(@RequestBody Map<String, Object> body) {
         String name = (String) body.get("name");
         String description = (String) body.get("description");
-        String creatorId = (String) body.getOrDefault("creatorId", "usr-001");
+        // créateur = utilisateur connecté (avant : « usr-001 » par défaut, et valeur du client acceptée)
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        String creatorId = auth != null && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u
+                ? u.getId() : (String) body.get("creatorId");
         
         var workgroup = collaborationUseCase.createWorkgroup(name, description, creatorId);
         
@@ -164,7 +184,8 @@ public class CollaborationController {
     @PostMapping("/meets")
     @Operation(summary = "Créer une réunion", description = "Planifie une nouvelle réunion virtuelle (title, link, time).")
     public ResponseEntity<Map<String, Object>> createMeet(@RequestBody Map<String, Object> body) {
-        collaborationUseCase.createMeet((String) body.get("title"), (String) body.get("link"), (String) body.get("time"));
+        // APP-BE-14 : tous les champs de la classe virtuelle sont conservés (avant : seuls title/link/time)
+        collaborationUseCase.createMeet(body);
         Map<String, Object> res = new HashMap<>();
         res.put("success", true);
         return ResponseEntity.ok(res);
@@ -272,7 +293,6 @@ public class CollaborationController {
 
 @RestController
 @RequestMapping("/wiki")
-@CrossOrigin(origins = "*")
 @Tag(name = "Wiki", description = "Documentation collaborative, notes et logs d'audit")
 class WikiController {
 

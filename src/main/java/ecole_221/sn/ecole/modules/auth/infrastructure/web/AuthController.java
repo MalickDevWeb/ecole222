@@ -155,6 +155,7 @@ public class AuthController {
         profile.put("prenom", user.getPrenom());
         profile.put("email", user.getEmail());
         profile.put("role", user.getRole() != null ? user.getRole().name() : null);
+        profile.put("doitChangerMotDePasse", user.isDoitChangerMotDePasse());
         return ResponseEntity.ok(profile);
     }
 

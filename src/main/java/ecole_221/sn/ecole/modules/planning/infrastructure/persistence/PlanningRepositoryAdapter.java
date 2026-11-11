@@ -295,12 +295,14 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     }
     
     private Classe toClasse(ClasseJpaEntity entity) {
+        // Une classe enregistrée sans filière ou sans niveau (non renseignés) ne doit plus faire échouer
+        // toute la liste (500 sur GET /planning/classes) : valeur vide = non renseignée.
         return ClasseFactory.reconstruct(
             entity.getId(),
-            entity.getName(),
+            entity.getName() == null ? "" : entity.getName(),
             entity.getCode(),
-            entity.getFiliereId(),
-            entity.getLevel(),
+            entity.getFiliereId() == null ? "" : entity.getFiliereId(),
+            entity.getLevel() == null ? "" : entity.getLevel(),
             entity.getCapacity(),
             entity.getCurrentSize()
         );

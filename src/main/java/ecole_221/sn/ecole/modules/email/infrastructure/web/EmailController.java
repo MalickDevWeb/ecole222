@@ -15,7 +15,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/email")
-@CrossOrigin(origins = "*")
 @Tag(name = "Email", description = "Service d'envoi d'emails (Brevo, SMTP, etc.)")
 public class EmailController {
     

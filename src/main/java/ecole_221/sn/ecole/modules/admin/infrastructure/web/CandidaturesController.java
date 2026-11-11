@@ -1,5 +1,8 @@
 package ecole_221.sn.ecole.modules.admin.infrastructure.web;
 
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import ecole_221.sn.ecole.modules.admissions.domain.valueobject.CandidateStatus;
 import ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity;
 import ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,69 +15,71 @@ import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
+import ecole_221.sn.ecole.modules.admin.application.service.ParametresCandidaturesService;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 
 @RestController
 @RequestMapping("/candidatures")
 @Tag(name = "Candidatures", description = "Gestion des paramètres et soumissions de candidature")
 public class CandidaturesController {
     private static final Logger logger = LoggerFactory.getLogger(CandidaturesController.class);
+    private static final ObjectMapper JSON = new ObjectMapper();
 
     private final CandidateJpaRepository candidateJpaRepository;
-    private static final Map<String, Object> settings = new ConcurrentHashMap<>();
-    private static final Map<String, Map<String, Object>> candidatures = new ConcurrentHashMap<>();
-
-    static {
-        settings.put("ouvert", true);
-        settings.put("dateOuverture", "2026-06-01");
-        settings.put("dateFermeture", "2026-08-31");
-        settings.put("messageAvis", "Les candidatures sont ouvertes");
-        settings.put("showRegisterButton", true);
-        Map<String, Boolean> docs = new HashMap<>();
-        docs.put("cni", true);
-        docs.put("bulletin", true);
-        docs.put("diplome", true);
-        docs.put("motivation", true);
-        settings.put("docsRequis", docs);
-    }
-
-    public CandidaturesController() {
-        this.candidateJpaRepository = null;
-    }
+    /**
+     * Paramètres persistés par école (table parametres_candidatures). Avant : map statique commune à toutes
+     * les écoles, pré-remplie d'une campagne « ouverte du 2026-06-01 au 2026-08-31 » inventée.
+     */
+    private final ParametresCandidaturesService parametres;
+    /** Vérification du dépôt et suivi en ligne par le candidat (APP-BE-12). */
+    private final ecole_221.sn.ecole.modules.admissions.application.service.SuiviCandidatureService suivi;
 
     @Autowired
-    public CandidaturesController(@Autowired(required = false) CandidateJpaRepository candidateJpaRepository) {
+    public CandidaturesController(CandidateJpaRepository candidateJpaRepository, ParametresCandidaturesService parametres,
+                                  ecole_221.sn.ecole.modules.admissions.application.service.SuiviCandidatureService suivi) {
         this.candidateJpaRepository = candidateJpaRepository;
+        this.parametres = parametres;
+        this.suivi = suivi;
+    }
+
+    /** Compatibilité (tests) : sans vérification du dépôt ni suivi. */
+    public CandidaturesController(CandidateJpaRepository candidateJpaRepository, ParametresCandidaturesService parametres) {
+        this(candidateJpaRepository, parametres, null);
     }
 
     @GetMapping("/settings")
-    @Operation(summary = "Obtenir paramètres candidature", description = "Retourne la configuration actuelle des admissions.")
+    @Operation(summary = "Obtenir paramètres candidature", description = "Configuration des admissions de l'école courante (fermée et sans dates tant qu'elle n'a rien enregistré).")
     public ResponseEntity<Map<String, Object>> getSettings() {
-        return ResponseEntity.ok(settings);
+        return ResponseEntity.ok(parametres.lire());
     }
 
     @PostMapping("/settings")
-    @Operation(summary = "Mettre à jour paramètres candidature", description = "Met à jour la configuration des admissions.")
+    @Operation(summary = "Mettre à jour paramètres candidature", description = "Met à jour la configuration des admissions de l'école courante.")
     public ResponseEntity<Map<String, Object>> updateSettings(@RequestBody Map<String, Object> body) {
-        settings.putAll(body);
-        logger.info("Settings candidatures mis à jour: {}", body);
-        return ResponseEntity.ok(Map.of("success", true, "settings", settings));
+        Map<String, Object> enregistres = parametres.enregistrer(body);
+        logger.info("Paramètres de candidature enregistrés pour l'école courante");
+        Map<String, Object> rep = new HashMap<>();
+        rep.put("success", true);
+        rep.put("settings", enregistres);
+        return ResponseEntity.ok(rep);
     }
 
     @PostMapping("/submit")
     @Operation(summary = "Soumettre une candidature", description = "Soumet une nouvelle candidature d'admission avec persistance PostgreSQL.")
     public ResponseEntity<Map<String, Object>> submitCandidature(@RequestBody Map<String, Object> body) {
-        String candidatureId = body.containsKey("id") && body.get("id") != null 
-            ? String.valueOf(body.get("id")) 
-            : "CAND-2026-" + UUID.randomUUID().toString().substring(0, 8);
+        // L'identifiant est TOUJOURS attribué par le serveur. Avant : un « id » fourni par le client était
+        // repris tel quel, et ce dépôt public (sans compte) écrasait le dossier existant portant cet identifiant.
+        String candidatureId = "CAND-" + java.time.Year.now() + "-" + UUID.randomUUID().toString().substring(0, 8);
+        // L'école doit accepter des candidatures aujourd'hui (403 sinon) — APP-BE-15
+        if (parametres != null) {
+            parametres.exigerOuverture();
+        }
+        // Vérifications AVANT toute écriture (400 / 409) ; le mot de passe de suivi est haché.
+        ecole_221.sn.ecole.modules.admissions.application.service.SuiviCandidatureService.Depot depot =
+                suivi == null ? null : suivi.verifierDepot(body);
 
-        Map<String, Object> candidature = new HashMap<>(body);
-        candidature.put("id", candidatureId);
-        candidature.put("statut", "EN_ATTENTE");
-        candidature.put("dateSoumission", LocalDateTime.now().toString());
-        candidatures.put(candidatureId, candidature);
-
-        if (candidateJpaRepository != null) {
+        {
             try {
                 String nom = String.valueOf(body.getOrDefault("nom", ""));
                 String prenom = String.valueOf(body.getOrDefault("prenom", ""));
@@ -82,23 +87,35 @@ public class CandidaturesController {
                 String telephone = String.valueOf(body.getOrDefault("telephone", ""));
                 String filiere = String.valueOf(body.getOrDefault("filiere", ""));
                 boolean fraisPayes = Boolean.parseBoolean(String.valueOf(body.getOrDefault("fraisPayes", false)));
-                String modePaiement = String.valueOf(body.getOrDefault("modePaiement", "WAVE"));
-                String refPaiement = String.valueOf(body.getOrDefault("referencePaiement", ""));
+                // APP-BE-04 : aucun moyen de paiement par défaut (plus de « WAVE ») ; absent ou vide → null
+                String modePaiement = textOrNull(body.get("modePaiement"));
+                String refPaiement = textOrNull(body.get("referencePaiement"));
 
-                CandidateJpaEntity entity = new CandidateJpaEntity(candidatureId, prenom, nom, email, telephone, filiere);
+                CandidateJpaEntity entity = depot == null
+                        ? new CandidateJpaEntity(candidatureId, prenom, nom, email, telephone, filiere)
+                        : new CandidateJpaEntity(candidatureId, depot.prenom(), depot.nom(), depot.email(), telephone, depot.filiere());
+                if (depot != null) {
+                    entity.setMotDePasseSuivi(depot.motDePasseHache());
+                }
                 entity.setRegistrationFeePaid(fraisPayes);
                 entity.setRegistrationFeeReference(refPaiement);
-                entity.setIdCardUploaded(true);
-                entity.setDiplomaUploaded(true);
-                entity.setAdditionalInfo("{\"paymentMethod\":\"" + modePaiement + "\"}");
+                // Pièces : déclarées par le portail (docs.idCard / docs.diploma), jamais présumées fournies
+                Object docs = body.get("docs");
+                Map<?, ?> pieces = docs instanceof Map<?, ?> m ? m : Map.of();
+                entity.setIdCardUploaded(Boolean.parseBoolean(String.valueOf(pieces.get("idCard"))));
+                entity.setDiplomaUploaded(Boolean.parseBoolean(String.valueOf(pieces.get("diploma"))));
+                entity.setAdditionalInfo(buildAdditionalInfo(modePaiement));
                 entity.setSubmittedAt(LocalDateTime.now());
                 entity.setCurrentStep("new");
-                entity.setAdmissionStatus("pending");
+                entity.setAdmissionStatus(CandidateStatus.EN_ATTENTE.name());
 
                 candidateJpaRepository.save(entity);
                 logger.info("Candidature {} persistée avec succès en PostgreSQL", candidatureId);
             } catch (Exception e) {
+                // Avant : l'erreur était avalée et le candidat recevait « Candidature soumise avec succès ».
                 logger.error("Erreur lors de la sauvegarde PostgreSQL de la candidature {}", candidatureId, e);
+                throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
+                        "La candidature n'a pas pu être enregistrée. Veuillez réessayer.");
             }
         }
         
@@ -111,11 +128,46 @@ public class CandidaturesController {
         ));
     }
 
+    @PostMapping("/suivi")
+    @Operation(summary = "Suivre sa candidature",
+            description = "Public (portail candidat). Corps {email, motDePasse} : renvoie uniquement le(s) dossier(s) de ce candidat "
+                    + "dans l'école courante. Échec : 401 avec un message générique ; 429 après 5 échecs en 15 minutes.")
+    public ResponseEntity<List<Map<String, Object>>> suivre(@RequestBody(required = false) Map<String, Object> corps) {
+        if (suivi == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Suivi de candidature indisponible.");
+        }
+        Map<String, Object> c = corps == null ? Map.of() : corps;
+        Object mdp = c.get("motDePasse");
+        return ResponseEntity.ok(suivi.suivre(textOrNull(c.get("email")), mdp == null ? null : String.valueOf(mdp)));
+    }
+
+    /** Valeur texte non vide, sinon null (évite aussi la chaîne « null » produite par String.valueOf(null)). */
+    static String textOrNull(Object value) {
+        if (value == null) {
+            return null;
+        }
+        String s = String.valueOf(value).trim();
+        return s.isEmpty() ? null : s;
+    }
+
+    /**
+     * APP-BE-04 : additionalInfo sérialisé par Jackson (échappement garanti, pas d'injection JSON par concaténation).
+     * Retourne null si aucun moyen de paiement n'est connu.
+     */
+    static String buildAdditionalInfo(String modePaiement) throws JsonProcessingException {
+        if (modePaiement == null) {
+            return null;
+        }
+        Map<String, Object> info = new LinkedHashMap<>();
+        info.put("paymentMethod", modePaiement);
+        return JSON.writeValueAsString(info);
+    }
+
     @GetMapping("/candidatures")
     @Operation(summary = "Liste des candidatures", description = "Retourne toutes les candidatures soumises.")
     public ResponseEntity<Map<String, Object>> getCandidatures() {
         List<Map<String, Object>> results = new ArrayList<>();
-        if (candidateJpaRepository != null) {
+        {
             for (CandidateJpaEntity e : candidateJpaRepository.findAll()) {
                 Map<String, Object> m = new HashMap<>();
                 m.put("id", e.getId());
@@ -130,16 +182,13 @@ public class CandidaturesController {
                 results.add(m);
             }
         }
-        if (results.isEmpty()) {
-            results.addAll(candidatures.values());
-        }
         return ResponseEntity.ok(Map.of("candidatures", results));
     }
 
     @GetMapping("/candidatures/{id}")
     @Operation(summary = "Détails d'une candidature", description = "Retourne les détails d'une candidature spécifique.")
     public ResponseEntity<Map<String, Object>> getCandidature(@PathVariable String id) {
-        if (candidateJpaRepository != null) {
+        {
             Optional<CandidateJpaEntity> opt = candidateJpaRepository.findById(id);
             if (opt.isPresent()) {
                 CandidateJpaEntity e = opt.get();
@@ -154,11 +203,7 @@ public class CandidaturesController {
                 return ResponseEntity.ok(m);
             }
         }
-        Map<String, Object> candidature = candidatures.get(id);
-        if (candidature == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(candidature);
+        return ResponseEntity.notFound().build();
     }
 
     @PatchMapping("/candidatures/{id}/statut")
@@ -166,18 +211,13 @@ public class CandidaturesController {
     public ResponseEntity<Map<String, Object>> updateCandidatureStatut(
             @PathVariable String id, 
             @RequestBody Map<String, String> body) {
-        String newStatut = body.get("statut");
-        if (candidateJpaRepository != null) {
-            candidateJpaRepository.findById(id).ifPresent(e -> {
-                e.setAdmissionStatus(newStatut);
-                candidateJpaRepository.save(e);
-            });
-        }
-        Map<String, Object> candidature = candidatures.get(id);
-        if (candidature != null) {
-            candidature.put("statut", newStatut);
-            candidatures.put(id, candidature);
-        }
+        // Validation + normalisation : « ACCEPTE », « VALIDE »… → ACCEPTED ; valeur inconnue → 400 (BUG-QA-01)
+        String newStatut = CandidateStatus.from(body.get("statut")).name();
+        CandidateJpaEntity e = candidateJpaRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Candidature introuvable : " + id));
+        e.setAdmissionStatus(newStatut);
+        ecole_221.sn.ecole.modules.admissions.application.service.EtatsCandidature.apresDecision(e);   // l'étape suit (APP-BE-24)
+        candidateJpaRepository.save(e);
         logger.info("Statut candidature {} mis à jour: {}", id, newStatut);
         return ResponseEntity.ok(Map.of("success", true, "statut", newStatut));
     }

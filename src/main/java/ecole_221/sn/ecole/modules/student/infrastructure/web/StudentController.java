@@ -27,7 +27,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/student")
-@CrossOrigin(origins = "*")
 @Tag(name = "Student", description = "Espace etudiant — profil, dashboard, presences, sessions live")
 public class StudentController {
 
@@ -35,6 +34,18 @@ public class StudentController {
 
     @Autowired(required = false)
     private ecole_221.sn.ecole.modules.collaboration.infrastructure.persistence.MeetJpaRepository meetJpaRepository;
+
+    /** Affectation réelle élève → classe (filtrée par école). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaRepository inscriptions;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository classesEcole;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.FiliereJpaRepository filieresEcole;
+
+    /** Lot B : rendus des devoirs de classe (dépôt réel du fichier). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.professor.application.service.RendusDevoirsService rendusDevoirs;
 
     private final StudentUseCase studentUseCase;
     private final ecole_221.sn.ecole.modules.student.infrastructure.persistence.CourseDetailRepository courseDetailRepository;
@@ -67,20 +78,16 @@ public class StudentController {
     @Operation(summary = "Profil etudiant", description = "Retourne les informations du profil de l'etudiant depuis la BDD.")
     public ResponseEntity<StudentProfileDto> getProfile() {
         logger.info("GET /student/profile - Recuperation du profil etudiant");
-        Map<String, Object> profileMap = studentDataRepository.findById("usr-001")
-                .map(data -> data.getProfile())
-                .orElseGet(() -> studentUseCase.getStudentProfile("usr-001"));
-        
-        return ResponseEntity.ok(StudentMapper.toProfileDto(profileMap));
+        return ResponseEntity.ok(StudentMapper.toProfileDto(profilReel()));
     }
 
     @GetMapping("/dashboard")
     @Operation(summary = "Tableau de bord", description = "Retourne les donnees du dashboard depuis la BDD.")
     public ResponseEntity<StudentDashboardDto> getDashboard() {
         logger.info("GET /student/dashboard - Recuperation du dashboard etudiant");
-        Map<String, Object> dashboardMap = studentDataRepository.findById("usr-001")
+        Map<String, Object> dashboardMap = studentDataRepository.findById(etudiant())
                 .map(data -> data.getDashboard())
-                .orElseGet(() -> studentUseCase.getStudentDashboard("usr-001"));
+                .orElseGet(() -> studentUseCase.getStudentDashboard(etudiant()));
         
         return ResponseEntity.ok(StudentMapper.toDashboardDto(dashboardMap));
     }
@@ -91,7 +98,15 @@ public class StudentController {
     @Operation(summary = "Badge numerique dynamique", description = "Retourne le badge QR avec token HMAC rotatif (expire chaque minute).")
     public ResponseEntity<DigitalBadgeDto> getDigitalBadge() {
         logger.info("GET /student/digital-badge - Generation du badge numerique");
-        Map<String, Object> badgeMap = studentUseCase.getDigitalBadge("usr-001");
+        Map<String, Object> profil = profilReel();
+        String matricule = (String) profil.get("matricule");
+        if (matricule == null || matricule.isBlank()) {
+            // jamais de matricule inventé : sans matricule attribué, pas de badge d'accès
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
+                    "Badge indisponible : aucun matricule n'est encore attribué à votre compte.");
+        }
+        String nom = (String.valueOf(profil.getOrDefault("prenom", "")) + " " + profil.getOrDefault("nom", "")).trim();
+        Map<String, Object> badgeMap = studentUseCase.getDigitalBadge(etudiant(), matricule, nom, (String) profil.get("classe"));
         return ResponseEntity.ok(StudentMapper.toDigitalBadgeDto(badgeMap));
     }
 
@@ -126,7 +141,7 @@ public class StudentController {
         logger.info("GET /student/attendances - Historique des presences (page={}, size={})", page, size);
         
         return ResponseEntity.ok(StudentMapper.toAttendancePageResponse(
-            studentUseCase.getStudentAttendances("usr-001", page, size)
+            studentUseCase.getStudentAttendances(etudiant(), page, size)
         ));
     }
 
@@ -134,18 +149,18 @@ public class StudentController {
     @Operation(summary = "Auto check-in", description = "Soumet une auto-declaration de presence.")
     public ResponseEntity<Map<String, Object>> selfCheckIn(@Valid @RequestBody AttendanceRequestDto request) {
         logger.info("POST /student/attendances - Auto check-in: type={}, method={}", request.type(), request.method());
-        studentUseCase.submitSelfAttendance(
-            "usr-001", 
+        String presenceId = studentUseCase.submitSelfAttendance(
+            etudiant(), 
             request.type().name(), 
             request.method()
         );
 
-        actionLogger.logStudentAction("SELF_CHECKIN", "usr-001", "Student", 
+        actionLogger.logStudentAction("SELF_CHECKIN", etudiant(), "Student", 
             "Auto check-in: " + request.type() + " via " + request.method());
 
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
-        response.put("attendanceId", "att-" + System.currentTimeMillis() % 10000);
+        response.put("attendanceId", presenceId);   // identifiant réel de la présence enregistrée (avant : « att-<horloge> » inventé)
         response.put("timestamp", java.time.LocalDateTime.now().toString());
         response.put("status", "VALIDATED");
         return ResponseEntity.ok(response);
@@ -212,7 +227,7 @@ public class StudentController {
     @Operation(summary = "Notes de l'etudiant", description = "Retourne la liste des notes depuis la BDD.")
     public ResponseEntity<List<GradeDto>> getGrades() {
         logger.info("GET /student/grades - Recuperation des notes");
-        List<Map<String, Object>> gradesMap = studentUseCase.getStudentGrades("usr-001");
+        List<Map<String, Object>> gradesMap = studentUseCase.getStudentGrades(etudiant());
         
         return ResponseEntity.ok(StudentMapper.toGradeDtoList(gradesMap));
     }
@@ -221,7 +236,7 @@ public class StudentController {
     @Operation(summary = "Telecharger le releve PDF", description = "Genere et retourne un releve de notes officiel au format PDF.")
     public ResponseEntity<byte[]> downloadGradesPdf() {
         logger.info("GET /student/grades/download - Telechargement du releve PDF");
-        List<Map<String, Object>> gradesMap = studentUseCase.getStudentGrades("usr-001");
+        List<Map<String, Object>> gradesMap = studentUseCase.getStudentGrades(etudiant());
 
         double totalEcts = gradesMap.stream().mapToDouble(g -> ((Number) g.get("ects")).doubleValue()).sum();
         double weightedSum = gradesMap.stream().mapToDouble(g -> {
@@ -242,10 +257,12 @@ public class StudentController {
                 .mapToDouble(g -> ((Number) g.get("ects")).doubleValue())
                 .sum();
 
+        // Relevé au nom de l'étudiant connecté (avant : « Mamadou Sall », filière et niveau inventés)
+        var compte = compteConnecte();
         byte[] pdf = gradesReportService.generateTranscriptPdf(
-                "Mamadou Sall",
-                "Genie Logiciel & Systemes d'Information",
-                "Licence 3 (L3)",
+                ((compte.getPrenom() == null ? "" : compte.getPrenom() + " ") + (compte.getNom() == null ? "" : compte.getNom())).trim(),
+                "",
+                "",
                 average, gpa, validatedEcts,
                 gradesMap);
 
@@ -276,7 +293,7 @@ public class StudentController {
     @Operation(summary = "Cours de l'etudiant", description = "Retourne la liste des cours depuis la BDD.")
     public ResponseEntity<List<CourseDto>> getCourses() {
         logger.info("GET /student/courses - Recuperation des cours");
-        List<Map<String, Object>> coursesMap = studentUseCase.getStudentCourses("usr-001");
+        List<Map<String, Object>> coursesMap = studentUseCase.getStudentCourses(etudiant());
         
         return ResponseEntity.ok(StudentMapper.toCourseDtoList(coursesMap));
     }
@@ -301,7 +318,7 @@ public class StudentController {
     @Operation(summary = "Devoirs de l'etudiant", description = "Retourne la liste des devoirs de l'etudiant.")
     public ResponseEntity<List<HomeworkDto>> getStudentHomeworks() {
         logger.info("GET /student/homeworks - Recuperation des devoirs");
-        List<Map<String, Object>> homeworksMap = studentUseCase.getStudentHomeworks("usr-001");
+        List<Map<String, Object>> homeworksMap = studentUseCase.getStudentHomeworks(etudiant());
         
         return ResponseEntity.ok(StudentMapper.toHomeworkDtoList(homeworksMap));
     }
@@ -313,6 +330,16 @@ public class StudentController {
             @PathVariable("homeworkId") String homeworkId,
             @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
         logger.info("POST /student/courses/{}/homeworks/{}/submit - Soumission devoir: file={}", courseId, homeworkId, file.getOriginalFilename());
+        // Lot B : devoir de classe publié par le professeur → rendu réellement stocké (fichier vérifié), visible du professeur
+        if (rendusDevoirs != null && rendusDevoirs.estDevoirDeClasse(homeworkId)) {
+            try {
+                return ResponseEntity.ok(rendusDevoirs.deposer(etudiant(), courseId, homeworkId,
+                        file.getOriginalFilename(), file.getContentType(), file.getBytes()));
+            } catch (java.io.IOException e) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Le fichier envoyé est illisible.");
+            }
+        }
 
         String fileName = file.getOriginalFilename();
         studentUseCase.submitHomework(homeworkId, fileName);
@@ -434,14 +461,14 @@ public class StudentController {
             @RequestBody Map<String, String> body) {
         logger.info("POST /student/live-sessions/{}/chat - user={}, text={}", sessionId, body.get("user"), body.get("text"));
         
-        String userId = "usr-001";
+        String userId = etudiant();
         String userName = body.get("user");
         String userRole = "Student";
         String text = body.get("text");
         
         studentUseCase.saveLiveChatMessage(sessionId, userId, userName, userRole, text);
         
-        actionLogger.logStudentAction("SEND_CHAT", "usr-001", "Student", 
+        actionLogger.logStudentAction("SEND_CHAT", etudiant(), "Student", 
             "Message envoyé dans session " + sessionId);
         return ResponseEntity.ok(Map.of("success", true, "id", "msg-" + System.currentTimeMillis()));
     }
@@ -452,7 +479,7 @@ public class StudentController {
             @Parameter(description = "Identifiant du devoir") @PathVariable("homeworkId") String homeworkId) {
         logger.info("POST /student/homeworks/{}/start", homeworkId);
         studentUseCase.updateHomeworkProgress(homeworkId, 0);
-        actionLogger.logStudentAction("START_HOMEWORK", "usr-001", "Student", 
+        actionLogger.logStudentAction("START_HOMEWORK", etudiant(), "Student", 
             "Devoir démarré: " + homeworkId);
         return ResponseEntity.ok(Map.of("success", true, "homeworkId", homeworkId));
     }
@@ -465,8 +492,61 @@ public class StudentController {
         logger.info("POST /student/homeworks/{}/progress - addedProgress={}", homeworkId, body.get("addedProgress"));
         int progress = body.get("addedProgress") != null ? body.get("addedProgress").intValue() : 0;
         studentUseCase.updateHomeworkProgress(homeworkId, progress);
-        actionLogger.logStudentAction("UPDATE_HOMEWORK_PROGRESS", "usr-001", "Student", 
+        actionLogger.logStudentAction("UPDATE_HOMEWORK_PROGRESS", etudiant(), "Student", 
             "Avancement mis à jour pour devoir: " + homeworkId);
         return ResponseEntity.ok(Map.of("success", true, "homeworkId", homeworkId));
+    }
+
+    /**
+     * Étudiant connecté (APP-SEC-19). Avant : TOUT le portail étudiant était rattaché à l'élève
+     * « usr-001 » — chaque étudiant voyait le profil, les notes, les présences et les devoirs de cet élève.
+     */
+    private static ecole_221.sn.ecole.modules.auth.domain.model.User compteConnecte() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.isAuthenticated() && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u) {
+            return u;
+        }
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED);
+    }
+
+    /**
+     * Profil RÉEL de l'élève connecté : compte (nom, e-mail, matricule…) + classe affectée (niveau, filière).
+     * Avant : lu uniquement dans le stockage annexe StudentData, rempli par les anciennes données fictives
+     * → pour un vrai compte, profil entièrement vide (« Matricule non renseigné », pas de nom).
+     * Les informations complémentaires éventuellement présentes dans StudentData complètent les champs vides.
+     */
+    private Map<String, Object> profilReel() {
+        var u = compteConnecte();
+        Map<String, Object> p = new java.util.LinkedHashMap<>();
+        p.put("id", u.getId());
+        p.put("nom", u.getNom());
+        p.put("prenom", u.getPrenom());
+        p.put("email", u.getEmail());
+        p.put("matricule", u.getMatricule());
+        p.put("telephone", u.getTelephone());
+        p.put("photoUrl", u.getPhotoUrl());
+        if (inscriptions != null && classesEcole != null) {
+            inscriptions.findFirstByUserId(u.getId())
+                    .flatMap(i -> classesEcole.findById(i.getClasseId()))
+                    .ifPresent(c -> {
+                        p.put("classe", c.getName() != null ? c.getName() : c.getNom());
+                        p.put("niveau", c.getLevel());
+                        String filiere = c.getFiliereId();
+                        if (filiere != null && filieresEcole != null) {
+                            filiere = filieresEcole.findById(filiere).map(f -> f.getName() != null ? f.getName() : f.getNom()).orElse(filiere);
+                        }
+                        p.put("filiere", filiere);
+                    });
+        }
+        studentDataRepository.findById(u.getId()).map(d -> d.getProfile()).ifPresent(extra -> extra.forEach((k, v) -> {
+            Object actuel = p.get(k);
+            if ((actuel == null || String.valueOf(actuel).isBlank()) && v != null) p.put(k, v);
+        }));
+        p.replaceAll((k, v) -> v == null ? "" : v);
+        return p;
+    }
+
+    private static String etudiant() {
+        return compteConnecte().getId();
     }
 }

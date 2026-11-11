@@ -88,7 +88,7 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
             candidateDto.prenom(),
             candidateDto.email(),
             candidateDto.telephone(),
-            CandidateStatus.valueOf(candidateDto.statut()),
+            CandidateStatus.from(candidateDto.statut()),
             candidateDto.note(),
             candidateDto.filiereDemandee()
         );
@@ -104,26 +104,36 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
     
     @Override
     public CandidateDto updateCandidateStep(String id, String step) {
-        logger.info("Mise à jour étape candidat: {} -> {}", id, step);
-        Candidate candidate = admissionRepositoryPort.findCandidateById(id).orElse(null);
-        if (candidate != null) {
-            candidate.setStatut(step);
-            Candidate updatedCandidate = admissionRepositoryPort.saveCandidate(candidate);
-            return toCandidateDto(updatedCandidate);
-        }
-        return null;
+        // Avant : l'étape (« docs », « interview »…) était rangée dans le STATUT, d'où un refus pour toute vraie étape.
+        String etape = EtatsCandidature.etape(step);
+        CandidateJpaEntity c = dossier(id);
+        c.setCurrentStep(etape);
+        EtatsCandidature.apresEtape(c);
+        candidateRepository.save(c);
+        return relire(id);
     }
     
     @Override
     public CandidateDto updateCandidateStatus(String id, String status, String rejectionReason) {
-        logger.info("Mise à jour statut candidat: {} -> {}", id, status);
-        Candidate candidate = admissionRepositoryPort.findCandidateById(id).orElse(null);
-        if (candidate != null) {
-            candidate.setStatut(status);
-            Candidate updatedCandidate = admissionRepositoryPort.saveCandidate(candidate);
-            return toCandidateDto(updatedCandidate);
-        }
-        return null;
+        CandidateStatus statut = CandidateStatus.from(status);   // valeur inconnue → 400
+        CandidateJpaEntity c = dossier(id);
+        c.setAdmissionStatus(statut.name());
+        // Avant : le motif de refus reçu était ignoré
+        c.setRejectionReason(statut == CandidateStatus.REJECTED && rejectionReason != null && !rejectionReason.isBlank()
+                ? rejectionReason.trim() : null);
+        EtatsCandidature.apresDecision(c);
+        candidateRepository.save(c);
+        return relire(id);
+    }
+
+    private CandidateJpaEntity dossier(String id) {
+        return candidateRepository.findById(id == null ? "" : id).orElseThrow(() ->
+                new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,
+                        "Candidature introuvable : " + id));
+    }
+
+    private CandidateDto relire(String id) {
+        return admissionRepositoryPort.findCandidateById(id).map(this::toCandidateDto).orElse(null);
     }
     
     // ==================== GESTION DES PARAMÈTRES ====================
@@ -185,10 +195,11 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
         List<CandidateJpaEntity> allCandidates = candidateRepository.findAll();
         
         stats.put("total", allCandidates.size());
-        stats.put("new", candidateRepository.countByAdmissionStatus("pending"));
-        stats.put("accepted", candidateRepository.countByAdmissionStatus("accepted"));
-        stats.put("rejected", candidateRepository.countByAdmissionStatus("rejected"));
-        stats.put("waitlist", candidateRepository.countByAdmissionStatus("waitlist"));
+        stats.put("new", candidateRepository.countByAdmissionStatus(CandidateStatus.EN_ATTENTE.name()));
+        stats.put("accepted", candidateRepository.countByAdmissionStatus(CandidateStatus.ACCEPTED.name()));
+        stats.put("rejected", candidateRepository.countByAdmissionStatus(CandidateStatus.REJECTED.name()));
+        stats.put("inProgress", candidateRepository.countByAdmissionStatus(CandidateStatus.EN_COURS.name()));
+        stats.put("finalized", candidateRepository.countByAdmissionStatus(CandidateStatus.FINALISE.name()));
         stats.put("paid", candidateRepository.findPaidPendingCandidates().size());
         
         // Par cours
@@ -215,11 +226,12 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
         logger.info("Traitement automatique des admissions");
         
         // Logique de traitement automatique basée sur les scores
-        List<CandidateJpaEntity> pendingCandidates = candidateRepository.findByAdmissionStatus("pending");
+        List<CandidateJpaEntity> pendingCandidates = candidateRepository.findByAdmissionStatus(CandidateStatus.EN_ATTENTE.name());
         
         for (CandidateJpaEntity candidate : pendingCandidates) {
             if (candidate.getTotalScore() != null && candidate.getTotalScore() >= 12.0) {
-                candidate.setAdmissionStatus("accepted");
+                candidate.setAdmissionStatus(CandidateStatus.ACCEPTED.name());
+                EtatsCandidature.apresDecision(candidate);
                 candidateRepository.save(candidate);
                 logger.info("Candidat accepté automatiquement: {}", candidate.getFullName());
             }
@@ -227,36 +239,24 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
     }
     
     @Override
-    public void sendInterviewInvitations() {
+    public int sendInterviewInvitations() {
         logger.info("Envoi des invitations d'entretien");
         
         List<CandidateJpaEntity> readyForInterview = candidateRepository.findByCurrentStep("docs");
+        int passes = 0;
         
         for (CandidateJpaEntity candidate : readyForInterview) {
             if (candidate.getDiplomaUploaded() && candidate.getIdCardUploaded()) {
                 candidate.setCurrentStep("interview");
+                EtatsCandidature.apresEtape(candidate);
                 candidate.setInterviewDate(LocalDateTime.now().plusDays(7));
                 candidateRepository.save(candidate);
-                logger.info("Invitation d'entretien envoyée à: {}", candidate.getFullName());
+                passes++;
             }
         }
+        return passes;
     }
     
-    @Override
-    public void generateMatricules() {
-        logger.info("Génération des matricules pour les candidats acceptés");
-        
-        List<CandidateJpaEntity> acceptedCandidates = candidateRepository.findByAdmissionStatus("accepted");
-        
-        for (CandidateJpaEntity candidate : acceptedCandidates) {
-            // Logique de génération de matricule
-            String matricule = "2026-" + candidate.getCourseChoice().substring(0, 2).toUpperCase() + 
-                              "-" + String.format("%03d", acceptedCandidates.indexOf(candidate) + 1);
-            
-            // Ici, on pourrait créer un véritable étudiant dans le système
-            logger.info("Matricule générée pour {}: {}", candidate.getFullName(), matricule);
-        }
-    }
     
     // ==================== MAPPERS ====================
     
@@ -282,7 +282,7 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
                 dto.prenom(),
                 dto.email(),
                 dto.telephone(),
-                CandidateStatus.valueOf(dto.statut()),
+                CandidateStatus.from(dto.statut()),
                 dto.note(),
                 dto.filiereDemandee()
             );
@@ -292,7 +292,7 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
                 dto.prenom(),
                 dto.email(),
                 dto.telephone(),
-                CandidateStatus.valueOf(dto.statut()),
+                CandidateStatus.from(dto.statut()),
                 dto.note(),
                 dto.filiereDemandee()
             );

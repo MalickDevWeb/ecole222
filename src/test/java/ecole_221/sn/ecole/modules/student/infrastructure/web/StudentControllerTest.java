@@ -8,6 +8,7 @@ import ecole_221.sn.ecole.modules.student.infrastructure.persistence.StudentData
 import ecole_221.sn.ecole.infrastructure.logging.ActionLogger;
 import ecole_221.sn.ecole.modules.ai.application.port.usecase.AIUseCase;
 import ecole_221.sn.ecole.modules.email.application.port.usecase.EmailUseCase;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -35,8 +36,22 @@ class StudentControllerTest {
     private EmailUseCase emailUseCase;
     private MockMvc mockMvc;
 
+    /** APP-SEC-19 : le portail étudiant sert l'étudiant CONNECTÉ (ici usr-001). */
+    private static void connecter(String id) {
+        var u = ecole_221.sn.ecole.modules.auth.domain.model.UserFactory.reconstructSimple(id, "Ba", "Fatou", id + "@ex.sn",
+                "ecole221", "ETU-1", ecole_221.sn.ecole.modules.auth.domain.valueobject.RoleUtilisateur.ETUDIANT, null);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(u, null, u.getAuthorities()));
+    }
+
+    @AfterEach
+    void deconnecter() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
+
     @BeforeEach
     void setUp() {
+        connecter("usr-001");
         studentUseCase = Mockito.mock(StudentUseCase.class);
         courseDetailRepository = Mockito.mock(CourseDetailRepository.class);
         studentDataRepository = Mockito.mock(StudentDataRepository.class);
@@ -56,21 +71,17 @@ class StudentControllerTest {
     }
 
     @Test
-    void testGetProfile() throws Exception {
-        Map<String, Object> mockProfile = new HashMap<>();
-        mockProfile.put("id", "usr-001");
-        mockProfile.put("name", "Test Student");
-        mockProfile.put("email", "test@ecole221.sn");
-        
+    void profilConstruitDepuisLeCompteReel() throws Exception {
+        // avant : profil lu dans StudentData seul → vide pour un vrai compte (« Matricule non renseigné »)
         Mockito.when(studentDataRepository.findById(anyString())).thenReturn(java.util.Optional.empty());
-        Mockito.when(studentUseCase.getStudentProfile(anyString())).thenReturn(mockProfile);
 
         mockMvc.perform(get("/student/profile")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value("usr-001"));
-
-        Mockito.verify(studentUseCase, Mockito.times(1)).getStudentProfile("usr-001");
+                .andExpect(jsonPath("$.id").value("usr-001"))
+                .andExpect(jsonPath("$.nom").value("Ba"))
+                .andExpect(jsonPath("$.prenom").value("Fatou"))
+                .andExpect(jsonPath("$.matricule").value("ETU-1"));
     }
 
     @Test
@@ -90,19 +101,19 @@ class StudentControllerTest {
     }
 
     @Test
-    void testGetDigitalBadge() throws Exception {
-        Map<String, Object> mockBadge = new HashMap<>();
-        mockBadge.put("matricule", "2026-EC-001");
-        mockBadge.put("qrCode", "test-qr-code");
-        
-        Mockito.when(studentUseCase.getDigitalBadge(anyString())).thenReturn(mockBadge);
+    void badgeAvecLeMatriculeReel() throws Exception {
+        // avant : matricule inventé « SN-2026-<hash> » sur le QR d'accès
+        Mockito.when(studentDataRepository.findById(anyString())).thenReturn(java.util.Optional.empty());
+        Map<String, Object> badge = new HashMap<>();
+        badge.put("matricule", "ETU-1");
+        Mockito.when(studentUseCase.getDigitalBadge(anyString(), anyString(), anyString(), Mockito.any())).thenReturn(badge);
 
         mockMvc.perform(get("/student/digital-badge")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.matricule").value("2026-EC-001"));
+                .andExpect(jsonPath("$.matricule").value("ETU-1"));
 
-        Mockito.verify(studentUseCase, Mockito.times(1)).getDigitalBadge("usr-001");
+        Mockito.verify(studentUseCase).getDigitalBadge(Mockito.eq("usr-001"), Mockito.eq("ETU-1"), Mockito.eq("Fatou Ba"), Mockito.any());
     }
 
     @Test
@@ -154,5 +165,20 @@ class StudentControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Cours non trouvé avec l'identifiant: course-404"));
+    }
+
+    @Test
+    void chaqueEtudiantVoitSesPropresNotes() throws Exception {
+        connecter("etu-autre");
+        Mockito.when(studentUseCase.getStudentGrades(anyString())).thenReturn(java.util.List.of());
+        mockMvc.perform(get("/student/grades")).andExpect(status().isOk());
+        Mockito.verify(studentUseCase).getStudentGrades("etu-autre");
+        Mockito.verify(studentUseCase, Mockito.never()).getStudentGrades("usr-001");
+    }
+
+    @Test
+    void sansConnexionRefuse() throws Exception {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        mockMvc.perform(get("/student/grades")).andExpect(status().isUnauthorized());
     }
 }

@@ -25,7 +25,6 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/finance/expenses")
-@CrossOrigin(origins = "*")
 @Tag(name = "Expense (DDD)", description = "Gestion des dépenses - Architecture Hexagonale")
 public class ExpenseController {
     
