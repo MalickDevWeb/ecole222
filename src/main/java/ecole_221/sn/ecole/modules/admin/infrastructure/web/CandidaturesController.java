@@ -71,6 +71,10 @@ public class CandidaturesController {
         // L'identifiant est TOUJOURS attribué par le serveur. Avant : un « id » fourni par le client était
         // repris tel quel, et ce dépôt public (sans compte) écrasait le dossier existant portant cet identifiant.
         String candidatureId = "CAND-" + java.time.Year.now() + "-" + UUID.randomUUID().toString().substring(0, 8);
+        // L'école doit accepter des candidatures aujourd'hui (403 sinon) — APP-BE-15
+        if (parametres != null) {
+            parametres.exigerOuverture();
+        }
         // Vérifications AVANT toute écriture (400 / 409) ; le mot de passe de suivi est haché.
         ecole_221.sn.ecole.modules.admissions.application.service.SuiviCandidatureService.Depot depot =
                 suivi == null ? null : suivi.verifierDepot(body);

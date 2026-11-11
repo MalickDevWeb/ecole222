@@ -23,8 +23,21 @@ public class CandidaturesParentAdapter implements CandidaturesParentPort {
 
     private static final ObjectMapper JSON = new ObjectMapper();
     private final CandidateJpaRepository candidats;
+    private final ecole_221.sn.ecole.modules.admin.application.service.ParametresCandidaturesService parametres;
+
+    @Override
+    public void exigerOuverture() {
+        if (parametres != null) parametres.exigerOuverture();   // même règle que le portail candidat public
+    }
 
     public CandidaturesParentAdapter(CandidateJpaRepository candidats) {
+        this(candidats, null);
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    public CandidaturesParentAdapter(CandidateJpaRepository candidats,
+                                     ecole_221.sn.ecole.modules.admin.application.service.ParametresCandidaturesService parametres) {
+        this.parametres = parametres;
         this.candidats = candidats;
     }
 

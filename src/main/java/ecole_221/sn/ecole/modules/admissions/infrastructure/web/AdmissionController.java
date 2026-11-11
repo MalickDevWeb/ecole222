@@ -1,7 +1,6 @@
 package ecole_221.sn.ecole.modules.admissions.infrastructure.web;
 
 import ecole_221.sn.ecole.modules.admissions.application.port.dto.CandidateDto;
-import ecole_221.sn.ecole.modules.admissions.application.port.dto.AdmissionSettingsDto;
 import ecole_221.sn.ecole.modules.admissions.application.port.usecase.AdmissionUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -26,18 +25,28 @@ public class AdmissionController {
     private final ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository;
     
     private final ElementPortailAdmissionJpaRepository elementsPortail;
+    /** Source UNIQUE des réglages de candidature (table parametres_candidatures) — APP-BE-15. */
+    private final ecole_221.sn.ecole.modules.admin.application.service.ParametresCandidaturesService parametres;
 
     public AdmissionController(AdmissionUseCase admissionUseCase) {
-        this(admissionUseCase, null, null);
+        this(admissionUseCase, null, null, null);
+    }
+
+    public AdmissionController(AdmissionUseCase admissionUseCase,
+                               ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository,
+                               ElementPortailAdmissionJpaRepository elementsPortail) {
+        this(admissionUseCase, candidateJpaRepository, elementsPortail, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
     public AdmissionController(AdmissionUseCase admissionUseCase, 
                                ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository,
-                               ElementPortailAdmissionJpaRepository elementsPortail) {
+                               ElementPortailAdmissionJpaRepository elementsPortail,
+                               ecole_221.sn.ecole.modules.admin.application.service.ParametresCandidaturesService parametres) {
         this.admissionUseCase = admissionUseCase;
         this.candidateJpaRepository = candidateJpaRepository;
         this.elementsPortail = elementsPortail;
+        this.parametres = parametres;
     }
     
     // ==================== ENDPOINTS CANDIDATS ====================
@@ -115,30 +124,36 @@ public class AdmissionController {
     
     // ==================== ENDPOINTS PARAMÈTRES ====================
     
+    // APP-BE-15 : ces trois routes lisent et écrivent la MÊME source que /candidatures/settings (table
+    // parametres_candidatures). Avant : une seconde table (admission_settings), qu'aucun écran n'utilisait, pouvait
+    // annoncer publiquement « ouvert » alors que l'école avait fermé ses candidatures.
+
     @GetMapping("/settings")
-    @Operation(summary = "Paramètres admissions", description = "Retourne les paramètres des admissions")
-    public ResponseEntity<AdmissionSettingsDto> getAdmissionSettings() {
-        logger.info("GET /admissions/settings - Récupération paramètres admissions");
-        AdmissionSettingsDto settings = admissionUseCase.getAdmissionSettings();
-        if (settings == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(settings);
+    @Operation(summary = "Paramètres admissions", description = "Mêmes réglages que GET /candidatures/settings (source unique)")
+    public ResponseEntity<Map<String, Object>> getAdmissionSettings() {
+        return ResponseEntity.ok(reglages().lire());
     }
-    
+
     @PutMapping("/settings")
-    @Operation(summary = "Mettre à jour paramètres", description = "Met à jour les paramètres des admissions")
-    public ResponseEntity<AdmissionSettingsDto> updateAdmissionSettings(@RequestBody AdmissionSettingsDto settings) {
-        logger.info("PUT /admissions/settings - Mise à jour paramètres admissions");
-        return ResponseEntity.ok(admissionUseCase.updateAdmissionSettings(settings));
+    @Operation(summary = "Mettre à jour paramètres", description = "Mêmes réglages que POST /candidatures/settings (source unique)")
+    public ResponseEntity<Map<String, Object>> updateAdmissionSettings(@RequestBody Map<String, Object> corps) {
+        return ResponseEntity.ok(reglages().enregistrer(corps));
     }
-    
+
     @PatchMapping("/settings/toggle")
-    @Operation(summary = "Ouvrir/Fermer candidatures", description = "Active ou désactive le système de candidature")
+    @Operation(summary = "Ouvrir/Fermer candidatures", description = "Corps {isOpen} ; même source que /candidatures/settings")
     public ResponseEntity<Map<String, Object>> toggleAdmissions(@RequestBody Map<String, Boolean> body) {
-        logger.info("PATCH /admissions/settings/toggle - Toggle candidatures");
-        admissionUseCase.toggleAdmissions(body.get("isOpen"));
-        return ResponseEntity.ok(Map.of("success", true, "isOpen", body.get("isOpen")));
+        boolean ouvert = Boolean.TRUE.equals(body == null ? null : body.get("isOpen"));
+        reglages().definirOuverture(ouvert);
+        return ResponseEntity.ok(Map.of("success", true, "isOpen", ouvert));
+    }
+
+    private ecole_221.sn.ecole.modules.admin.application.service.ParametresCandidaturesService reglages() {
+        if (parametres == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Réglages de candidature indisponibles.");
+        }
+        return parametres;
     }
     
     // ==================== ENDPOINTS WORKFLOW ====================

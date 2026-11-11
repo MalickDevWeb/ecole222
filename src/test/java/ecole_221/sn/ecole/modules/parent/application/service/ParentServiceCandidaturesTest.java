@@ -105,6 +105,20 @@ class ParentServiceCandidaturesTest {
     }
 
     @Test
+    void candidaturesFermeesAucunDepot() {
+        PortMemoire ferme = new PortMemoire() {
+            @Override public void exigerOuverture() {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.FORBIDDEN, "Les candidatures ne sont pas ouvertes dans cette école.");
+            }
+        };
+        ParentService s = new ParentService(Mockito.mock(ParentRepositoryPort.class), Mockito.mock(AppointmentRepositoryPort.class), null, ferme);
+        assertThatThrownBy(() -> s.enrollChild("p", dossier("Awa", "Diop", "a@b.sn", "Info", "L1")))
+                .hasMessageContaining("pas ouvertes");
+        assertThat(ferme.dossiers).isEmpty();
+    }
+
+    @Test
     void sansPortAucunDossierInventeNiFauxDepot() {
         ParentService sansPort = new ParentService(Mockito.mock(ParentRepositoryPort.class),
                 Mockito.mock(AppointmentRepositoryPort.class));
