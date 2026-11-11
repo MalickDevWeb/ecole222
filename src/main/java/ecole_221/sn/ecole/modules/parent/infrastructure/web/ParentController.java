@@ -143,45 +143,7 @@ public class ParentController {
 
     // ==================== ENDPOINTS MESSAGES ====================
 
-    @GetMapping("/messages")
-    @Operation(summary = "Boîte de réception", description = "Retourne la liste des messages reçus par le parent")
-    public ResponseEntity<List<MessageDto>> getMessages(
-            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        String parentId = extractParentIdFromToken(authHeader);
-        logger.info("GET /parent/messages - Messages du parent: {}", parentId);
-        List<MessageDto> messages = parentUseCase.getParentMessages(parentId);
-        return ResponseEntity.ok(messages);
-    }
-
-    @PostMapping("/messages")
-    @Operation(summary = "Envoyer un message", description = "Le parent envoie un message à un professeur ou à l'administration")
-    public ResponseEntity<Map<String, Object>> sendMessage(
-            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader,
-            @RequestBody SendMessageRequestDto request) {
-        String parentId = extractParentIdFromToken(authHeader);
-        
-        // Validation
-        if (request.destinataireId() == null || request.destinataireId().isBlank() ||
-            request.sujet() == null || request.sujet().isBlank() ||
-            request.message() == null || request.message().isBlank()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Tous les champs sont obligatoires"));
-        }
-        
-        logger.info("POST /parent/messages - Envoi message par: {}", parentId);
-        MessageDto message = parentUseCase.sendMessage(parentId, request);
-        return ResponseEntity.ok(Map.of("success", true, "message", message));
-    }
-
-    @PatchMapping("/messages/{messageId}/lu")
-    @Operation(summary = "Marquer comme lu", description = "Marque un message comme lu")
-    public ResponseEntity<Map<String, Object>> markMessageAsRead(
-            @Parameter(description = "ID du message") @PathVariable String messageId,
-            @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
-        String parentId = extractParentIdFromToken(authHeader);
-        logger.info("PATCH /parent/messages/{}/lu - Marquer message comme lu", messageId);
-        MessageDto message = parentUseCase.markMessageAsRead(messageId, parentId);
-        return ResponseEntity.ok(Map.of("success", true));
-    }
+    // Messagerie parent ↔ école : MessagerieParentsController (messages réellement enregistrés)
 
     // ==================== ENDPOINTS CANDIDATURES ====================
 

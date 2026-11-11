@@ -122,7 +122,6 @@ class ParentServiceEnfantsTest {
         assertNull(stats.tauxPresence());
         assertNull(stats.moyenneGenerale());
         assertTrue(service.getChildSchedule("e0").isEmpty());
-        assertTrue(service.getParentMessages("p0").isEmpty());
         assertTrue(service.getParentApplications("p0").isEmpty());
     }
 }

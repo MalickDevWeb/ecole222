@@ -159,50 +159,8 @@ public class ParentService implements ParentUseCase {
         return List.of();
     }
 
-    @Override
-    public List<MessageDto> getParentMessages(String parentId) {
-        logger.info("Récupération des messages pour le parent: {}", parentId);
-        // APP-BE-19 : aucune messagerie persistée → liste vide (avant : messages inventés, « Dr. Sall » / « Aminata »)
-        return List.of();
-    }
 
-    @Override
-    public MessageDto sendMessage(String parentId, SendMessageRequestDto request) {
-        logger.info("Envoi de message par le parent: {}, à: {}", parentId, request.destinataireId());
-        
-        // TODO: Implémenter avec sauvegarde en base de données
-        // Vérifier que destinataireId existe
-        // Sauvegarder le message
-        
-        return new MessageDto(
-            "msg-" + UUID.randomUUID().toString().substring(0, 8),
-            "Parent",
-            "PARENT",
-            request.sujet(),
-            request.message(),
-            LocalDate.now().format(DateTimeFormatter.ISO_LOCAL_DATE),
-            false,
-            null
-        );
-    }
 
-    @Override
-    public MessageDto markMessageAsRead(String messageId, String parentId) {
-        logger.info("Marquage du message {} comme lu par le parent: {}", messageId, parentId);
-        
-        // TODO: Implémenter avec mise à jour en base de données
-        
-        return new MessageDto(
-            messageId,
-            "Expéditeur",
-            "Rôle",
-            "Sujet",
-            "Message",
-            "2026-08-10",
-            true,  // lu = true
-            null
-        );
-    }
 
     @Override
     public List<ApplicationDto> getParentApplications(String parentId) {

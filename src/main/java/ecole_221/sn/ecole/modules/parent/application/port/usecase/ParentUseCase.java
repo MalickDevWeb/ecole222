@@ -22,11 +22,7 @@ public interface ParentUseCase {
     // Planning
     List<ScheduleDto> getChildSchedule(String enfantId);
     
-    // Messages
-    List<MessageDto> getParentMessages(String parentId);
-    MessageDto sendMessage(String parentId, SendMessageRequestDto request);
-    MessageDto markMessageAsRead(String messageId, String parentId);
-    
+
     // Candidatures
     List<ApplicationDto> getParentApplications(String parentId);
     String enrollChild(String parentId, EnrollChildPayloadDto payload);
