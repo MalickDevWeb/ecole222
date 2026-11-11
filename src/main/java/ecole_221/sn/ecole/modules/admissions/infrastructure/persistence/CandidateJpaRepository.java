@@ -11,6 +11,7 @@ public interface CandidateJpaRepository extends JpaRepository<CandidateJpaEntity
     List<CandidateJpaEntity> findByParentIdOrderBySubmittedAtDesc(String parentId);
 
     boolean existsByEmailIgnoreCase(String email);
+    List<CandidateJpaEntity> findByEmailIgnoreCase(String email);
 
     Optional<CandidateJpaEntity> findByEmail(String email);
     List<CandidateJpaEntity> findByCourseChoice(String courseChoice);

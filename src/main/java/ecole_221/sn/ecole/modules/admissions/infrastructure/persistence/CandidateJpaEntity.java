@@ -24,6 +24,10 @@ public class CandidateJpaEntity {
     @Column(name = "parent_id")
     private String parentId;
 
+    /** Mot de passe de suivi choisi par le candidat au dépôt (haché BCrypt) ; jamais renvoyé par l'API. */
+    @Column(name = "mot_de_passe_suivi", length = 100)
+    private String motDePasseSuivi;
+
     public String getParentId() { return parentId; }
     public void setParentId(String parentId) { this.parentId = parentId; }
     
@@ -193,4 +197,7 @@ public class CandidateJpaEntity {
     public void preUpdate() {
         this.updatedAt = LocalDateTime.now();
     }
+
+    public String getMotDePasseSuivi() { return motDePasseSuivi; }
+    public void setMotDePasseSuivi(String motDePasseSuivi) { this.motDePasseSuivi = motDePasseSuivi; }
 }

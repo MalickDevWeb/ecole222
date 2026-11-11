@@ -67,6 +67,8 @@ public class SecurityConfig {
     /** Lectures publiques du portail candidat (APP-SEC-12). */
     static final String[] PORTAIL_CANDIDAT_LECTURE = {
         "/candidatures/settings",
+        // campagnes publiées (liste blanche de champs, aucune donnée de candidat)
+        "/candidatures/campagnes",
         "/admissions/settings", "/v1/admissions/settings",
         // APP-SEC-15 : indicateur hors ligne appelé sans compte (OfflineSyncToast)
         "/sync/check"
@@ -75,6 +77,8 @@ public class SecurityConfig {
     /** Écritures publiques du portail candidat (APP-SEC-12). */
     static final String[] PORTAIL_CANDIDAT_ECRITURE = {
         "/candidatures/submit",
+        // APP-BE-12 : suivi de SON dossier (email + mot de passe de suivi ; échecs freinés)
+        "/candidatures/suivi",
         // APP-SEC-15 : pièces du dossier de candidature envoyées sans compte (cloudinaryUpload.ts)
         "/media/upload"
     };
