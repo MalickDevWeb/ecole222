@@ -159,20 +159,22 @@ public class FinanceController {
     
     // ==================== ENDPOINTS AUTOMATION (compatibilité JPA) ====================
     
+    // APP-BE-23 : ces deux routes répondaient {success: true} sans rien faire (faux succès). Le module finance ne
+    // connaît encore ni échéancier ni solde par élève (paiements des parents : « non_disponible », APP-BE-18) :
+    // aucune relance ni aucun blocage ne peut être fondé sur des données réelles. Réponse explicite 501.
+
     @PostMapping("/payment-reminders")
-    @Operation(summary = "Rappels de paiement", description = "Déclenche les rappels de paiement")
+    @Operation(summary = "Rappels de paiement (non disponible)", description = "501 : aucun échéancier par élève n'est encore enregistré")
     public ResponseEntity<Map<String, Object>> triggerPaymentReminders() {
-        logger.info("POST /finance/payment-reminders - Déclenchement rappels de paiement");
-        financeUseCase.triggerPaymentReminders();
-        return ResponseEntity.ok(Map.of("success", true));
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_IMPLEMENTED,
+                "Rappels de paiement non disponibles : aucun échéancier par élève n'est encore enregistré. Aucun rappel n'a été envoyé.");
     }
-    
+
     @PostMapping("/block-debtors")
-    @Operation(summary = "Bloquer débiteurs", description = "Bloque les débiteurs")
+    @Operation(summary = "Blocage des débiteurs (non disponible)", description = "501 : aucun solde par élève n'est encore enregistré")
     public ResponseEntity<Map<String, Object>> blockDebtors() {
-        logger.info("POST /finance/block-debtors - Blocage débiteurs");
-        financeUseCase.blockDebtors();
-        return ResponseEntity.ok(Map.of("success", true));
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_IMPLEMENTED,
+                "Blocage des débiteurs non disponible : aucun solde par élève n'est encore enregistré. Aucun compte n'a été bloqué.");
     }
     
     @GetMapping("/financial-report/{period}")
