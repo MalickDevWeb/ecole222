@@ -255,18 +255,7 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     
     // ==================== AUTOMATION (compatibilité JPA) ====================
     
-    @Override
-    public void triggerPaymentReminders() {
-        logger.info("Déclenchement des rappels de paiement");
-        // Logique de rappel à implémenter
-    }
-    
-    @Override
-    public void blockDebtors() {
-        logger.info("Blocage des débiteurs");
-        // Logique de blocage à implémenter
-    }
-    
+
     @Override
     public Map<String, Object> getFinancialReport(String period) {
         logger.info("Génération du rapport financier pour la période: {}", period);
