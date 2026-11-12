@@ -52,7 +52,44 @@ public class SuiviCandidatureService {
     }
 
     /** Données vérifiées d'un dépôt ; {@code motDePasseHache} est prêt à être enregistré. */
-    public record Depot(String prenom, String nom, String email, String filiere, String motDePasseHache) {}
+    public record Depot(String prenom, String nom, String email, String filiere, String motDePasseHache,
+                        Map<String, String> pieces) {}
+
+    /**
+     * Pièces du dossier (corps « pieces ») : clé → [libellé, clé enregistrée dans additionalInfo, obligatoire].
+     * Avant : le portail n'envoyait que « fournie : oui / non » (docs.idCard / docs.diploma), jamais le fichier.
+     */
+    private static final String[][] PIECES = {
+        {"pieceIdentite", "la pièce d'identité (CNI ou passeport)", "pieceIdentiteUrl", "1"},
+        {"diplome", "le diplôme ou l'attestation de réussite", "diplomeUrl", "1"},
+        {"releves", "les relevés de notes", "relevesNotesUrl", "1"},
+        {"photo", "la photo d'identité", "photoIdentiteUrl", "0"},
+    };
+    private static final Pattern LIEN = Pattern.compile("^(?i)https?://\\S+$");
+
+    /**
+     * Liens des pièces envoyées via /media/upload : http(s) uniquement. Si {@code exiger}, chaque pièce
+     * obligatoire doit être présente (400 avec la pièce en cause). Renvoie clé enregistrée → lien.
+     */
+    public static Map<String, String> lirePieces(Object corpsPieces, boolean exiger) {
+        Map<?, ?> recues = corpsPieces instanceof Map<?, ?> m ? m : Map.of();
+        Map<String, String> pieces = new LinkedHashMap<>();
+        for (String[] p : PIECES) {
+            String lien = texte(recues.get(p[0]));
+            if (lien == null) {
+                if (exiger && "1".equals(p[3])) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Joignez " + p[1] + " : la pièce est obligatoire.");
+                }
+                continue;
+            }
+            if (!LIEN.matcher(lien).matches()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Le lien de " + p[1] + " n'est pas valide : envoyez de nouveau le fichier.");
+            }
+            pieces.put(p[2], lien);
+        }
+        return pieces;
+    }
 
     /** Vérifie un dépôt public AVANT toute écriture (400 / 409 sinon). */
     @Transactional(readOnly = true)
@@ -84,7 +121,9 @@ public class SuiviCandidatureService {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Une candidature existe déjà avec l'email " + email
                     + " dans cette école : connectez-vous au suivi de candidature avec votre mot de passe.");
         }
-        return new Depot(prenom, nom, email, filiere, encodeur.encode(motDePasse));
+        // Après le doublon (409) : un candidat déjà inscrit est d'abord renvoyé vers son suivi
+        Map<String, String> pieces = lirePieces(corps.get("pieces"), true);
+        return new Depot(prenom, nom, email, filiere, encodeur.encode(motDePasse), pieces);
     }
 
     /** Dossier(s) du candidat, uniquement si l'email et le mot de passe correspondent. */

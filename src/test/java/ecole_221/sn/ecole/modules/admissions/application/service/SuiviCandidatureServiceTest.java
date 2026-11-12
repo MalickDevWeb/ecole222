@@ -93,7 +93,13 @@ class SuiviCandidatureServiceTest {
     void depotVerifieAvantEcriture() {
         Map<String, Object> ok = new HashMap<>(Map.of("prenom", "Fatou", "nom", "Sy", "email", "Fatou.Sy@Exemple.sn",
                 "filiere", "Informatique", "motDePasse", "Suivi-Fatou-1"));
+        ok.put("pieces", Map.of("pieceIdentite", "https://res.cloudinary.com/e/cni.png",
+                "diplome", "https://res.cloudinary.com/e/diplome.pdf", "releves", "https://res.cloudinary.com/e/releves.pdf"));
         SuiviCandidatureService.Depot d = service.verifierDepot(ok);
+        assertThat(d.pieces()).containsEntry("pieceIdentiteUrl", "https://res.cloudinary.com/e/cni.png")
+                .containsEntry("diplomeUrl", "https://res.cloudinary.com/e/diplome.pdf")
+                .containsEntry("relevesNotesUrl", "https://res.cloudinary.com/e/releves.pdf")
+                .doesNotContainKey("photoIdentiteUrl");
         assertThat(d.email()).isEqualTo("fatou.sy@exemple.sn");
         assertThat(bcrypt.matches("Suivi-Fatou-1", d.motDePasseHache())).isTrue();
 
@@ -105,6 +111,15 @@ class SuiviCandidatureServiceTest {
         refus(() -> service.verifierDepot(mauvaisEmail), HttpStatus.BAD_REQUEST, "« fatou » n'est pas valide");
         Map<String, Object> sansFiliere = new HashMap<>(ok); sansFiliere.remove("filiere");
         refus(() -> service.verifierDepot(sansFiliere), HttpStatus.BAD_REQUEST, "formation");
+        // Pièces : avant, seul « fournie : oui / non » était déclaré, sans aucun fichier
+        Map<String, Object> sansPieces = new HashMap<>(ok); sansPieces.remove("pieces");
+        refus(() -> service.verifierDepot(sansPieces), HttpStatus.BAD_REQUEST, "pièce d'identité");
+        Map<String, Object> sansReleves = new HashMap<>(ok);
+        sansReleves.put("pieces", Map.of("pieceIdentite", "https://x.sn/a.png", "diplome", "https://x.sn/b.pdf"));
+        refus(() -> service.verifierDepot(sansReleves), HttpStatus.BAD_REQUEST, "relevés de notes");
+        Map<String, Object> lienPiege = new HashMap<>(ok);
+        lienPiege.put("pieces", Map.of("pieceIdentite", "javascript:alert(1)", "diplome", "https://x.sn/b.pdf", "releves", "https://x.sn/c.pdf"));
+        refus(() -> service.verifierDepot(lienPiege), HttpStatus.BAD_REQUEST, "n'est pas valide");
         Map<String, Object> doublon = new HashMap<>(ok); doublon.put("email", "AWA.DIOP@exemple.sn");
         refus(() -> service.verifierDepot(doublon), HttpStatus.CONFLICT, "existe déjà");
     }

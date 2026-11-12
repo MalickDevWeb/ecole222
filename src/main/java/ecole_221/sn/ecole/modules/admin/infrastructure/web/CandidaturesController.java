@@ -79,6 +79,10 @@ public class CandidaturesController {
         ecole_221.sn.ecole.modules.admissions.application.service.SuiviCandidatureService.Depot depot =
                 suivi == null ? null : suivi.verifierDepot(body);
 
+        lireInformations(body);   // 400 précis avant toute écriture (sinon transformé en 500 ci-dessous)
+        if (depot == null) {
+            ecole_221.sn.ecole.modules.admissions.application.service.SuiviCandidatureService.lirePieces(body.get("pieces"), false);
+        }
         {
             try {
                 String nom = String.valueOf(body.getOrDefault("nom", ""));
@@ -99,12 +103,15 @@ public class CandidaturesController {
                 }
                 entity.setRegistrationFeePaid(fraisPayes);
                 entity.setRegistrationFeeReference(refPaiement);
-                // Pièces : déclarées par le portail (docs.idCard / docs.diploma), jamais présumées fournies
-                Object docs = body.get("docs");
-                Map<?, ?> pieces = docs instanceof Map<?, ?> m ? m : Map.of();
-                entity.setIdCardUploaded(Boolean.parseBoolean(String.valueOf(pieces.get("idCard"))));
-                entity.setDiplomaUploaded(Boolean.parseBoolean(String.valueOf(pieces.get("diploma"))));
-                entity.setAdditionalInfo(buildAdditionalInfo(modePaiement));
+                // Pièces : reçues seulement avec le lien du fichier réellement envoyé (avant : simple « oui / non »
+                // déclaré par le portail, sans aucun fichier joint au dossier).
+                Map<String, String> pieces = depot != null ? depot.pieces()
+                        : ecole_221.sn.ecole.modules.admissions.application.service.SuiviCandidatureService.lirePieces(body.get("pieces"), false);
+                entity.setIdCardUploaded(pieces.containsKey("pieceIdentiteUrl"));
+                entity.setDiplomaUploaded(pieces.containsKey("diplomeUrl"));
+                Map<String, String> informations = lireInformations(body);
+                informations.putAll(pieces);
+                entity.setAdditionalInfo(buildAdditionalInfo(modePaiement, informations));
                 entity.setSubmittedAt(LocalDateTime.now());
                 entity.setCurrentStep("new");
                 entity.setAdmissionStatus(CandidateStatus.EN_ATTENTE.name());
@@ -155,12 +162,60 @@ public class CandidaturesController {
      * Retourne null si aucun moyen de paiement n'est connu.
      */
     static String buildAdditionalInfo(String modePaiement) throws JsonProcessingException {
-        if (modePaiement == null) {
-            return null;
-        }
+        return buildAdditionalInfo(modePaiement, Map.of());
+    }
+
+    /** Moyen de paiement + informations saisies par le candidat ; null si rien n'est connu. */
+    static String buildAdditionalInfo(String modePaiement, Map<String, String> informations) throws JsonProcessingException {
         Map<String, Object> info = new LinkedHashMap<>();
-        info.put("paymentMethod", modePaiement);
-        return JSON.writeValueAsString(info);
+        if (modePaiement != null) {
+            info.put("paymentMethod", modePaiement);
+        }
+        info.putAll(informations);
+        return info.isEmpty() ? null : JSON.writeValueAsString(info);
+    }
+
+    /** Champs texte du dossier conservés tels quels (liste fermée : rien d'autre n'est enregistré). */
+    private static final List<String> CHAMPS_DOSSIER = List.of("dateNaissance", "lieuNaissance", "sexe", "nationalite",
+            "numeroPiece", "adresse", "niveau", "etablissementPrecedent", "serieBac", "anneeBac", "mentionBac", "sessionRentree");
+    private static final Map<String, String> CHAMPS_GARANT = new LinkedHashMap<>(Map.of(
+            "nom", "garantNom", "lien", "garantLien", "telephone", "garantTelephone", "email", "garantEmail",
+            "profession", "garantProfession"));
+    private static final int LONGUEUR_MAX = 200;
+
+    /**
+     * Informations saisies dans le portail (identité, garant, cursus) — avant : collectées puis jamais envoyées.
+     * Valeurs vides ignorées ; 400 si une valeur est trop longue, un sexe inconnu ou un email de garant invalide.
+     */
+    static Map<String, String> lireInformations(Map<String, Object> body) {
+        Map<String, String> info = new LinkedHashMap<>();
+        for (String champ : CHAMPS_DOSSIER) {
+            ajouter(info, champ, champ, body.get(champ));
+        }
+        if (body.get("garant") instanceof Map<?, ?> garant) {
+            CHAMPS_GARANT.forEach((source, cle) -> ajouter(info, cle, "garant." + source, garant.get(source)));
+        }
+        String sexe = info.get("sexe");
+        if (sexe != null && !sexe.equals("M") && !sexe.equals("F")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Sexe inconnu : « M » ou « F » attendu.");
+        }
+        String emailGarant = info.get("garantEmail");
+        if (emailGarant != null && !emailGarant.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "L'adresse e-mail du garant « " + emailGarant + " » n'est pas valide.");
+        }
+        return info;
+    }
+
+    private static void ajouter(Map<String, String> info, String cle, String libelle, Object valeur) {
+        String texte = textOrNull(valeur);
+        if (texte == null) {
+            return;
+        }
+        if (texte.length() > LONGUEUR_MAX) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "« " + libelle + " » est trop long (" + LONGUEUR_MAX + " caractères au maximum).");
+        }
+        info.put(cle, texte);
     }
 
     @GetMapping("/candidatures")

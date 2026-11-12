@@ -297,9 +297,9 @@ public class AdmissionController {
                     "transcripts", lireInfo(e.getAdditionalInfo(), "relevesNotesUrl") != null
                 ));
                 Map<String, Object> details = new java.util.HashMap<>();
-                details.put("cniNumber", null);   // APP-BE-17 : plus de numéro « CNI-<id> » inventé (non collecté en base)
-                // APP-BE-04 : plus d'URL CNI fictive ni de statut « verified » inventé
-                details.put("cniUrl", null);
+                // APP-BE-17 / APP-BE-04 : numéro et pièce saisis par le candidat uniquement (jamais inventés), sinon null
+                details.put("cniNumber", lireInfo(e.getAdditionalInfo(), "numeroPiece"));
+                details.put("cniUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "pieceIdentiteUrl")));
                 details.put("cniStatus", "unknown");
                 // APP-BE-04 : moyen et référence de paiement réels uniquement, sinon null (jamais de fausse transaction)
                 details.put("paymentMethod", readPaymentMethod(e.getAdditionalInfo()));
@@ -307,6 +307,8 @@ public class AdmissionController {
                 details.put("photoUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "photoIdentiteUrl")));
                 details.put("transcriptsUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "relevesNotesUrl")));
                 details.put("diplomaUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "diplomeUrl")));
+                // Informations saisies au dépôt (identité, garant, cursus) : avant, collectées puis jamais transmises
+                details.put("dossier", lireDossier(e.getAdditionalInfo()));
                 details.put("paymentTransactionRef", blankToNull(e.getRegistrationFeeReference()));
                 details.put("paymentStatus", Boolean.TRUE.equals(e.getRegistrationFeePaid()) ? "approved" : "pending");
                 c.put("details", details);
@@ -331,6 +333,23 @@ public class AdmissionController {
     /** Lien http(s) uniquement (jamais « javascript: » ni autre schéma dans un lien affiché à l'administration). */
     static String lienHttp(String url) {
         return url != null && url.matches("(?i)^https?://\\S+$") ? url : null;
+    }
+
+    private static final List<String> CHAMPS_DOSSIER = List.of("dateNaissance", "lieuNaissance", "sexe", "nationalite",
+            "numeroPiece", "adresse", "niveau", "diplomePrecedent", "etablissementPrecedent", "serieBac", "anneeBac",
+            "mentionBac", "sessionRentree", "garantNom", "garantLien", "garantTelephone", "garantEmail", "garantProfession",
+            "deposePar");
+
+    /** Champs texte connus du dossier, dans un ordre fixe ; vide si rien n'a été saisi. */
+    static Map<String, String> lireDossier(String additionalInfo) {
+        Map<String, String> dossier = new java.util.LinkedHashMap<>();
+        for (String champ : CHAMPS_DOSSIER) {
+            String v = lireInfo(additionalInfo, champ);
+            if (v != null) {
+                dossier.put(champ, v);
+            }
+        }
+        return dossier;
     }
 
     /** Lit une clé texte du JSON additionalInfo ; null si absente, vide ou JSON illisible. */

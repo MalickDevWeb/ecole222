@@ -154,6 +154,48 @@ class NoFakePaymentTest {
     }
 
     @Test
+    void soumissionEnregistreToutLeDossierEtLesPieces() throws Exception {
+        String payload = JSON.writeValueAsString(Map.of("nom", "Diop", "prenom", "Awa", "niveau", "Licence 1",
+                "numeroPiece", "1751200502841", "sexe", "F", "admin", "true",
+                "garant", Map.of("nom", "Babacar Diop", "lien", "Père", "telephone", "77 654 32 10"),
+                "pieces", Map.of("pieceIdentite", "https://res.cloudinary.com/e/cni.png", "releves", "https://res.cloudinary.com/e/r.pdf")));
+        mockMvc.perform(post("/candidatures/submit").contentType(MediaType.APPLICATION_JSON).content(payload))
+                .andExpect(status().isOk());
+
+        ArgumentCaptor<CandidateJpaEntity> captor = ArgumentCaptor.forClass(CandidateJpaEntity.class);
+        verify(repo).save(captor.capture());
+        CandidateJpaEntity e = captor.getValue();
+        JsonNode info = JSON.readTree(e.getAdditionalInfo());
+        assertEquals("Licence 1", info.get("niveau").asText());
+        assertEquals("Babacar Diop", info.get("garantNom").asText());
+        assertEquals("Père", info.get("garantLien").asText());
+        assertEquals("https://res.cloudinary.com/e/cni.png", info.get("pieceIdentiteUrl").asText());
+        assertFalse(info.has("admin"), "seuls les champs connus du dossier sont enregistrés");
+        assertTrue(e.getIdCardUploaded());
+        assertFalse(e.getDiplomaUploaded(), "aucun diplôme envoyé → jamais marqué reçu");
+
+        Mockito.when(repo.findAll()).thenReturn(List.of(e));
+        mockMvc.perform(get("/admissions/db"))
+                .andExpect(jsonPath("$.candidates[0].details.cniNumber").value("1751200502841"))
+                .andExpect(jsonPath("$.candidates[0].details.cniUrl").value("https://res.cloudinary.com/e/cni.png"))
+                .andExpect(jsonPath("$.candidates[0].details.dossier.garantNom").value("Babacar Diop"))
+                .andExpect(jsonPath("$.candidates[0].docs.transcripts").value(true))
+                .andExpect(jsonPath("$.candidates[0].docs.diploma").value(false));
+    }
+
+    @Test
+    void soumissionRefuseLesSaisiesInvalidesAvantToutEnregistrement() throws Exception {
+        mockMvc.perform(post("/candidatures/submit").contentType(MediaType.APPLICATION_JSON)
+                        .content(JSON.writeValueAsString(Map.of("nom", "Ba", "prenom", "Moussa", "garant", Map.of("email", "papa@")))))
+                .andExpect(status().isBadRequest())
+                .andExpect(status().reason(org.hamcrest.Matchers.containsString("garant")));
+        mockMvc.perform(post("/candidatures/submit").contentType(MediaType.APPLICATION_JSON)
+                        .content(JSON.writeValueAsString(Map.of("nom", "Ba", "prenom", "Moussa", "pieces", Map.of("diplome", "ftp://x/y.pdf")))))
+                .andExpect(status().isBadRequest());
+        Mockito.verify(repo, Mockito.never()).save(Mockito.any());
+    }
+
+    @Test
     void profil360SansPaiementFictif() throws Exception {
         String body = mockMvc.perform(get("/admin/students/s-1/profile360"))
                 .andExpect(status().isOk())
