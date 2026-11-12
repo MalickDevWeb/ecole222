@@ -154,14 +154,14 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public Optional<Filiere> findFiliereById(String filiereId) {
         logger.debug("Récupération de la filière: {}", filiereId);
         return filiereJpaRepository.findById(filiereId)
-            .map(this::toFiliere);
+            .map(PlanningRepositoryAdapter::toFiliere);
     }
     
     @Override
     public List<Filiere> findAllFilieres() {
         logger.debug("Récupération de toutes les filières depuis JPA");
         return filiereJpaRepository.findAll().stream()
-            .map(this::toFiliere)
+            .map(PlanningRepositoryAdapter::toFiliere)
             .collect(Collectors.toList());
     }
     
@@ -178,7 +178,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Filiere> findFilieresByLevel(String level) {
         logger.debug("Récupération des filières par niveau: {}", level);
         return filiereJpaRepository.findByLevel(level).stream()
-            .map(this::toFiliere)
+            .map(PlanningRepositoryAdapter::toFiliere)
             .collect(Collectors.toList());
     }
     
@@ -274,13 +274,18 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
         return entity;
     }
     
-    private Filiere toFiliere(FiliereJpaEntity entity) {
+    /**
+     * Le niveau est facultatif pour les filières enregistrées par l'administration (PUT /admin/planning/filieres) :
+     * avant, une seule filière sans niveau faisait échouer en 500 toute la liste GET /planning/filieres.
+     * Niveau inconnu → vide (jamais inventé).
+     */
+    static Filiere toFiliere(FiliereJpaEntity entity) {
         return FiliereFactory.reconstruct(
             entity.getId(),
             entity.getName(),
             entity.getCode(),
             entity.getDescription(),
-            entity.getLevel()
+            entity.getLevel() == null ? "" : entity.getLevel()
         );
     }
     

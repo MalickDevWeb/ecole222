@@ -27,11 +27,16 @@ public class StudentEnrollmentService {
         List<OrganizationUser> memberships = orgUserRepositoryPort.findByUserId(userId);
         
         // 1. Check if user is already an active student somewhere else
-        boolean hasActiveStudentRole = memberships.stream()
+        List<OrganizationUser> actives = memberships.stream()
             .filter(m -> m.getRole().equals(RoleUtilisateur.ETUDIANT.value()) || m.getRole().equals("sys_student_id"))
-            .anyMatch(OrganizationUser::isActive);
+            .filter(OrganizationUser::isActive)
+            .toList();
 
-        if (hasActiveStudentRole) {
+        // Déjà inscrit dans CETTE école : avant, le message parlait à tort d'une autre école et d'un transfert.
+        if (actives.stream().anyMatch(m -> organizationId.equals(m.getOrganizationId()))) {
+            throw new IllegalStateException("Cet élève est déjà inscrit dans cette école.");
+        }
+        if (!actives.isEmpty()) {
             throw new IllegalStateException("Règle métier violée : Un élève ne peut être actif que dans une seule école à la fois. Utilisez le processus de transfert.");
         }
 

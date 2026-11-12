@@ -45,8 +45,11 @@ final class PlanningPayloads {
             String filiere = texte(m, "filiereId");
             Integer frais = entier(m, "price", "fraisAnnuels", "frais");
             if (frais != null && frais < 0) throw mauvais("Les frais annuels de la classe « " + nom + " » ne peuvent pas être négatifs.");
+            Integer capacite = entier(m, "capacityMax", "capacity", "capacite");
+            // Avant : capacité nulle ou négative acceptée
+            if (capacite != null && capacite < 1) throw mauvais("La capacité de la classe « " + nom + " » doit être d'au moins 1 élève.");
             res.add(ClasseFactory.reconstruct(id(m), nom, filiere == null ? "" : filiere,
-                    texte(m, "level", "niveau"), entier(m, "capacityMax", "capacity", "capacite"),
+                    texte(m, "level", "niveau"), capacite,
                     frais == null ? null : frais.longValue()));
         }
         return res;
