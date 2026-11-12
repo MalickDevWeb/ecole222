@@ -158,6 +158,11 @@ ai:
     temperature: ${MISTRAL_TEMPERATURE:0.7}
     max-tokens: ${MISTRAL_MAX_TOKENS:1000}
 
+# Adresse publique du site : base des liens envoyés par e-mail (réinitialisation du mot de passe).
+# Jamais déduite de la requête (en-tête Host / Origin falsifiable).
+app:
+  url-frontend: ${FRONTEND_URL:http://localhost:5173}
+
 # Configuration pour les services d'emails (Brevo)
 email:
   provider: ${EMAIL_PROVIDER:mock}

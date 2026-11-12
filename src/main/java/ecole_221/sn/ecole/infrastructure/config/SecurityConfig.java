@@ -38,6 +38,8 @@ public class SecurityConfig {
         "/auth/login",
         "/auth/login-token",
         "/auth/logout",
+        "/auth/mot-de-passe-oublie",          // APP-FEAT-02 : réponse identique que le compte existe ou non
+        "/auth/reinitialiser-mot-de-passe",   // APP-FEAT-02 : jeton à usage unique
         "/auth/register",
         "/register-school",
         "/public/**",
