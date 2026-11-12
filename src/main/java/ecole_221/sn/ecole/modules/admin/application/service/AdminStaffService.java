@@ -100,12 +100,14 @@ public class AdminStaffService {
     public Map<String, Object> updateStaffMember(String id, Map<String, Object> updates) {
         UserJpaEntity u = comptesEcole.membre(id, null);   // 404 si le collaborateur n'est pas de cette école
         OrganizationUserJpaEntity lien = comptesEcole.appartenance(id, null).orElseThrow();
-        if (updates.containsKey("firstName")) u.setPrenom(texte(updates.get("firstName")));
-        if (updates.containsKey("lastName")) u.setNom(texte(updates.get("lastName")));
+        // Avant : un prénom ou un nom vide effaçait le nom du compte, et l'email n'était pas vérifié.
+        if (updates.containsKey("firstName")) u.setPrenom(obligatoire(updates.get("firstName"), "Le prénom est obligatoire."));
+        if (updates.containsKey("lastName")) u.setNom(obligatoire(updates.get("lastName"), "Le nom est obligatoire."));
         if (updates.containsKey("email")) {
-            String mail = texte(updates.get("email"));
-            if (mail == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "L'adresse e-mail est obligatoire.");
-            mail = mail.toLowerCase(Locale.ROOT);
+            String mail = obligatoire(updates.get("email"), "L'adresse e-mail est obligatoire.").toLowerCase(Locale.ROOT);
+            if (!mail.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$")) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Adresse e-mail invalide.");
+            }
             if (!mail.equalsIgnoreCase(u.getEmail()) && userRepo.existsByEmail(mail)) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT, "Cette adresse e-mail est déjà utilisée.");
             }
@@ -137,6 +139,12 @@ public class AdminStaffService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Rôle non autorisé : " + saisi);
         }
         return r;
+    }
+
+    private static String obligatoire(Object valeur, String message) {
+        String t = texte(valeur);
+        if (t == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, message);
+        return t;
     }
 
     private static String texte(Object o) {
