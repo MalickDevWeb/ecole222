@@ -76,6 +76,30 @@ class WebSocketAuthInterceptorTest {
         assertThatThrownBy(() -> intercepteur.preSend(trame(StompCommand.SUBSCRIBE, null, null), canal))
                 .isInstanceOf(MessageDeliveryException.class);
         Principal p = () -> "eleve@exemple.sn";
-        assertThat(intercepteur.preSend(trame(StompCommand.SUBSCRIBE, null, p), canal)).isNotNull();
+        // 2026-11-13 : l'ancien canal non cloisonné est refusé même authentifié
+        assertThatThrownBy(() -> intercepteur.preSend(trame(StompCommand.SUBSCRIBE, null, p), canal))
+                .isInstanceOf(MessageDeliveryException.class).hasMessageContaining("non cloisonné");
+    }
+
+    @Test
+    void abonnementLimiteAuCanalDeSaPropreEcole() {
+        Principal p = () -> "eleve@exemple.sn";
+        assertThat(intercepteur.preSend(abonnement("/topic/ecole/org-a/live-sessions/s1/chat", p, "org-a"), canal)).isNotNull();
+        assertThatThrownBy(() -> intercepteur.preSend(abonnement("/topic/ecole/org-b/live-sessions/s1/chat", p, "org-a"), canal))
+                .isInstanceOf(MessageDeliveryException.class).hasMessageContaining("autre école");
+        assertThatThrownBy(() -> intercepteur.preSend(abonnement("/topic/ecole/org-a/live-sessions/s1/chat", p, null), canal))
+                .isInstanceOf(MessageDeliveryException.class);
+        assertThat(intercepteur.preSend(abonnement("/topic/collaboration", p, "org-a"), canal)).isNotNull();
+    }
+
+    private static Message<byte[]> abonnement(String destination, Principal user, String ecole) {
+        StompHeaderAccessor h = StompHeaderAccessor.create(StompCommand.SUBSCRIBE);
+        h.setUser(user);
+        h.setDestination(destination);
+        java.util.Map<String, Object> attributs = new java.util.HashMap<>();
+        if (ecole != null) attributs.put(WebSocketAuthInterceptor.ECOLE, ecole);
+        h.setSessionAttributes(attributs);
+        h.setLeaveMutable(true);
+        return MessageBuilder.createMessage(new byte[0], h.getMessageHeaders());
     }
 }

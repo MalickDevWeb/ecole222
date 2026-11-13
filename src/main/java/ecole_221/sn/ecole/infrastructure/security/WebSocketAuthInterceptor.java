@@ -25,8 +25,15 @@ import org.springframework.stereotype.Component;
 @Component
 public class WebSocketAuthInterceptor implements ChannelInterceptor {
 
+    /** Attribut de session STOMP : école de la connexion (vérifiée à CONNECT). */
+    public static final String ECOLE = "ecole221.organizationId";
+
     private final JwtService jwtService;
     private final UserRepositoryPort utilisateurs;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationRepositoryPort ecoles;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances;
 
     public WebSocketAuthInterceptor(JwtService jwtService, UserRepositoryPort utilisateurs) {
         this.jwtService = jwtService;
@@ -41,11 +48,55 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         }
         StompCommand commande = acces.getCommand();
         if (StompCommand.CONNECT.equals(commande) || StompCommand.STOMP.equals(commande)) {
-            acces.setUser(authentifier(acces.getFirstNativeHeader("Authorization")));
+            UsernamePasswordAuthenticationToken jeton = authentifier(acces.getFirstNativeHeader("Authorization"));
+            acces.setUser(jeton);
+            String ecole = ecoleDeLaConnexion(jeton, acces.getFirstNativeHeader("X-Tenant-Slug"));
+            if (ecole != null && acces.getSessionAttributes() != null) {
+                acces.getSessionAttributes().put(ECOLE, ecole);
+            }
         } else if ((StompCommand.SEND.equals(commande) || StompCommand.SUBSCRIBE.equals(commande)) && acces.getUser() == null) {
             throw new MessageDeliveryException("Connexion WebSocket non authentifiée.");
+        } else if (StompCommand.SUBSCRIBE.equals(commande)) {
+            verifierAbonnement(acces.getDestination(), acces.getSessionAttributes() == null ? null
+                    : (String) acces.getSessionAttributes().get(ECOLE));
         }
         return message;
+    }
+
+    /**
+     * Abonnements cloisonnés par école (2026-11-13). Avant : n'importe quel compte connecté, de n'importe quelle école,
+     * pouvait s'abonner au chat d'un cours en direct d'une autre école ({@code /topic/live-sessions/{id}/chat}).
+     * Désormais les cours en direct sont diffusés sur {@code /topic/ecole/{école}/…} et seule sa propre école est
+     * accessible ; l'ancien canal non cloisonné est refusé.
+     */
+    static void verifierAbonnement(String destination, String ecole) {
+        if (destination == null) {
+            return;
+        }
+        if (destination.startsWith("/topic/live-sessions/")) {
+            throw new MessageDeliveryException("Canal non cloisonné : abonnez-vous à /topic/ecole/{école}/live-sessions/…");
+        }
+        if (destination.startsWith("/topic/ecole/")) {
+            String[] parties = destination.split("/");   // ["", "topic", "ecole", "{école}", …]
+            if (ecole == null || parties.length < 4 || !ecole.equals(parties[3])) {
+                throw new MessageDeliveryException("Accès refusé : ce canal appartient à une autre école.");
+            }
+        }
+    }
+
+    /** École indiquée par X-Tenant-Slug (si le compte en est membre actif), sinon l'unique école active du compte. */
+    String ecoleDeLaConnexion(UsernamePasswordAuthenticationToken jeton, String slug) {
+        if (appartenances == null || !(jeton.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u)) {
+            return null;
+        }
+        java.util.List<String> actives = appartenances.findByUserId(u.getId()).stream()
+                .filter(ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationUser::isActive)
+                .map(ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationUser::getOrganizationId)
+                .toList();
+        if (slug != null && !slug.isBlank() && ecoles != null) {
+            return ecoles.findBySlug(slug.strip()).map(o -> o.getId()).filter(actives::contains).orElse(null);
+        }
+        return actives.size() == 1 ? actives.get(0) : null;
     }
 
     UsernamePasswordAuthenticationToken authentifier(String entete) {
