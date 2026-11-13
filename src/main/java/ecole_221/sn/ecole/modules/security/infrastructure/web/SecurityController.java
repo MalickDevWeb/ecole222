@@ -23,6 +23,10 @@ public class SecurityController {
     private final SecurityUseCase securityUseCase;
     private final StudentUseCase studentUseCase;
     private final ActionLogger actionLogger;
+
+    /** Terminal affecté au vigile qui scanne (APP-BE-21) : refus si désactivé ou révoqué, point de passage sinon. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.security.application.service.TerminauxAccesService terminauxAcces;
     /** Dernier scan PAR ÉCOLE (avant : un seul champ partagé entre toutes les écoles). */
     private final Map<String, Map<String, Object>> derniersScans = new ConcurrentHashMap<>();
 
@@ -90,6 +94,12 @@ public class SecurityController {
 
     @PostMapping("/security/scan-logs")
     public ResponseEntity<Map<String, Object>> scanBadge(@RequestBody Map<String, String> body) {
+        // APP-BE-21 : terminal du vigile connecté — 403 s'il a été désactivé ou révoqué par l'administration
+        var authLog = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (terminauxAcces != null && authLog != null
+                && authLog.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User vigileLog) {
+            terminauxAcces.exigerTerminalUtilisable(vigileLog.getId());
+        }
         // APP-QA-04 : badge ou élève obligatoire (avant : un scan vide était journalisé comme « @gate-A »)
         if (body == null || ((body.get("badgeId") == null || body.get("badgeId").isBlank())
                 && (body.get("studentId") == null || body.get("studentId").isBlank()))) {
@@ -133,6 +143,13 @@ public class SecurityController {
     public ResponseEntity<Map<String, Object>> scanVigilBadge(@RequestBody Map<String, String> body) {
         // Plus d'acceptation « à l'aveugle » des préfixes SN-/badge- ni d'assiduité / statut de frais inventés :
         // le badge est résolu par SecurityService.processBadgeScan vers un compte RÉEL membre de l'école courante.
+        // APP-BE-21 : terminal du vigile connecté — 403 s'il a été désactivé ou révoqué par l'administration
+        String pointDePassage = null;
+        var authScan = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (terminauxAcces != null && authScan != null
+                && authScan.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User vigile) {
+            pointDePassage = terminauxAcces.exigerTerminalUtilisable(vigile.getId()).orElse(null);
+        }
         String payload = body == null || body.get("badgeId") == null ? "" : body.get("badgeId").trim();
         String identifiant = payload;
         Map<String, Object> result = new HashMap<>();
@@ -178,10 +195,10 @@ public class SecurityController {
         result.put("message", message);
         result.put("assiduite", null);          // aucune source d'assiduité fiable ici : pas de valeur inventée
         result.put("statutFrais", statutFrais); // null si inconnu ; « Non renseigné » si jamais saisi
-        result.put("zone", null);               // aucun point de passage configuré n'est transmis par le scanner
+        result.put("zone", pointDePassage);     // terminal affecté au vigile ; null s'il n'en a aucun (jamais inventé)
         result.put("time", LocalDateTime.now().toString());
 
-        actionLogger.logSecurityAction("VIGIL_SCAN", identifiant, "Portail",
+        actionLogger.logSecurityAction("VIGIL_SCAN", identifiant, pointDePassage != null ? pointDePassage : "Sans terminal",
             "Scan vigil: " + (isValid ? "AUTORISÉ" : "REFUSÉ") + " - " + message);
 
         derniersScans.put(ecoleCourante(), result);
