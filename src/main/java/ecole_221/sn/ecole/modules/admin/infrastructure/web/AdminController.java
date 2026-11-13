@@ -382,6 +382,7 @@ public class AdminController {
     @PatchMapping("/staff/{id}/toggle-status")
     @Operation(summary = "Suspendre/Réactiver un membre du personnel", description = "Bascule l'appartenance du collaborateur à l'école (ACTIVE ⇄ SUSPENDED).")
     public ResponseEntity<Map<String, Object>> toggleStaffStatus(@PathVariable("id") String id) {
+        staff().verifierCibleGerable(id);   // anti-escalade (2026-11-13)
         String statut = comptesEcole.basculerStatut(id, null);
         actionLogger.logAdminAction("TOGGLE_STAFF_STATUS", "ADMIN", id, "Statut collaborateur : " + statut);
         return ResponseEntity.ok(Map.of("id", id, "status", ComptesEcoleService.libelleStatut(statut)));
@@ -391,6 +392,7 @@ public class AdminController {
     @Operation(summary = "Retirer un membre du personnel", description = "Retire le collaborateur de l'école courante.")
     public ResponseEntity<Map<String, Object>> deleteStaffMember(@PathVariable("id") String id) {
         logger.info("DELETE /admin/staff/{} - Retrait collaborateur", id);
+        staff().verifierCibleGerable(id);   // anti-escalade (2026-11-13)
         comptesEcole.retirer(id, null);
         actionLogger.logAdminAction("DELETE_STAFF", "ADMIN", id, "Collaborateur retiré de l'école : " + id);
         return ResponseEntity.ok(Map.of("success", true, "id", id));

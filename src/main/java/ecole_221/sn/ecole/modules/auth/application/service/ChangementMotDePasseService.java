@@ -25,6 +25,9 @@ public class ChangementMotDePasseService {
 
     private final UserJpaRepository comptes;
     private final PasswordEncoder encodeur;
+    /** 2026-11-13 : les jetons émis avant le changement sont refusés (absent seulement dans certains tests). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.infrastructure.security.revocation.RevocationJetons revocation;
 
     public ChangementMotDePasseService(UserJpaRepository comptes, PasswordEncoder encodeur) {
         this.comptes = comptes;
@@ -69,5 +72,8 @@ public class ChangementMotDePasseService {
         compte.setPassword(encodeur.encode(nouveau));
         compte.setDoitChangerMotDePasse(null);
         comptes.save(compte);
+        if (revocation != null) {
+            revocation.invaliderTout(compte.getId());
+        }
     }
 }

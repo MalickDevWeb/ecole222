@@ -89,7 +89,34 @@ class WebSocketAuthInterceptorTest {
                 .isInstanceOf(MessageDeliveryException.class).hasMessageContaining("autre école");
         assertThatThrownBy(() -> intercepteur.preSend(abonnement("/topic/ecole/org-a/live-sessions/s1/chat", p, null), canal))
                 .isInstanceOf(MessageDeliveryException.class);
-        assertThat(intercepteur.preSend(abonnement("/topic/collaboration", p, "org-a"), canal)).isNotNull();
+        // 2026-11-13 : liste blanche — les canaux partagés entre écoles sont refusés
+        assertThatThrownBy(() -> intercepteur.preSend(abonnement("/topic/collaboration", p, "org-a"), canal))
+                .isInstanceOf(MessageDeliveryException.class).hasMessageContaining("non cloisonné");
+        assertThatThrownBy(() -> intercepteur.preSend(abonnement("/topic/voice/s1/signal", p, "org-a"), canal))
+                .isInstanceOf(MessageDeliveryException.class);
+        assertThatThrownBy(() -> intercepteur.preSend(abonnement("/topic/ecole/org-a", p, "org-a"), canal))
+                .isInstanceOf(MessageDeliveryException.class);
+    }
+
+    @Test
+    void envoiLimiteAuxCoursEnDirect() {
+        Principal p = () -> "eleve@exemple.sn";
+        assertThat(intercepteur.preSend(envoi("/app/live-sessions/s1/chat", p), canal)).isNotNull();
+        assertThat(intercepteur.preSend(envoi("/app/live-sessions/s1/reaction", p), canal)).isNotNull();
+        assertThatThrownBy(() -> intercepteur.preSend(envoi("/app/voice/s1/signal", p), canal))
+                .isInstanceOf(MessageDeliveryException.class).hasMessageContaining("Envoi refusé");
+        assertThatThrownBy(() -> intercepteur.preSend(envoi("/app/wiki.update", p), canal))
+                .isInstanceOf(MessageDeliveryException.class);
+        assertThatThrownBy(() -> intercepteur.preSend(envoi("/topic/ecole/org-a/live-sessions/s1/chat", p), canal))
+                .isInstanceOf(MessageDeliveryException.class);
+    }
+
+    private static Message<byte[]> envoi(String destination, Principal user) {
+        StompHeaderAccessor h = StompHeaderAccessor.create(StompCommand.SEND);
+        h.setUser(user);
+        h.setDestination(destination);
+        h.setLeaveMutable(true);
+        return MessageBuilder.createMessage(new byte[0], h.getMessageHeaders());
     }
 
     private static Message<byte[]> abonnement(String destination, Principal user, String ecole) {

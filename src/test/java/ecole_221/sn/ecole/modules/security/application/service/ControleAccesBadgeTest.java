@@ -45,6 +45,14 @@ class ControleAccesBadgeTest {
         ecoleA = OrganizationFactory.create("A", OrganizationType.ECOLE, "a@exemple.sn");
         ecoleB = OrganizationFactory.create("B", OrganizationType.ECOLE, "b@exemple.sn");
         TenantContext.setCurrentOrganization(ecoleA);
+        service.setJetonBadge(jetons);
+    }
+
+    private final ecole_221.sn.ecole.partage.JetonBadge jetons = ecole_221.sn.ecole.partage.JetonBadge.aleatoire();
+
+    /** QR dynamique signé par le serveur pour la minute courante. */
+    private String badge(String matricule) {
+        return jetons.contenu(matricule, ecole_221.sn.ecole.partage.JetonBadge.minuteCourante());
     }
 
     @AfterEach
@@ -69,26 +77,51 @@ class ControleAccesBadgeTest {
     }
 
     @Test
-    void eleveEnRegleAutoriseParMatricule() {
+    void eleveEnRegleAutoriseAvecLeBadgeDynamique() {
+        compte("e1", "ETU-001", RoleUtilisateur.ETUDIANT, ecoleA);
+        Mockito.when(admin.getStudentStatus("e1")).thenReturn(StatutFrais.EN_REGLE);
+        Map<String, Object> r = service.processBadgeScan(badge("ETU-001"));
+        assertEquals(true, r.get("accessGranted"));
+        assertEquals("Fatou Ba", r.get("studentName"));
+    }
+
+    @Test
+    void eleveRefuseAvecSonSeulMatricule() {
+        // 2026-11-13 : un matricule tapé ou photocopié n'ouvre plus la porte
         compte("e1", "ETU-001", RoleUtilisateur.ETUDIANT, ecoleA);
         Mockito.when(admin.getStudentStatus("e1")).thenReturn(StatutFrais.EN_REGLE);
         Map<String, Object> r = service.processBadgeScan("ETU-001");
-        assertEquals(true, r.get("accessGranted"));
-        assertEquals("Fatou Ba", r.get("studentName"));
+        assertEquals(false, r.get("accessGranted"));
+        assertTrue(String.valueOf(r.get("message")).contains("badge QR"));
+    }
+
+    @Test
+    void badgeFalsifieOuExpireRefuse() {
+        compte("e1", "ETU-001", RoleUtilisateur.ETUDIANT, ecoleA);
+        Mockito.when(admin.getStudentStatus("e1")).thenReturn(StatutFrais.EN_REGLE);
+        long m = ecole_221.sn.ecole.partage.JetonBadge.minuteCourante();
+        // signé avec une autre clé (ce que pouvait faire n'importe qui avec l'ancienne clé écrite dans le code)
+        String falsifie = ecole_221.sn.ecole.partage.JetonBadge.aleatoire().contenu("ETU-001", m);
+        assertEquals(false, service.processBadgeScan(falsifie).get("accessGranted"));
+        // vrai badge, mais vieux de 5 minutes (photo d'écran)
+        assertEquals(false, service.processBadgeScan(jetons.contenu("ETU-001", m - 5)).get("accessGranted"));
+        // jeton tronqué / mal formé
+        assertEquals(false, service.processBadgeScan("STU_SECURE:ETU-001:" + m + ":ABC").get("accessGranted"));
+        assertEquals(false, service.processBadgeScan("STU_SECURE:ETU-001").get("accessGranted"));
     }
 
     @Test
     void eleveEnRetardRefuse() {
         compte("e2", "ETU-002", RoleUtilisateur.ETUDIANT, ecoleA);
         Mockito.when(admin.getStudentStatus("e2")).thenReturn(StatutFrais.EN_RETARD);
-        assertEquals(false, service.processBadgeScan("badge-e2").get("accessGranted"));
+        assertEquals(false, service.processBadgeScan(badge("ETU-002")).get("accessGranted"));
     }
 
     @Test
     void badgeDUneAutreEcoleRefuse() {
         compte("e3", "ETU-003", RoleUtilisateur.ETUDIANT, ecoleB);
         Mockito.when(admin.getStudentStatus("e3")).thenReturn(StatutFrais.EN_REGLE);
-        Map<String, Object> r = service.processBadgeScan("ETU-003");
+        Map<String, Object> r = service.processBadgeScan(badge("ETU-003"));
         assertEquals(false, r.get("accessGranted"));
         assertTrue(String.valueOf(r.get("message")).contains("n'appartient pas"));
     }

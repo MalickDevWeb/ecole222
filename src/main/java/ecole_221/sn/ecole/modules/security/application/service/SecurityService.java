@@ -45,6 +45,14 @@ public class SecurityService implements SecurityUseCase {
         // APP-SEC-18 : plus de passage « Mamadou Sall » inventé au démarrage
     }
 
+    /** Vérification des badges QR dynamiques (2026-11-13). Clé aléatoire si le composant n'est pas injecté (tests). */
+    private ecole_221.sn.ecole.partage.JetonBadge jetonBadge = ecole_221.sn.ecole.partage.JetonBadge.aleatoire();
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setJetonBadge(ecole_221.sn.ecole.partage.JetonBadge jetonBadge) {
+        if (jetonBadge != null) this.jetonBadge = jetonBadge;
+    }
+
     /** Journal des passages de l'école courante (APP-SEC-18 : avant, une seule liste pour toutes les écoles). */
     private List<Map<String, Object>> journalEcole() {
         String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse("sans-ecole");
@@ -146,7 +154,16 @@ public class SecurityService implements SecurityUseCase {
         // APP-SEC-18 : le badge est rattaché à un compte RÉEL (identifiant ou matricule), membre ACTIF de
         // l'école courante. Avant : tout badge était attribué à l'élève fictif « Mamadou Sall » (ou
         // « Awa Diop ») et l'accès décidé d'après sa situation — un badge inconnu pouvait être accepté.
-        String brut = badgeId == null ? "" : badgeId.trim();
+        String lu = badgeId == null ? "" : badgeId.trim();
+        // 2026-11-13 : badge QR dynamique (STU_SECURE:…) vérifié ICI pour toutes les routes de scan ; un élève n'entre
+        // plus avec son seul matricule (tapé, photocopié ou deviné) : seul le QR signé par le serveur, valable
+        // ± 1 minute, est accepté pour lui. Les badges du personnel restent des identifiants simples.
+        var dynamique = jetonBadge.lire(lu);
+        boolean jetonVerifie = dynamique.map(ecole_221.sn.ecole.partage.JetonBadge.Lecture::valide).orElse(false);
+        if (dynamique.isPresent() && !jetonVerifie) {
+            return refusSansTitulaire("Accès refusé : QR expiré ou invalide. Faites actualiser le badge dans l'application.");
+        }
+        String brut = dynamique.map(ecole_221.sn.ecole.partage.JetonBadge.Lecture::matricule).orElse(lu);
         String sansPrefixe = brut.startsWith("badge-") ? brut.substring(6) : brut;
         Optional<ecole_221.sn.ecole.modules.auth.domain.model.User> titulaire = comptes.findById(brut)
                 .or(() -> comptes.findById(sansPrefixe))
@@ -170,6 +187,9 @@ public class SecurityService implements SecurityUseCase {
             if (!membre) {
                 accessGranted = false;
                 msg = "Accès refusé : ce badge n'appartient pas à cet établissement.";
+            } else if (u.getRole() != null && "ETUDIANT".equals(u.getRole().value()) && !jetonVerifie) {
+                accessGranted = false;
+                msg = "Accès refusé : présentez le badge QR de l'application (le matricule seul ne suffit pas).";
             } else if (u.getRole() != null && "ETUDIANT".equals(u.getRole().value())) {
                 StatutFrais frais = adminRepository.getStudentStatus(u.getId());
                 if (frais == null) {
@@ -189,6 +209,14 @@ public class SecurityService implements SecurityUseCase {
             }
         }
 
+        return journaliser(nom, accessGranted, statutFrais, msg);
+    }
+
+    private Map<String, Object> refusSansTitulaire(String msg) {
+        return journaliser("Inconnu", false, null, msg);
+    }
+
+    private Map<String, Object> journaliser(String nom, boolean accessGranted, String statutFrais, String msg) {
         Map<String, Object> log = new HashMap<>();
         log.put("id", "scan-" + UUID.randomUUID().toString().substring(0, 8));
         log.put("studentName", nom);

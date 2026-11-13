@@ -207,17 +207,30 @@ class EtudiantsDuCoursParEcoleTest {
                 Mockito.mock(ecole_221.sn.ecole.modules.security.application.port.usecase.SecurityUseCase.class),
                 Mockito.mock(ecole_221.sn.ecole.modules.admin.application.port.usecase.AdminUseCase.class));
 
+        // 2026-11-13 : élève connecté (rôle ETUDIANT) — il ne peut ni faire l'appel ni se noter par la synchronisation
+        User eleve = Mockito.mock(User.class);
+        Mockito.when(eleve.getId()).thenReturn("eleve-1");
+        SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(eleve, null,
+                List.of(new org.springframework.security.core.authority.SimpleGrantedAuthority("ROLE_ETUDIANT"))));
+
         List<SyncResult> res = sync.synchronize(List.of(
-                action("a1", "ATTENDANCE_SUBMIT", Map.of("studentId", "e1", "status", "PRESENT")),
+                action("a1", "ATTENDANCE_SUBMIT", Map.of("studentId", "e1", "status", "PRESENT", "courseId", "c1", "date", "2026-11-13")),
                 action("a2", "ATTENDANCE_SELF", Map.of("studentId", "usr-001", "type", "ENTREE")),
-                action("a3", "ATTENDANCE_SELF", Map.of("type", "ENTREE"))));
+                action("a3", "ATTENDANCE_SELF", Map.of("type", "ENTREE")),
+                action("a4", "GRADE_SAVE", Map.of("studentId", "eleve-1", "courseId", "c1", "cc", 20, "examen", 20)),
+                action("a5", "LOG_ADD", Map.of("message", "faux journal")),
+                action("a6", "BADGE_SCAN", Map.of("badgeId", "ETU-1"))));
 
         assertTrue(res.get(0).isFailed());
-        assertTrue(res.get(0).getMessage().contains("date"), res.get(0).getMessage());
+        assertTrue(res.get(0).getMessage().contains("rôle"), res.get(0).getMessage());
         assertTrue(res.get(1).isFailed());   // un autre élève que celui connecté
         assertTrue(res.get(2).isSuccess());
+        assertTrue(res.get(3).isFailed(), "un élève ne doit jamais pouvoir s'attribuer une note");
+        assertTrue(res.get(4).isFailed());
+        assertTrue(res.get(5).isFailed());
         verify(useCase, never()).submitAttendance(any(), any(), any(), any(), any());
-        verify(etudiantUseCase).submitSelfAttendance("prof-1", "ENTREE", null);
+        verify(useCase, never()).saveGrade(any(), any(), any(), any());
+        verify(etudiantUseCase).submitSelfAttendance("eleve-1", "ENTREE", null);
         verify(etudiantUseCase, never()).submitSelfAttendance(Mockito.eq("usr-001"), any(), any());
     }
 }

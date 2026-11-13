@@ -94,21 +94,21 @@ class VigilScanSansDonneesInventeesTest {
     }
 
     @Test
-    void jetonQrInvalideRefuseSansConsulterLesComptes() throws Exception {
+    void badgeDynamiqueTransmisTelQuelAuControleCommun() throws Exception {
+        // 2026-11-13 : le jeton est vérifié par processBadgeScan (commun à toutes les routes de scan)
         TenantContext.setCurrentOrganization(ecoleA);
-        Mockito.when(etudiants.validateQrToken(anyString(), Mockito.anyLong(), anyString())).thenReturn(false);
+        Mockito.when(securite.processBadgeScan("STU_SECURE:ETU-1:123:faux")).thenReturn(
+                resultat(false, "Inconnu", null, "Accès refusé : QR expiré ou invalide. Faites actualiser le badge dans l'application."));
 
         mockMvc.perform(post("/vigil/scan").contentType(MediaType.APPLICATION_JSON).content("{\"badgeId\":\"STU_SECURE:ETU-1:123:faux\"}"))
-                .andExpect(jsonPath("$.statut").value("Refusé"))
-                .andExpect(jsonPath("$.message").value("Token QR expiré ou invalide."));
-        verify(securite, never()).processBadgeScan(anyString());
+                .andExpect(jsonPath("$.statut").value("Refusé"));
+        verify(securite).processBadgeScan("STU_SECURE:ETU-1:123:faux");
     }
 
     @Test
     void jetonQrValideResoluVersLeCompteReel() throws Exception {
         TenantContext.setCurrentOrganization(ecoleA);
-        Mockito.when(etudiants.validateQrToken("ETU-1", 123L, "ok")).thenReturn(true);
-        Mockito.when(securite.processBadgeScan("ETU-1")).thenReturn(resultat(true, "Awa Fall", "En Règle", "Accès autorisé."));
+        Mockito.when(securite.processBadgeScan("STU_SECURE:ETU-1:123:ok")).thenReturn(resultat(true, "Awa Fall", "En Règle", "Accès autorisé."));
 
         mockMvc.perform(post("/vigil/scan").contentType(MediaType.APPLICATION_JSON).content("{\"badgeId\":\"STU_SECURE:ETU-1:123:ok\"}"))
                 .andExpect(jsonPath("$.statut").value("Autorisé"))

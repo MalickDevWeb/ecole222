@@ -64,11 +64,19 @@ public class StudentService implements StudentUseCase {
             .orElseGet(HashMap::new);
     }
 
+    /** Badge QR signé par le serveur (2026-11-13 : HMAC-SHA256, voir JetonBadge). */
+    private ecole_221.sn.ecole.partage.JetonBadge jetonBadge = ecole_221.sn.ecole.partage.JetonBadge.aleatoire();
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setJetonBadge(ecole_221.sn.ecole.partage.JetonBadge jetonBadge) {
+        if (jetonBadge != null) this.jetonBadge = jetonBadge;
+    }
+
     @Override
     public Map<String, Object> getDigitalBadge(String studentId, String matricule, String nomComplet, String classeReelle) {
-        long minuteEpoch = System.currentTimeMillis() / 60000;
-        String token = generateHmacToken(matricule, minuteEpoch);
-        String qrPayload = "STU_SECURE:" + matricule + ":" + minuteEpoch + ":" + token;
+        long minuteEpoch = ecole_221.sn.ecole.partage.JetonBadge.minuteCourante();
+        String token = jetonBadge.jeton(matricule, minuteEpoch);
+        String qrPayload = jetonBadge.contenu(matricule, minuteEpoch);
 
         Map<String, Object> badge = new HashMap<>();
         badge.put("id", "badge-" + studentId);
@@ -89,25 +97,8 @@ public class StudentService implements StudentUseCase {
      */
     @Override
     public boolean validateQrToken(String matricule, long minuteEpoch, String token) {
-        // Tolérance : minute actuelle ± 1
-        long now = System.currentTimeMillis() / 60000;
-        for (long m = minuteEpoch - 1; m <= minuteEpoch + 1; m++) {
-            if (generateHmacToken(matricule, m).equals(token)) {
-                return Math.abs(now - m) <= 2; // max 2 minutes de décalage
-            }
-        }
-        return false;
-    }
-
-    private String generateHmacToken(String matricule, long minuteEpoch) {
-        String input = matricule + ":" + minuteEpoch + ":ecole221-server-secret-key";
-        // FNV-1a 32-bit (même algo que le frontend pour compatibilité)
-        int h = 0x811c9dc5;
-        for (int i = 0; i < input.length(); i++) {
-            h ^= input.charAt(i);
-            h *= 0x01000193;
-        }
-        return Integer.toHexString(h >>> 0).toUpperCase();
+        // 2026-11-13 : HMAC-SHA256 à clé serveur, comparaison en temps constant (avant : FNV-1a à clé écrite en dur)
+        return jetonBadge.valide(matricule, minuteEpoch, token);
     }
 
     @Override

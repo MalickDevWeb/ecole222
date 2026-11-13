@@ -34,6 +34,19 @@ public class SecurityConfig {
         this.tokenAuthFilter = tokenAuthFilter;
     }
 
+    /** Rôles disposant d'un espace dans l'application (les seuls admis sur les routes métier). */
+    static final String[] ROLES_AVEC_ESPACE = {
+        "ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN", "PROFESSEUR", "TEACHER", "ETUDIANT", "STUDENT",
+        "PARENT", "VIGIL",
+        // personnel de l'école : chaque route est ensuite filtrée par la matrice RBAC (PermissionsInterceptor)
+        "DIRECTEUR", "SECRETAIRE", "COMPTABLE", "SURVEILLANT", "RH"
+    };
+
+    /** Administration + personnel : l'espace administration, filtré pour le personnel par la matrice RBAC. */
+    static final String[] ROLES_ESPACE_ADMIN = {
+        "ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN", "DIRECTEUR", "SECRETAIRE", "COMPTABLE", "SURVEILLANT", "RH"
+    };
+
     static final String[] PUBLIC_PATHS = {
         "/auth/login",
         "/auth/login-token",
@@ -46,7 +59,6 @@ public class SecurityConfig {
         "/v1/public/**",
         "/health",
         "/error",
-        "/student/qr-validate", // Ajouté pour permettre aux vigiles de scanner les QR
         // Swagger / OpenAPI
         "/swagger-ui.html",
         "/swagger-ui/**",
@@ -98,32 +110,39 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, PORTAIL_CANDIDAT_ECRITURE).permitAll()
                 // le reste des admissions (liste, CRUD, statuts, réglages) : administration de l'école
                 .requestMatchers("/candidatures/**", "/admissions/**", "/v1/admissions/**")
-                    .hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
+                    .hasAnyRole(ROLES_ESPACE_ADMIN)
                 // Routes exclusivement réservées au SUPER_ADMIN / PLATFORM_ADMIN
                 .requestMatchers("/super-admin/**", "/platform/**", "/v1/super-admin/**", "/v1/platform/**",
                         "/api/v1/super-admin/**", "/api/v1/platform/**")  // contrôleurs mappés sous /api/v1 (défense en profondeur)
                     .hasAnyRole("SUPER_ADMIN", "PLATFORM_ADMIN")
                 // Envoi d'e-mails libres (destinataire, sujet, contenu au choix) : réservé à l'administration.
                 // Avant : tout compte connecté, élève compris, pouvait écrire à n'importe qui au nom de l'école.
-                .requestMatchers("/email/**", "/v1/email/**").hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
+                .requestMatchers("/email/**", "/v1/email/**").hasAnyRole(ROLES_ESPACE_ADMIN)
                 // Centre de notifications de l'école (liste complète, envoi à n'importe quel destinataire, boîte d'un
                 // autre compte) : administration uniquement — seul l'espace administration l'utilise. Avant : un élève
                 // lisait les notifications de l'administrateur et envoyait des notifications « prioritaires » à qui il voulait.
                 .requestMatchers("/v1/notifications/**", "/api/v1/notifications/**", "/v1/notifications", "/api/v1/notifications")
-                    .hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
+                    .hasAnyRole(ROLES_ESPACE_ADMIN)
                 .requestMatchers("/admin/**", "/finance/**", "/dashboard/**", "/audit/**")
-                    .hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
+                    .hasAnyRole(ROLES_ESPACE_ADMIN)
                 // Planning : lecture pour tout compte connecté ; écriture (salles, classes, filières, créneaux) réservée à
                 // l'administration. Avant (balayage du 2026-11-13) : un élève créait, modifiait ou supprimait le planning.
-                .requestMatchers(HttpMethod.GET, "/planning/**").authenticated()
-                .requestMatchers("/planning/**").hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
+                .requestMatchers(HttpMethod.GET, "/planning/**").hasAnyRole(ROLES_AVEC_ESPACE)
+                .requestMatchers("/planning/**").hasAnyRole(ROLES_ESPACE_ADMIN)
                 .requestMatchers("/vigil/check-ins").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "PROFESSEUR", "TEACHER", "SUPER_ADMIN")
                 .requestMatchers("/security/**", "/vigil/**").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "SUPER_ADMIN")
+                // 2026-11-13 : validation d'un badge QR réservée aux vigiles et à l'administration (avant : publique →
+                // oracle permettant de tester des jetons sans compte)
+                .requestMatchers("/student/qr-validate").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "SUPER_ADMIN")
                 .requestMatchers("/professor/**", "/prof/**").hasAnyRole("PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR", "SUPER_ADMIN")
                 // APP-SEC-11 : espace parent réservé aux parents (le contrôleur vérifie aussi la filiation)
                 .requestMatchers("/parent/**").hasRole("PARENT")
                 .requestMatchers("/student/**").hasAnyRole("ETUDIANT", "STUDENT", "PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR", "SUPER_ADMIN")
-                .anyRequest().authenticated()
+                // APP-SEC-20 (2026-11-13, refus par défaut) : un rôle sans espace (SECRETAIRE, COMPTABLE, VISITEUR,
+                // SURVEILLANT, DIRECTEUR, RH) n'atteint plus aucune route métier ; seul son compte (/auth/**) reste
+                // accessible. Avant : ces rôles atteignaient toutes les routes simplement « authentifiées ».
+                .requestMatchers("/auth/**").authenticated()
+                .anyRequest().hasAnyRole(ROLES_AVEC_ESPACE)
             )
             .exceptionHandling(exception -> exception
                 // réponses JSON en français (avant : « Unauthorized » / « Forbidden » bruts de Spring)
@@ -165,8 +184,15 @@ public class SecurityConfig {
         return source;
     }
 
+    /**
+     * Coût BCrypt exigé par BR-03 (2026-11-13, décision APP-TL-18 : sécurité maximale). Avant : coût par défaut 10.
+     * Les empreintes existantes (coût 10) restent vérifiables et sont recalculées au coût 12 à la connexion suivante
+     * (LoginService).
+     */
+    public static final int COUT_BCRYPT = 12;
+
     @Bean
     public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder();
+        return new BCryptPasswordEncoder(COUT_BCRYPT);
     }
 }

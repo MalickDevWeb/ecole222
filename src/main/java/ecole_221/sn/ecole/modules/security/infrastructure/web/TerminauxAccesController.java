@@ -15,7 +15,7 @@ import java.util.Map;
 /** Terminaux d'accès de l'école : réservé à l'administration (APP-BE-21). */
 @RestController
 @RequestMapping("/admin/terminaux")
-@PreAuthorize("hasAnyRole('ADMIN','ADMINISTRATOR','SUPER_ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','ADMINISTRATOR','SUPER_ADMIN','DIRECTEUR','SECRETAIRE','COMPTABLE','SURVEILLANT','RH')") // personnel : filtré par la matrice RBAC
 @Tag(name = "Terminaux d'accès", description = "Bornes et lecteurs de portique de l'école")
 public class TerminauxAccesController {
 

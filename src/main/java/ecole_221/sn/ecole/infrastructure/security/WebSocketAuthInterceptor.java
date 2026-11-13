@@ -34,6 +34,8 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
     private ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationRepositoryPort ecoles;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.infrastructure.security.revocation.RevocationJetons revocation;
 
     public WebSocketAuthInterceptor(JwtService jwtService, UserRepositoryPort utilisateurs) {
         this.jwtService = jwtService;
@@ -59,6 +61,8 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         } else if (StompCommand.SUBSCRIBE.equals(commande)) {
             verifierAbonnement(acces.getDestination(), acces.getSessionAttributes() == null ? null
                     : (String) acces.getSessionAttributes().get(ECOLE));
+        } else if (StompCommand.SEND.equals(commande)) {
+            verifierEnvoi(acces.getDestination());
         }
         return message;
     }
@@ -68,19 +72,35 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
      * pouvait s'abonner au chat d'un cours en direct d'une autre école ({@code /topic/live-sessions/{id}/chat}).
      * Désormais les cours en direct sont diffusés sur {@code /topic/ecole/{école}/…} et seule sa propre école est
      * accessible ; l'ancien canal non cloisonné est refusé.
+     *
+     * <p>Révision du 2026-11-13 (balayage des écrans) : liste blanche. Seuls les canaux {@code /topic/ecole/{école}/…}
+     * sont ouverts ; tout autre canal ({@code /topic/collaboration}, {@code /topic/voice/…}) est refusé, car il serait
+     * partagé entre toutes les écoles.</p>
      */
     static void verifierAbonnement(String destination, String ecole) {
-        if (destination == null) {
-            return;
+        if (destination == null || destination.isBlank()) {
+            throw new MessageDeliveryException("Canal d'abonnement manquant.");
         }
         if (destination.startsWith("/topic/live-sessions/")) {
             throw new MessageDeliveryException("Canal non cloisonné : abonnez-vous à /topic/ecole/{école}/live-sessions/…");
         }
-        if (destination.startsWith("/topic/ecole/")) {
-            String[] parties = destination.split("/");   // ["", "topic", "ecole", "{école}", …]
-            if (ecole == null || parties.length < 4 || !ecole.equals(parties[3])) {
-                throw new MessageDeliveryException("Accès refusé : ce canal appartient à une autre école.");
-            }
+        if (!destination.startsWith("/topic/ecole/")) {
+            throw new MessageDeliveryException("Canal inconnu ou non cloisonné par école : " + destination);
+        }
+        String[] parties = destination.split("/");   // ["", "topic", "ecole", "{école}", …]
+        if (ecole == null || parties.length < 5 || !ecole.equals(parties[3])) {
+            throw new MessageDeliveryException("Accès refusé : ce canal appartient à une autre école.");
+        }
+    }
+
+    /**
+     * Envois autorisés (2026-11-13) : le chat et les réactions des cours en direct, seuls traités avec l'école de la
+     * connexion. Le relais vocal ({@code /app/voice/…}, sans écran ni cloisonnement) et toute autre destination sont
+     * refusés.
+     */
+    static void verifierEnvoi(String destination) {
+        if (destination == null || !destination.startsWith("/app/live-sessions/")) {
+            throw new MessageDeliveryException("Envoi refusé : destination inconnue ou non autorisée.");
         }
     }
 
@@ -107,7 +127,10 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         try {
             String email = jwtService.extractUsername(jwt);
             UserDetails u = email == null ? null : utilisateurs.findByEmail(email).orElse(null);
-            if (u != null && jwtService.isTokenValid(jwt, u)) {
+            if (u != null && jwtService.isTokenValid(jwt, u)
+                    && (revocation == null || !revocation.estRefuse(jwt,
+                            u instanceof ecole_221.sn.ecole.modules.auth.domain.model.User user ? user.getId() : null,
+                            jwtService.extractIssuedAt(jwt)))) {
                 return new UsernamePasswordAuthenticationToken(u, null, u.getAuthorities());
             }
         } catch (RuntimeException e) {

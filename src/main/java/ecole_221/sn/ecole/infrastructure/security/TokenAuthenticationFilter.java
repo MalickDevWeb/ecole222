@@ -20,6 +20,9 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserRepositoryPort userRepositoryPort;
+    /** Révocation (déconnexion, changement de mot de passe), 2026-11-13 — même contrôle que JwtAuthenticationFilter. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.infrastructure.security.revocation.RevocationJetons revocation;
 
     public TokenAuthenticationFilter(JwtService jwtService, UserRepositoryPort userRepositoryPort) {
         this.jwtService = jwtService;
@@ -48,7 +51,10 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
                 UserDetails userDetails = userRepositoryPort.findByEmail(userEmail).orElse(null);
 
-                if (userDetails != null && jwtService.isTokenValid(jwt, userDetails)) {
+                if (userDetails != null && jwtService.isTokenValid(jwt, userDetails)
+                        && (revocation == null || !revocation.estRefuse(jwt,
+                                userDetails instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u ? u.getId() : null,
+                                jwtService.extractIssuedAt(jwt)))) {
                     UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                             userDetails, null, userDetails.getAuthorities()
                     );

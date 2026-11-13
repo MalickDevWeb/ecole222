@@ -59,6 +59,9 @@ public class ReinitialisationMotDePasseService {
     private final UserJpaRepository comptes;
     private final ReinitialisationMotDePasseJpaRepository demandes;
     private final PasswordEncoder encodeur;
+    /** 2026-11-13 : un jeton volé ne survit pas à la réinitialisation du mot de passe. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.infrastructure.security.revocation.RevocationJetons revocation;
     private final EmailServicePort email;
     private final String urlFrontend;
     private final SecureRandom aleatoire = new SecureRandom();
@@ -147,6 +150,9 @@ public class ReinitialisationMotDePasseService {
         compte.setPassword(encodeur.encode(nouveau));
         compte.setDoitChangerMotDePasse(null);
         comptes.save(compte);
+        if (revocation != null) {
+            revocation.invaliderTout(compte.getId());
+        }
         d.setUtiliseLe(maintenant);
         demandes.save(d);
         logger.info("Mot de passe réinitialisé pour le compte {}", compte.getId());

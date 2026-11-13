@@ -57,13 +57,17 @@ public class StudentTransferApplicationService {
         oldMembership.setStatus(MembershipStatus.TRANSFERRED);
         orgUserRepositoryPort.save(oldMembership);
 
-        // 4. Créer le nouveau membership dans l'école de destination
-        OrganizationUser newMembership = OrganizationUserFactory.create(
+        // 4. Appartenance dans l'école de destination. Retour dans une ancienne école (2026-11-13) : l'appartenance
+        //    archivée (« TRANSFERRED ») est réactivée au lieu d'en créer une seconde pour la même école.
+        Optional<OrganizationUser> ancienne = memberships.stream()
+            .filter(m -> m.getOrganizationId().equals(toOrganizationId))
+            .findFirst();
+        OrganizationUser newMembership = ancienne.orElseGet(() -> OrganizationUserFactory.create(
             userId,
             toOrganizationId,
             oldMembership.getRole()
-        );
-        newMembership.activate(); // Passe de INVITED à ACTIVE
+        ));
+        newMembership.reintegrer(); // INVITED, SUSPENDED ou TRANSFERRED → ACTIVE
         orgUserRepositoryPort.save(newMembership);
 
         // TODO: Déclencher un événement de domaine (DomainEvent) pour que le module Académique 

@@ -30,6 +30,11 @@ import java.util.Set;
  * appartenance garde temporairement l'ancien comportement, journalisé « SEC-003 TRANSITION ».
  * Après la reprise des données ({@code ./orchestrator.sh backfill-memberships --apply}), activer
  * {@code ecole.security.tenant-membership.strict=true} : l'exception est alors supprimée (403).</p>
+ *
+ * <p><b>2026-11-13 — strict par défaut</b> (sécurité maximale) : un compte sans appartenance est refusé partout.
+ * Le mode permissif ne reste possible qu'en le demandant explicitement
+ * ({@code ECOLE_SECURITY_TENANT_MEMBERSHIP_STRICT=false}) ; avant toute mise en production sur une base existante,
+ * lancer {@code ./orchestrator.sh backfill-memberships --apply}.</p>
  */
 @Component
 public class TenantMembershipInterceptor implements HandlerInterceptor {
@@ -41,7 +46,7 @@ public class TenantMembershipInterceptor implements HandlerInterceptor {
     private final boolean strict;
 
     public TenantMembershipInterceptor(OrganizationUserRepositoryPort memberships,
-                                       @Value("${ecole.security.tenant-membership.strict:false}") boolean strict) {
+                                       @Value("${ecole.security.tenant-membership.strict:true}") boolean strict) {
         this.memberships = memberships;
         this.strict = strict;
     }

@@ -73,6 +73,18 @@ public class LoginService implements LoginUseCase {
         }
     }
 
+    private volatile String leurre;
+
+    /** Empreinte calculée une fois, au coût courant, pour les adresses inconnues. */
+    private String empreinteLeurre() {
+        String e = leurre;
+        if (e == null) {
+            e = passwordEncoder.encode("leurre-" + java.util.UUID.randomUUID());
+            leurre = e;
+        }
+        return e;
+    }
+
     private void noterEchec(String cle) {
         if (echecs.size() > 10_000) {   // garde-fou mémoire : purge des fenêtres expirées
             java.time.Instant limite = horloge.instant().minus(FENETRE);
@@ -103,6 +115,9 @@ public class LoginService implements LoginUseCase {
         User user = userRepositoryPort.findByEmail(email)
                 .or(() -> userRepositoryPort.findByEmail(email.toLowerCase(java.util.Locale.ROOT)))
                 .orElseThrow(() -> {
+                    // Même coût de calcul qu'un compte existant : la durée de la réponse ne révèle pas si l'adresse
+                    // existe (énumération des comptes par chronométrage, 2026-11-13).
+                    passwordEncoder.matches(command.getPassword(), empreinteLeurre());
                     noterEchec(cle);
                     log.warn("Email non trouvé : {}", command.getEmail());
                     return new ResponseStatusException(HttpStatus.UNAUTHORIZED,
@@ -120,6 +135,15 @@ public class LoginService implements LoginUseCase {
         }
 
         echecs.remove(cle);
+        // BR-03 (2026-11-13) : empreinte d'un coût inférieur (ancien coût 10) recalculée au coût actuel.
+        if (passwordEncoder.upgradeEncoding(user.getPassword())) {
+            try {
+                user.setPassword(passwordEncoder.encode(command.getPassword()));
+                userRepositoryPort.save(user);
+            } catch (RuntimeException e) {
+                log.warn("Mise à niveau de l'empreinte du mot de passe non enregistrée : {}", e.getMessage());
+            }
+        }
         log.info("Connexion réussie pour : {} (rôle={})", command.getEmail(), user.getRole());
         String token = jwtService.generateToken(user);
         String tenantSlug = resolveTenantSlug(user, command.getEmail());

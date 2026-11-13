@@ -176,6 +176,12 @@ public class ComptesEcoleService {
     public String basculerStatut(String userId, String role) {
         OrganizationUserJpaEntity lien = appartenance(userId, role).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Compte introuvable dans cet établissement."));
+        // 2026-11-13 : un élève transféré vers une autre école reste une archive ; le réactiver ici l'inscrirait dans
+        // deux écoles à la fois (avant : « TRANSFERRED » repassait à « ACTIVE »).
+        if ("TRANSFERRED".equalsIgnoreCase(lien.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT,
+                    "Élève transféré vers une autre école : son dossier est conservé en archive et ne peut pas être réactivé ici.");
+        }
         lien.setStatus("ACTIVE".equalsIgnoreCase(lien.getStatus()) ? "SUSPENDED" : "ACTIVE");
         appartenances.save(lien);
         return lien.getStatus();

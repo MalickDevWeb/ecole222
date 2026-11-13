@@ -81,9 +81,35 @@ public class AdminStaffService {
         return m;
     }
 
+    /** Comptes que seule l'administration de l'école peut créer, modifier, suspendre ou retirer (2026-11-13). */
+    private static final java.util.Set<String> ROLES_SENSIBLES = java.util.Set.of("ADMIN", "ADMINISTRATOR", "DIRECTEUR");
+
+    /**
+     * Anti-escalade : un membre du personnel autorisé à gérer le personnel (matrice RBAC, ex. RH) ne peut ni créer un
+     * Administrateur ou un Directeur, ni promouvoir quelqu'un (lui-même compris) à ces rôles, ni suspendre ou retirer
+     * l'un d'eux.
+     */
+    public static void verifierGestionAutorisee(String roleCible) {
+        if (roleCible == null || !ROLES_SENSIBLES.contains(roleCible.toUpperCase(Locale.ROOT))) return;
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        boolean administration = auth != null && auth.getAuthorities().stream()
+                .map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .anyMatch(a -> a.equals("ROLE_ADMIN") || a.equals("ROLE_ADMINISTRATOR") || a.equals("ROLE_SUPER_ADMIN") || a.equals("ROLE_PLATFORM_ADMIN"));
+        if (!administration) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN,
+                    "Seule l'administration de l'école gère les comptes Administrateur et Directeur.");
+        }
+    }
+
+    /** Même contrôle pour une action sur un collaborateur existant (suspension, retrait). */
+    public void verifierCibleGerable(String id) {
+        comptesEcole.appartenance(id, null).ifPresent(l -> verifierGestionAutorisee(l.getRole()));
+    }
+
     @Transactional
     public ResponseEntity<?> createStaffMember(Map<String, Object> body) {
         String role = role(texte(body.get("role")));
+        verifierGestionAutorisee(role);
         CompteCree cree = comptesEcole.creer(texte(body.get("firstName")), texte(body.get("lastName")),
                 texte(body.get("email")), texte(body.get("phone")), null, role, texte(body.get("password")));
         UserJpaEntity u = cree.compte();
@@ -100,6 +126,7 @@ public class AdminStaffService {
     public Map<String, Object> updateStaffMember(String id, Map<String, Object> updates) {
         UserJpaEntity u = comptesEcole.membre(id, null);   // 404 si le collaborateur n'est pas de cette école
         OrganizationUserJpaEntity lien = comptesEcole.appartenance(id, null).orElseThrow();
+        verifierGestionAutorisee(lien.getRole());
         // Avant : un prénom ou un nom vide effaçait le nom du compte, et l'email n'était pas vérifié.
         if (updates.containsKey("firstName")) u.setPrenom(obligatoire(updates.get("firstName"), "Le prénom est obligatoire."));
         if (updates.containsKey("lastName")) u.setNom(obligatoire(updates.get("lastName"), "Le nom est obligatoire."));
@@ -122,6 +149,7 @@ public class AdminStaffService {
         }
         if (updates.containsKey("role")) {
             String role = role(texte(updates.get("role")));
+            verifierGestionAutorisee(role);
             lien.setRole(role);   // rôle DANS CETTE école
             u.setRole(role);
             orgUserRepo.save(lien);

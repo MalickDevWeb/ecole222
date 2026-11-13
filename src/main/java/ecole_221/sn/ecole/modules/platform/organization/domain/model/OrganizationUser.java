@@ -104,6 +104,15 @@ public class OrganizationUser {
     }
     
     // Comportements métier
+    /** Retour d'un élève transféré dans une école qu'il avait quittée (2026-11-13) : l'archive redevient active. */
+    public void reintegrer() {
+        if (!MembershipStatus.TRANSFERRED.equals(this.status)) {
+            activate();
+            return;
+        }
+        this.status = MembershipStatus.ACTIVE;
+    }
+
     public void activate() {
         if (MembershipStatus.ACTIVE.equals(this.status)) {
             return;

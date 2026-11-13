@@ -54,6 +54,26 @@ class LoginServiceSecurityTest {
     }
 
     @Test
+    void empreinte_d_un_cout_inferieur_recalculee_au_cout_actuel() {
+        // BR-03 (2026-11-13) : coût de l'application = 12 ; une empreinte au coût 4 est recalculée à la connexion
+        PasswordEncoder actuel = new BCryptPasswordEncoder(5);
+        OrganizationUserRepositoryPort memberships = mock(OrganizationUserRepositoryPort.class);
+        when(memberships.findByUserId(any())).thenReturn(List.of());
+        LoginService avecCoutSuperieur = new LoginService(users, jwt, actuel, memberships, mock(OrganizationRepositoryPort.class));
+        avecCoutSuperieur.login(new LoginCommand("superadmin@ecole221.sn", REAL_PASSWORD));
+        var capture = org.mockito.ArgumentCaptor.forClass(User.class);
+        verify(users).save(capture.capture());
+        assertThat(capture.getValue().getPassword()).startsWith("$2a$05$");
+        assertThat(actuel.matches(REAL_PASSWORD, capture.getValue().getPassword())).isTrue();
+    }
+
+    @Test
+    void cout_de_l_application_est_12() {
+        assertThat(ecole_221.sn.ecole.infrastructure.config.SecurityConfig.COUT_BCRYPT).isEqualTo(12);
+        assertThat(new ecole_221.sn.ecole.infrastructure.config.SecurityConfig(null, null).passwordEncoder().encode("x")).startsWith("$2a$12$");
+    }
+
+    @Test
     void le_vrai_mot_de_passe_ouvre_une_session() {
         var response = service.login(new LoginCommand("superadmin@ecole221.sn", REAL_PASSWORD));
         assertThat(response.getToken()).isEqualTo("jwt-de-test");

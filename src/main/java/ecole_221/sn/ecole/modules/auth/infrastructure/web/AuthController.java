@@ -29,6 +29,11 @@ public class AuthController {
 
     private final LoginUseCase loginUseCase;
     private final ActionLogger actionLogger;
+    /** Déconnexion réelle (2026-11-13) : le jeton présenté est révoqué jusqu'à son expiration. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.infrastructure.security.revocation.RevocationJetons revocation;
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.infrastructure.security.JwtService jwtService;
 
     public AuthController(LoginUseCase loginUseCase, ActionLogger actionLogger) {
         this.loginUseCase = loginUseCase;
@@ -124,6 +129,23 @@ public class AuthController {
             // Ignore si pas d'utilisateur authentifié
         }
         
+        // Révocation du jeton présenté (cookie ou en-tête) : avant, il restait valable 24 h après la déconnexion.
+        String jeton = null;
+        if (request.getCookies() != null) {
+            for (Cookie c : request.getCookies()) {
+                if (COOKIE_NAME.equals(c.getName()) && c.getValue() != null && !c.getValue().isBlank()) jeton = c.getValue();
+            }
+        }
+        String entete = request.getHeader("Authorization");
+        if (jeton == null && entete != null && entete.startsWith("Bearer ")) jeton = entete.substring(7).trim();
+        if (jeton != null && revocation != null && jwtService != null) {
+            try {
+                revocation.revoquer(jeton, jwtService.extractExpirationDate(jeton));
+            } catch (RuntimeException e) {
+                // jeton illisible ou déjà expiré : rien à révoquer
+            }
+        }
+
         boolean secureCookie = isSecureRequest(request);
         Cookie cookie = new Cookie(COOKIE_NAME, "");
         cookie.setHttpOnly(true);

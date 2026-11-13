@@ -14,7 +14,7 @@ import java.util.Map;
 
 @RestController
 @Tag(name = "Administration", description = "Coordonnées officielles de l'école")
-@PreAuthorize("hasAnyRole('ADMIN','ADMINISTRATOR','SUPER_ADMIN','PLATFORM_ADMIN')")
+@PreAuthorize("hasAnyRole('ADMIN','ADMINISTRATOR','SUPER_ADMIN','PLATFORM_ADMIN','DIRECTEUR','SECRETAIRE','COMPTABLE','SURVEILLANT','RH')") // personnel : filtré par la matrice RBAC
 public class CoordonneesEcoleController {
 
     private final CoordonneesEcoleService service;

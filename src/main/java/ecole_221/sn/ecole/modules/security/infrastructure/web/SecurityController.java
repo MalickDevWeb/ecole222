@@ -164,29 +164,18 @@ public class SecurityController {
         String statutFrais = null;
         String owner = "Inconnu";
 
-        boolean jetonRefuse = false;
+        // 2026-11-13 : le badge QR dynamique (STU_SECURE:…) est vérifié par processBadgeScan, commun à toutes les
+        // routes de scan ; on lui transmet donc le contenu scanné tel quel.
         if (payload.startsWith("STU_SECURE:")) {
             String[] parts = payload.split(":");
             identifiant = parts.length > 1 ? parts[1] : "";
-            if (parts.length != 4) {
-                jetonRefuse = true;
-            } else {
-                try {
-                    jetonRefuse = !studentUseCase.validateQrToken(parts[1], Long.parseLong(parts[2]), parts[3]);
-                } catch (NumberFormatException ex) {
-                    jetonRefuse = true;
-                }
-            }
         }
 
         if (payload.isEmpty()) {
             isValid = false;
             message = "Badge vide : aucun identifiant scanné.";
-        } else if (jetonRefuse) {
-            isValid = false;
-            message = "Token QR expiré ou invalide.";
         } else {
-            Map<String, Object> scan = securityUseCase.processBadgeScan(identifiant);
+            Map<String, Object> scan = securityUseCase.processBadgeScan(payload);
             isValid = Boolean.TRUE.equals(scan.get("accessGranted"));
             message = String.valueOf(scan.getOrDefault("message", ""));
             Object frais = scan.get("statutFrais");
