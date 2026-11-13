@@ -31,9 +31,9 @@ public class EmailController {
     public ResponseEntity<Map<String, Object>> sendEmail(@RequestBody Map<String, Object> body) {
         logger.info("POST /email/send - Envoi d'email simple");
         
-        String to = (String) body.get("to");
-        String subject = (String) body.get("subject");
-        String content = (String) body.get("content");
+        String to = destinataire(body);
+        String subject = texte(body, "subject");
+        String content = texte(body, "content");
         
         boolean success = emailUseCase.sendStudentNotification(to, subject, content);
         
@@ -52,10 +52,10 @@ public class EmailController {
     public ResponseEntity<Map<String, Object>> sendTemplateEmail(@RequestBody Map<String, Object> body) {
         logger.info("POST /email/send-template - Envoi d'email template");
         
-        String to = (String) body.get("to");
-        String templateId = (String) body.get("templateId");
+        String to = destinataire(body);
+        String templateId = texte(body, "templateId");
         @SuppressWarnings("unchecked")
-        Map<String, Object> variables = (Map<String, Object>) body.get("variables");
+        Map<String, Object> variables = carte(body, "variables");
         
         boolean success = emailUseCase.sendTemplateEmail(to, templateId, variables);
         
@@ -74,10 +74,10 @@ public class EmailController {
     public ResponseEntity<Map<String, Object>> sendConfirmationEmail(@RequestBody Map<String, Object> body) {
         logger.info("POST /email/send-confirmation - Envoi d'email de confirmation");
         
-        String to = (String) body.get("to");
-        String type = (String) body.get("type");
+        String to = destinataire(body);
+        String type = texte(body, "type");
         @SuppressWarnings("unchecked")
-        Map<String, Object> data = (Map<String, Object>) body.get("data");
+        Map<String, Object> data = carte(body, "data");
         
         boolean success = emailUseCase.sendConfirmationEmail(to, type, data);
         
@@ -96,10 +96,10 @@ public class EmailController {
     public ResponseEntity<Map<String, Object>> sendReminderEmail(@RequestBody Map<String, Object> body) {
         logger.info("POST /email/send-reminder - Envoi d'email de rappel");
         
-        String to = (String) body.get("to");
-        String reminderType = (String) body.get("reminderType");
+        String to = destinataire(body);
+        String reminderType = texte(body, "reminderType");
         @SuppressWarnings("unchecked")
-        Map<String, Object> details = (Map<String, Object>) body.get("details");
+        Map<String, Object> details = carte(body, "details");
         
         boolean success = emailUseCase.sendReminderEmail(to, reminderType, details);
         
@@ -122,5 +122,40 @@ public class EmailController {
         status.put("available", emailUseCase.isEmailServiceAvailable());
         
         return ResponseEntity.ok(status);
+    }
+
+    // Balayage de robustesse (2026-11-13) : un champ absent ou d'un autre type (nombre, liste…) provoquait une
+    // ClassCastException ou une NullPointerException, donc une erreur 500. Refus 400 précis à la place.
+    private static String destinataire(Map<String, Object> body) {
+        String to = texte(body, "to");
+        if (!to.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$") || to.length() > 254) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Adresse e-mail du destinataire invalide.");
+        }
+        return to;
+    }
+
+    private static String texte(Map<String, Object> body, String cle) {
+        Object v = body == null ? null : body.get(cle);
+        if (!(v instanceof String s) || s.isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Champ « " + cle + " » obligatoire (texte).");
+        }
+        if (s.length() > 20_000) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Champ « " + cle + " » trop long.");
+        }
+        return s.trim();
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, Object> carte(Map<String, Object> body, String cle) {
+        Object v = body == null ? null : body.get(cle);
+        if (v == null) return Map.of();
+        if (!(v instanceof Map<?, ?>)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Champ « " + cle + " » : un objet est attendu.");
+        }
+        return (Map<String, Object>) v;
     }
 }

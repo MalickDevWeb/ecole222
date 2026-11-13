@@ -74,7 +74,7 @@ public class EmailUseCaseImpl implements EmailUseCase {
     }
     
     private String buildConfirmationSubject(String type) {
-        return switch (type.toLowerCase()) {
+        return switch (type == null ? "" : type.toLowerCase(java.util.Locale.ROOT)) {
             case "inscription" -> "Confirmation d'inscription - École 221";
             case "paiement" -> "Confirmation de paiement - École 221";
             case "inscription_cours" -> "Confirmation d'inscription au cours - École 221";
@@ -102,7 +102,7 @@ public class EmailUseCaseImpl implements EmailUseCase {
     }
     
     private String buildReminderSubject(String reminderType) {
-        return switch (reminderType.toLowerCase()) {
+        return switch (reminderType == null ? "" : reminderType.toLowerCase(java.util.Locale.ROOT)) {
             case "devoir" -> "Rappel de devoir - École 221";
             case "examen" -> "Rappel d'examen - École 221";
             case "cours" -> "Rappel de cours - École 221";

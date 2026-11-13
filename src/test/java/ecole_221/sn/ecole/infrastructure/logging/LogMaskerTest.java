@@ -57,4 +57,17 @@ class LogMaskerTest {
         assertEquals("null", LogMasker.masquer(null));
         assertTrue(LogMasker.masquer("x".repeat(1000)).length() < 320);
     }
+
+    /** Avant : StackOverflowError ou dizaines de secondes sur 100 000 caractères (y compris à la connexion publique). */
+    @org.junit.jupiter.api.Test
+    void texteGeantMasqueRapidementSansDebordementNiFuite() {
+        String geant = "{\"password\":\"" + "A".repeat(100_000) + "\",\"email\":\"awa.diop@exemple.sn\"}";
+        long debut = System.nanoTime();
+        String masque = LogMasker.masquer(geant);
+        long ms = (System.nanoTime() - debut) / 1_000_000;
+        org.assertj.core.api.Assertions.assertThat(ms).isLessThan(500);
+        org.assertj.core.api.Assertions.assertThat(masque).doesNotContain("AAAAAAAAAA").hasSizeLessThan(320);
+        String court = LogMasker.masquer("{\"motDePasse\":\"Secret-2026\",\"email\":\"awa.diop@exemple.sn\"}");
+        org.assertj.core.api.Assertions.assertThat(court).doesNotContain("Secret-2026").doesNotContain("awa.diop");
+    }
 }

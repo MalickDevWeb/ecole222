@@ -42,7 +42,17 @@ public class RequestLoggingFilter implements Filter {
         // Wrapper la requête pour permettre plusieurs lectures du corps
         HttpServletRequest wrappedRequest = httpRequest;
         if (shouldLogBody(httpRequest)) {
-            wrappedRequest = new CachedBodyHttpServletRequest(httpRequest);
+            // Corps démesuré refusé sans être lu en entier (avant : chargé en mémoire quelle que soit sa taille)
+            if (httpRequest.getContentLengthLong() > CachedBodyHttpServletRequest.LIMITE_OCTETS) {
+                refuserTropVolumineux(httpResponse);
+                return;
+            }
+            try {
+                wrappedRequest = new CachedBodyHttpServletRequest(httpRequest);
+            } catch (CachedBodyHttpServletRequest.CorpsTropVolumineuxException e) {
+                refuserTropVolumineux(httpResponse);
+                return;
+            }
         }
         
         // Lire et logger la requête entrante
@@ -114,6 +124,13 @@ public class RequestLoggingFilter implements Filter {
             logger.info("║   ✓ Response time acceptable                                                                ║");
         }
         logger.info("╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝");
+    }
+
+    private static void refuserTropVolumineux(HttpServletResponse reponse) throws IOException {
+        reponse.setStatus(413);
+        reponse.setContentType("application/json;charset=UTF-8");
+        reponse.getWriter().write("{\"success\":false,\"code\":\"VALIDATION_ERROR\",\"status\":413,"
+                + "\"message\":\"Requête trop volumineuse (2 Mo au maximum, fichiers à envoyer séparément).\"}");
     }
 
     private boolean shouldLogBody(HttpServletRequest request) {

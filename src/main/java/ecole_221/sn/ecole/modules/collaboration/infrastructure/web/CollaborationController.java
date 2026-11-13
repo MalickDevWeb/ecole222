@@ -169,7 +169,14 @@ public class CollaborationController {
     public ResponseEntity<Map<String, Object>> addMessage(
             @Parameter(description = "Identifiant du groupe") @PathVariable("groupId") String groupId,
             @RequestBody Map<String, Object> body) {
-        collaborationUseCase.addMessage(groupId, (String) body.get("sender"), (String) body.get("content"));
+        // Auteur = compte connecté (avant : champ « sender » de la requête, n'importe qui signait au nom d'un autre)
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (!(auth != null && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Veuillez vous connecter.");
+        }
+        String auteur = ((u.getPrenom() == null ? "" : u.getPrenom()) + " " + (u.getNom() == null ? "" : u.getNom())).trim();
+        Object contenu = body == null ? null : body.get("content");
+        collaborationUseCase.addMessage(groupId, auteur.isEmpty() ? u.getEmail() : auteur, contenu instanceof String t ? t : null);
         Map<String, Object> res = new HashMap<>();
         res.put("success", true);
         return ResponseEntity.ok(res);

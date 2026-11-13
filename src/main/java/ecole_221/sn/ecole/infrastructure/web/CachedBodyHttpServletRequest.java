@@ -16,11 +16,26 @@ import java.nio.charset.StandardCharsets;
  */
 public class CachedBodyHttpServletRequest extends HttpServletRequestWrapper {
 
+    /** Taille maximale d'un corps JSON / texte (les fichiers passent par multipart, limité à part). */
+    public static final int LIMITE_OCTETS = 2 * 1024 * 1024;
+
+    /** Corps au-delà de la limite : la requête est refusée en 413. */
+    public static class CorpsTropVolumineuxException extends java.io.IOException {
+        public CorpsTropVolumineuxException() {
+            super("Corps de requête trop volumineux.");
+        }
+    }
+
     private final byte[] cachedBody;
 
     public CachedBodyHttpServletRequest(HttpServletRequest request) throws IOException {
         super(request);
-        this.cachedBody = request.getInputStream().readAllBytes();
+        // Lecture bornée (2026-11-13) : avant, readAllBytes() chargeait en mémoire un corps de n'importe quelle taille.
+        byte[] lu = request.getInputStream().readNBytes(LIMITE_OCTETS + 1);
+        if (lu.length > LIMITE_OCTETS) {
+            throw new CorpsTropVolumineuxException();
+        }
+        this.cachedBody = lu;
     }
 
     @Override

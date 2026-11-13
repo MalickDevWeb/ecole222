@@ -12,7 +12,8 @@ server:
   error:
     include-message: always
     include-binding-errors: always
-    include-stacktrace: on_param
+    # Jamais de pile d'exécution renvoyée au client (avant : on_param, ?trace=true suffisait à l'obtenir)
+    include-stacktrace: never
     include-exception: false
 
 spring:

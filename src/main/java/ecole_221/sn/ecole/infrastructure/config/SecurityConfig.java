@@ -59,8 +59,8 @@ public class SecurityConfig {
         // WebSocket
         "/ws/**",
         // Admissions : seules les routes du portail candidat sont publiques, voir PORTAIL_CANDIDAT_* (APP-SEC-12)
-        // Dashboard étudiant & planning consultation
-        "/meet/active",
+        // Calendrier de l'école affiché sur la page de connexion (onglet « Calendrier »)
+        // (/meet/active retiré le 2026-11-13 : aucun écran ne l'appelle, il répondait sans compte ni jeton valide)
         "/schedule",
         // APP-SEC-15 : /collaboration, /wiki, /notifications, /sync, /media ne sont plus publics
         // (seules exceptions, par méthode : GET /sync/check et POST /media/upload, voir PORTAIL_CANDIDAT_*)
@@ -102,6 +102,14 @@ public class SecurityConfig {
                 // Routes exclusivement réservées au SUPER_ADMIN / PLATFORM_ADMIN
                 .requestMatchers("/super-admin/**", "/platform/**", "/v1/super-admin/**", "/v1/platform/**")
                     .hasAnyRole("SUPER_ADMIN", "PLATFORM_ADMIN")
+                // Envoi d'e-mails libres (destinataire, sujet, contenu au choix) : réservé à l'administration.
+                // Avant : tout compte connecté, élève compris, pouvait écrire à n'importe qui au nom de l'école.
+                .requestMatchers("/email/**", "/v1/email/**").hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
+                // Centre de notifications de l'école (liste complète, envoi à n'importe quel destinataire, boîte d'un
+                // autre compte) : administration uniquement — seul l'espace administration l'utilise. Avant : un élève
+                // lisait les notifications de l'administrateur et envoyait des notifications « prioritaires » à qui il voulait.
+                .requestMatchers("/v1/notifications/**", "/api/v1/notifications/**", "/v1/notifications", "/api/v1/notifications")
+                    .hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
                 .requestMatchers("/admin/**", "/finance/**", "/dashboard/**", "/audit/**")
                     .hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
                 .requestMatchers("/planning/**").authenticated()

@@ -133,11 +133,16 @@ public class NotificationController {
     @Operation(summary = "Envoyer depuis template", description = "Envoie une notification basée sur un template")
     public ResponseEntity<NotificationJpaEntity> sendFromTemplate(@RequestBody Map<String, Object> body) {
         logger.info("POST /notifications/send-template - Envoi depuis template");
+        Object vars = body == null ? null : body.get("variables");
+        if (vars != null && !(vars instanceof Map<?, ?>)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Champ « variables » : un objet est attendu.");
+        }
         @SuppressWarnings("unchecked")
-        Map<String, Object> variables = (Map<String, Object>) body.get("variables");
+        Map<String, Object> variables = vars == null ? Map.of() : (Map<String, Object>) vars;
         return ResponseEntity.ok(notificationUseCase.sendFromTemplate(
-            body.get("templateKey").toString(),
-            body.get("recipientId").toString(),
+            texteObligatoire(body, "templateKey"),
+            texteObligatoire(body, "recipientId"),
             variables
         ));
     }
@@ -146,13 +151,18 @@ public class NotificationController {
     @Operation(summary = "Envoi groupé", description = "Envoie une notification à plusieurs destinataires")
     public ResponseEntity<Map<String, Object>> sendBulkNotification(@RequestBody Map<String, Object> body) {
         logger.info("POST /notifications/send-bulk - Envoi groupé");
-        @SuppressWarnings("unchecked")
-        List<String> recipientIds = (List<String>) body.get("recipientIds");
+        Object ids = body == null ? null : body.get("recipientIds");
+        if (!(ids instanceof List<?> liste) || liste.isEmpty() || liste.size() > 5_000
+                || liste.stream().anyMatch(x -> !(x instanceof String t) || t.isBlank())) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Champ « recipientIds » : une liste d'identifiants (texte) de 1 à 5 000 éléments est attendue.");
+        }
+        List<String> recipientIds = liste.stream().map(String::valueOf).toList();
         notificationUseCase.sendBulkNotification(
             recipientIds,
-            body.get("title").toString(),
-            body.get("message").toString(),
-            body.get("category").toString()
+            texteObligatoire(body, "title"),
+            texteObligatoire(body, "message"),
+            texteObligatoire(body, "category")
         );
         return ResponseEntity.ok(Map.of("success", true, "count", recipientIds.size()));
     }
@@ -178,5 +188,22 @@ public class NotificationController {
     public ResponseEntity<List<NotificationJpaEntity>> getNotificationsByCategory(@PathVariable String category) {
         logger.info("GET /notifications/category/{} - Récupération notifications par catégorie", category);
         return ResponseEntity.ok(notificationUseCase.getNotificationsByCategory(category));
+    }
+
+    /**
+     * Balayage de robustesse (2026-11-13) : body.get(x).toString() sur un champ absent provoquait une
+     * NullPointerException (500). Refus 400 précis à la place.
+     */
+    private static String texteObligatoire(Map<String, Object> body, String cle) {
+        Object v = body == null ? null : body.get(cle);
+        if (!(v instanceof String t) || t.isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Champ « " + cle + " » obligatoire (texte).");
+        }
+        if (t.length() > 5_000) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Champ « " + cle + " » trop long (5 000 caractères au maximum).");
+        }
+        return t.trim();
     }
 }

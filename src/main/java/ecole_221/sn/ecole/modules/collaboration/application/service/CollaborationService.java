@@ -191,11 +191,24 @@ public class CollaborationService implements CollaborationUseCase {
 
     @Override
     public void addMessage(String groupId, String sender, String content) {
+        // Balayage du 2026-11-13 : groupe inexistant → 404 ; message vide ou démesuré → 400 (avant : enregistré tel quel)
+        if (groupId == null || !workgroupJpaRepository.existsById(groupId)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,
+                    "Groupe de travail introuvable.");
+        }
+        if (content == null || content.isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Le message est vide.");
+        }
+        if (content.length() > 4_000) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Message trop long (4 000 caractères au maximum).");
+        }
         MessageJpaEntity message = new MessageJpaEntity();
         message.setId("msg-" + UUID.randomUUID().toString().substring(0, 8));
         message.setGroupId(groupId);
         message.setSender(sender);
-        message.setContent(content);
+        message.setContent(content.strip());
         message.setTimestamp(LocalDateTime.now());
         messageJpaRepository.save(message);
     }

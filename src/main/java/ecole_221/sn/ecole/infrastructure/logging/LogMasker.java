@@ -17,11 +17,20 @@ public final class LogMasker {
             Pattern.compile("(?<![\\w-])(?:\\+?221[\\s.-]?)?[37]\\d(?:[\\s.-]?\\d){7}(?![\\w-])");
     /** Valeur entre guillemets (JSON) : masquée jusqu'au guillemet fermant, espaces compris. */
     private static final Pattern CHAMP_SECRET_JSON = Pattern.compile(
-            "(?i)((?:password|motDePasse|mot_de_passe|mdp|secret|token|apiKey|credential)\\w*\"\\s*:\\s*\")(?:[^\"\\\\]|\\\\.)*\"");
+            // Forme « déroulée » possessive : sans pile par caractère (avant : (?:[^"\\]|\\.)* → StackOverflowError
+            // sur une valeur de 100 000 caractères, y compris sur la route publique de connexion).
+            "(?i)((?:password|motDePasse|mot_de_passe|mdp|secret|token|apiKey|credential)\\w*\"\\s*:\\s*\")[^\"\\\\]*+(?:\\\\.[^\"\\\\]*+)*+\"");
     private static final Pattern CHAMP_SECRET = Pattern.compile(
             "(?i)(password|motDePasse|mot_de_passe|mdp|secret|token|apiKey|credential)(\"?\\s*[=:]\\s*\"?)[^,\\]}\"\\s]+");
 
     private static final int LONGUEUR_MAX = 300;
+    /**
+     * Texte examiné au plus : au-delà, il est coupé AVANT le masquage. Avant : les expressions régulières parcouraient
+     * tout le texte (100 000 caractères copiés-collés) → plusieurs dizaines de secondes par requête ou
+     * StackOverflowError, de quoi bloquer le serveur avec une seule requête publique. La coupe finale à
+     * LONGUEUR_MAX garantit qu'aucun secret coupé à cette frontière n'est écrit.
+     */
+    private static final int LONGUEUR_EXAMINEE = 2_000;
 
     private LogMasker() {
     }
@@ -32,6 +41,9 @@ public final class LogMasker {
             return "null";
         }
         String s = String.valueOf(valeur);
+        if (s.length() > LONGUEUR_EXAMINEE) {
+            s = s.substring(0, LONGUEUR_EXAMINEE);
+        }
         s = JWT.matcher(s).replaceAll("[jwt]");
         s = BEARER.matcher(s).replaceAll("Bearer [jeton]");
         s = CHAMP_SECRET_JSON.matcher(s).replaceAll("$1***\"");
