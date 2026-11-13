@@ -6,6 +6,8 @@ import ecole_221.sn.ecole.modules.collaboration.application.port.dto.MessageDto;
 import ecole_221.sn.ecole.modules.collaboration.application.service.GroupChatService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -16,6 +18,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/collaboration/groupchat")
+@Tag(name = "Messagerie de groupe", description = "Discussions de groupe et à deux, messages texte, vocaux et images")
 public class GroupChatController {
     
     private static final Logger logger = LoggerFactory.getLogger(GroupChatController.class);
@@ -31,6 +34,7 @@ public class GroupChatController {
     
     // ==================== ENDPOINTS GROUP CHAT ====================
     
+    @Operation(summary = "Créer une discussion de groupe", description = "Corps {name} (obligatoire, 100 caractères au plus). Le créateur est le compte connecté (creatorId facultatif, refusé s'il désigne un autre compte) ; il devient administrateur de la discussion.")
     @PostMapping("/groups")
     public ResponseEntity<?> createGroup(@RequestBody Map<String, String> request) {
         try {
@@ -52,6 +56,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Changer l'image d'une discussion", description = "Fichier multipart « file ». Réservé aux administrateurs de la discussion (403 sinon) ; fichier vide → 400.")
     @PostMapping(value = "/groups/{id}/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<GroupChatDto> uploadGroupAvatar(
             @PathVariable String id,
@@ -72,6 +77,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Détail d'une discussion", description = "Nom, description, participants, administrateurs, état (sourdine, archive, épingle). Réservé aux participants (403 sinon).")
     @GetMapping("/groups/{id}")
     public ResponseEntity<GroupChatDto> getGroup(@PathVariable String id) {
         try {
@@ -84,6 +90,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Mes discussions", description = "Discussions du compte connecté ; userId doit être le sien (403 sinon).")
     @GetMapping("/users/{userId}/chats")
     public ResponseEntity<List<GroupChatDto>> getUserChats(@PathVariable String userId) {
         try {
@@ -96,6 +103,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Renommer une discussion", description = "Corps {name}. Réservé aux administrateurs de la discussion.")
     @PutMapping("/groups/{id}/name")
     public ResponseEntity<GroupChatDto> updateGroupName(
             @PathVariable String id,
@@ -111,6 +119,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Ajouter un participant", description = "Corps {participantId}. Réservé aux administrateurs de la discussion.")
     @PostMapping("/groups/{id}/participants")
     public ResponseEntity<Void> addParticipant(
             @PathVariable String id,
@@ -126,6 +135,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Retirer un participant", description = "Réservé aux administrateurs de la discussion.")
     @DeleteMapping("/groups/{id}/participants/{participantId}")
     public ResponseEntity<Void> removeParticipant(
             @PathVariable String id,
@@ -140,6 +150,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Modifier la description d'une discussion", description = "Corps {description}. Réservé aux administrateurs de la discussion.")
     @PostMapping("/groups/{id}/description")
     public ResponseEntity<GroupChatDto> updateGroupDescription(
             @PathVariable String id,
@@ -155,6 +166,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Nommer un administrateur de discussion", description = "Corps {adminId}. Réservé aux administrateurs de la discussion.")
     @PostMapping("/groups/{id}/admins")
     public ResponseEntity<Void> addAdmin(
             @PathVariable String id,
@@ -170,6 +182,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Retirer un administrateur de discussion", description = "Réservé aux administrateurs de la discussion.")
     @DeleteMapping("/groups/{id}/admins/{adminId}")
     public ResponseEntity<Void> removeAdmin(
             @PathVariable String id,
@@ -184,6 +197,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Mettre une discussion en sourdine", description = "Corps {durationMinutes?} (60 par défaut) ; userId facultatif, obligatoirement le compte connecté. Réservé aux participants.")
     @PostMapping("/groups/{id}/mute")
     public ResponseEntity<Void> muteChat(
             @PathVariable String id,
@@ -200,6 +214,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Réactiver les notifications d'une discussion", description = "userId facultatif, obligatoirement le compte connecté. Réservé aux participants.")
     @PostMapping("/groups/{id}/unmute")
     public ResponseEntity<Void> unmuteChat(
             @PathVariable String id,
@@ -215,6 +230,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Archiver une discussion (pour soi)", description = "userId facultatif, obligatoirement le compte connecté. Réservé aux participants.")
     @PostMapping("/groups/{id}/archive")
     public ResponseEntity<Void> archiveChat(
             @PathVariable String id,
@@ -230,6 +246,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Désarchiver une discussion", description = "userId facultatif, obligatoirement le compte connecté. Réservé aux participants.")
     @PostMapping("/groups/{id}/unarchive")
     public ResponseEntity<Void> unarchiveChat(
             @PathVariable String id,
@@ -245,6 +262,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Épingler une discussion", description = "userId facultatif, obligatoirement le compte connecté. Réservé aux participants.")
     @PostMapping("/groups/{id}/pin")
     public ResponseEntity<Void> pinChat(
             @PathVariable String id,
@@ -260,6 +278,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Désépingler une discussion", description = "userId facultatif, obligatoirement le compte connecté. Réservé aux participants.")
     @PostMapping("/groups/{id}/unpin")
     public ResponseEntity<Void> unpinChat(
             @PathVariable String id,
@@ -275,10 +294,15 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Mes discussions d'un type", description = "Discussions du type demandé dont le compte connecté fait partie.")
     @GetMapping("/groups/types/{type}")
     public ResponseEntity<List<GroupChatDto>> getGroupsByType(@PathVariable String type) {
         try {
-            List<GroupChatDto> groups = groupChatService.getGroupChatsByType(type);
+            // 2026-11-13 : seulement les discussions dont le compte fait partie (avant : toutes celles de l'école,
+            // discussions privées à deux comprises, avec leurs participants)
+            String moi = moi();
+            List<GroupChatDto> groups = groupChatService.getGroupChatsByType(type).stream()
+                    .filter(g -> g.participantIds() != null && g.participantIds().contains(moi)).toList();
             return ResponseEntity.ok(groups);
         } catch (Exception e) {
             logger.error("Erreur récupération groupes par type", e);
@@ -286,6 +310,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Ouvrir une discussion à deux", description = "Corps {user2Id} (obligatoire, différent de soi) ; user1Id facultatif, obligatoirement le compte connecté.")
     @PostMapping("/individual")
     public ResponseEntity<GroupChatDto> createIndividualChat(@RequestBody Map<String, String> request) {
         try {
@@ -306,6 +331,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Envoyer un message texte", description = "Corps {content}. L'auteur est le compte connecté (senderId facultatif, refusé s'il désigne un autre compte). Réservé aux participants.")
     @PostMapping("/groups/{id}/messages/text")
     public ResponseEntity<MessageDto> sendTextMessage(
             @PathVariable String id,
@@ -322,6 +348,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Envoyer un message vocal", description = "Multipart : « audio » (fichier), « senderId » (le compte connecté). Réservé aux participants.")
     @PostMapping(value = "/groups/{id}/messages/audio", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<MessageDto> sendAudioMessage(
             @PathVariable String id,
@@ -347,6 +374,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Envoyer une image", description = "Multipart : « image » (fichier), « senderId » (le compte connecté). Réservé aux participants.")
     @PostMapping(value = "/groups/{id}/messages/image", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<MessageDto> sendImageMessage(
             @PathVariable String id,
@@ -372,6 +400,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Messages d'une discussion", description = "Réservé aux participants.")
     @GetMapping("/groups/{id}/messages")
     public ResponseEntity<List<MessageDto>> getMessages(@PathVariable String id) {
         try {
@@ -384,6 +413,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Marquer un message comme lu", description = "Corps {chatId} (discussion du message) ; userId facultatif, obligatoirement le compte connecté. Réservé aux participants.")
     @PostMapping("/messages/{id}/read")
     public ResponseEntity<Void> markMessageAsRead(
             @PathVariable String id,
@@ -401,6 +431,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Supprimer un message", description = "Réservé à l'auteur du message ou à un administrateur de la discussion.")
     @DeleteMapping("/messages/{id}")
     public ResponseEntity<Void> deleteMessage(@PathVariable String id) {
         try {
@@ -414,6 +445,7 @@ public class GroupChatController {
         }
     }
     
+    @Operation(summary = "Résumé d'une discussion pour l'écran", description = "id, nom, description, image, créateur, type. Réservé aux participants.")
     @GetMapping("/groups/{id}/frontend")
     public ResponseEntity<Map<String, Object>> getGroupFrontend(@PathVariable String id) {
         try {
