@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.*;
 import ecole_221.sn.ecole.modules.collaboration.application.port.usecase.CollaborationUseCase;
 import ecole_221.sn.ecole.infrastructure.logging.ActionLogger;
 
+import static ecole_221.sn.ecole.partage.ChampsRequete.*;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -22,6 +23,10 @@ public class CollaborationController {
 
     private final CollaborationUseCase collaborationUseCase;
     private final ActionLogger actionLogger;
+
+    /** Wiki, présences et devoirs de groupe enregistrés en base par école (V8 ; avant : listes en mémoire communes). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService elementsCollaboratifs;
 
     private final ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances;
     private final ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort comptes;
@@ -81,20 +86,18 @@ public class CollaborationController {
     }
 
     @PostMapping("/workgroups")
-    @Operation(summary = "Créer un groupe", description = "Crée un nouveau groupe de travail (name, description).")
+    @Operation(summary = "Créer un groupe", description = "Crée un nouveau groupe de travail (name obligatoire, description).")
     public ResponseEntity<Map<String, Object>> createWorkgroup(@RequestBody Map<String, Object> body) {
-        String name = (String) body.get("name");
-        String description = (String) body.get("description");
-        // créateur = utilisateur connecté (avant : « usr-001 » par défaut, et valeur du client acceptée)
-        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
-        String creatorId = auth != null && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u
-                ? u.getId() : (String) body.get("creatorId");
-        
+        // APP-QA-04 : nom obligatoire et texte, longueurs bornées (avant : groupe sans nom créé, ou faux succès « fallback-… »)
+        String name = texte(body, "name", "Le nom du groupe", 100);
+        String description = texteOptionnel(body, "description", "La description", 1_000);
+        String creatorId = moi().getId();   // créateur = compte connecté, jamais une valeur du client
+
         var workgroup = collaborationUseCase.createWorkgroup(name, description, creatorId);
-        
-        actionLogger.logCollaborationAction("CREATE_WORKGROUP", creatorId, "NEW", 
+
+        actionLogger.logCollaborationAction("CREATE_WORKGROUP", creatorId, "NEW",
             "Création groupe: " + name);
-        
+
         Map<String, Object> res = new HashMap<>();
         res.put("success", true);
         res.put("id", workgroup.id());
@@ -109,14 +112,18 @@ public class CollaborationController {
     }
 
     @PostMapping("/workgroups/{groupId}/documents")
-    @Operation(summary = "Ajouter un document", description = "Ajoute un document partagé dans un groupe (name, type, size, url, addedBy).")
+    @Operation(summary = "Ajouter un document", description = "Partage un document dans un groupe (name obligatoire ; url http(s), type, size facultatifs).")
     public ResponseEntity<Map<String, Object>> addDocument(
             @Parameter(description = "Identifiant du groupe") @PathVariable("groupId") String groupId,
             @RequestBody Map<String, Object> body) {
-        collaborationUseCase.addDocument(
-            groupId, (String) body.get("name"), (String) body.get("type"),
-            (String) body.get("size"), (String) body.get("url"), (String) body.get("addedBy")
-        );
+        // APP-QA-04 : champs contrôlés, déposant = compte connecté (avant : addedBy lu dans la requête, souvent vide)
+        String nom = texte(body, "name", "Le nom du document", 255);
+        String url = texteOptionnel(body, "url", "Le lien du document", 1_000);
+        if (url != null && !url.matches("(?i)^https?://\\S+$")) {
+            throw refus("Le lien du document doit commencer par http:// ou https://.");
+        }
+        collaborationUseCase.addDocument(groupId, nom, texteOptionnel(body, "type", "Le type", 50),
+                texteOptionnel(body, "size", "La taille", 50), url, nomAffiche(moi()));
         Map<String, Object> res = new HashMap<>();
         res.put("success", true);
         return ResponseEntity.ok(res);
@@ -126,17 +133,19 @@ public class CollaborationController {
     @Operation(summary = "Devoirs d'un groupe", description = "Retourne les devoirs de groupe partagés dans un groupe.")
     public ResponseEntity<List<Map<String, Object>>> getHomeworks(
             @Parameter(description = "Identifiant du groupe") @PathVariable("groupId") String groupId) {
-        return ResponseEntity.ok(List.of());
+        return ResponseEntity.ok(elementsCollaboratifs.lister(
+                ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService.DEVOIR, groupId));
     }
 
     @PostMapping("/workgroups/{groupId}/homeworks")
-    @Operation(summary = "Ajouter un devoir", description = "Ajoute un devoir dans un groupe.")
+    @Operation(summary = "Enregistrer un devoir de groupe", description = "Crée ou met à jour (même id) un devoir de groupe et ses remises.")
     public ResponseEntity<Map<String, Object>> addHomework(
             @Parameter(description = "Identifiant du groupe") @PathVariable("groupId") String groupId,
             @RequestBody Map<String, Object> body) {
-        Map<String, Object> res = new HashMap<>();
-        res.put("success", true);
-        return ResponseEntity.ok(res);
+        // Avant (balayage du 2026-11-13) : « success » renvoyé sans rien enregistrer
+        Map<String, Object> devoir = elementsCollaboratifs.enregistrer(
+                ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService.DEVOIR, body, groupId);
+        return ResponseEntity.ok(Map.of("success", true, "id", devoir.get("id")));
     }
 
     @GetMapping("/workgroups/{groupId}/tasks")
@@ -147,14 +156,34 @@ public class CollaborationController {
     }
 
     @PostMapping("/workgroups/{groupId}/tasks")
-    @Operation(summary = "Ajouter une tâche", description = "Crée une nouvelle tâche dans un groupe (title, status, assignedTo).")
+    @Operation(summary = "Enregistrer une tâche", description = "Crée une tâche, ou la met à jour si son id existe déjà dans ce groupe (changement de statut).")
     public ResponseEntity<Map<String, Object>> addTask(
             @Parameter(description = "Identifiant du groupe") @PathVariable("groupId") String groupId,
             @RequestBody Map<String, Object> body) {
-        collaborationUseCase.addTask(groupId, (String) body.get("title"), (String) body.get("status"), (String) body.get("assignedTo"));
+        // APP-QA-04 : titre obligatoire, statut dans la liste connue ; un changement de statut met à jour la tâche
+        // (avant : chaque changement de statut créait une nouvelle tâche en double)
+        String id = collaborationUseCase.enregistrerTache(groupId,
+                texteOptionnel(body, "id", "L'identifiant de la tâche", 100),
+                texte(body, "title", "Le titre de la tâche", 200),
+                statutTache(body),
+                texteOptionnel(body, "assignedTo", "La personne assignée", 255));
         Map<String, Object> res = new HashMap<>();
         res.put("success", true);
+        res.put("id", id);
         return ResponseEntity.ok(res);
+    }
+
+    private static final List<String> STATUTS_TACHE = List.of("A faire", "À faire", "En cours", "A valider", "Terminé");
+    /** Codes acceptés aussi (API) : ramenés au libellé affiché par l'écran. */
+    private static final Map<String, String> CODES_STATUT = Map.of("A_FAIRE", "A faire", "TODO", "A faire",
+            "EN_COURS", "En cours", "IN_PROGRESS", "En cours", "A_VALIDER", "A valider", "TERMINE", "Terminé", "DONE", "Terminé");
+
+    private static String statutTache(Map<String, Object> body) {
+        String brut = texteOptionnel(body, "status", "Le statut", 30);
+        if (brut != null && CODES_STATUT.containsKey(brut.toUpperCase(java.util.Locale.ROOT))) {
+            return CODES_STATUT.get(brut.toUpperCase(java.util.Locale.ROOT));
+        }
+        return choix(body, "status", "Le statut", STATUTS_TACHE, "A faire");
     }
 
     @GetMapping("/workgroups/{groupId}/messages")
@@ -189,13 +218,42 @@ public class CollaborationController {
     }
 
     @PostMapping("/meets")
-    @Operation(summary = "Créer une réunion", description = "Planifie une nouvelle réunion virtuelle (title, link, time).")
+    @Operation(summary = "Créer une réunion", description = "Planifie une classe virtuelle (subjectName ou title, meetLink ou link en http(s), date, time).")
     public ResponseEntity<Map<String, Object>> createMeet(@RequestBody Map<String, Object> body) {
-        // APP-BE-14 : tous les champs de la classe virtuelle sont conservés (avant : seuls title/link/time)
-        collaborationUseCase.createMeet(body);
+        // APP-QA-04 : seuls les champs connus, contrôlés (avant : corps enregistré tel quel, nombre ou liste compris)
+        corpsRequis(body);
+        Map<String, Object> d = new HashMap<>();
+        String titre = texteOptionnel(body, "subjectName", "La matière", 200);
+        d.put("subjectName", titre != null ? titre : texte(body, "title", "Le titre de la réunion", 200));
+        d.put("title", texteOptionnel(body, "title", "Le titre de la réunion", 200) != null ? texteOptionnel(body, "title", "Le titre de la réunion", 200) : d.get("subjectName"));
+        String lien = texteOptionnel(body, "meetLink", "Le lien de la réunion", 1_000);
+        lien = lien != null ? lien : texte(body, "link", "Le lien de la réunion", 1_000);
+        if (!lien.matches("(?i)^https?://\\S+$")) {
+            throw refus("Le lien de la réunion doit commencer par http:// ou https://.");
+        }
+        d.put("link", lien);
+        d.put("meetLink", lien);
+        d.put("date", texteOptionnel(body, "date", "La date", 40));
+        d.put("time", texteOptionnel(body, "time", "L'heure", 60));
+        d.put("teacherName", texteOptionnel(body, "teacherName", "Le nom de l'enseignant", 200));
+        d.put("classIds", listeTextes(body.get("classIds"), "Les classes"));
+        d.put("classNames", listeTextes(body.get("classNames"), "Les noms de classes"));
+        d.put("isPublished", Boolean.TRUE.equals(booleenOptionnel(body, "isPublished", "« Publiée »")));
+        d.put("restrictToGoogleAccount", Boolean.TRUE.equals(booleenOptionnel(body, "restrictToGoogleAccount", "« Compte Google obligatoire »")));
+        collaborationUseCase.createMeet(d);
         Map<String, Object> res = new HashMap<>();
         res.put("success", true);
         return ResponseEntity.ok(res);
+    }
+
+    private static List<String> listeTextes(Object valeur, String libelle) {
+        if (valeur == null) {
+            return List.of();
+        }
+        if (!(valeur instanceof List<?> l) || l.size() > 100 || l.stream().anyMatch(x -> !(x instanceof String t) || t.isBlank() || t.length() > 100)) {
+            throw refus(libelle + " : liste de 100 textes au maximum (100 caractères chacun).");
+        }
+        return l.stream().map(x -> ((String) x).strip()).toList();
     }
 
     @GetMapping("/admin-meets")
@@ -205,21 +263,10 @@ public class CollaborationController {
     }
 
     @PostMapping("/voice-sessions")
-    @Operation(summary = "Créer une session vocale", description = "Crée une nouvelle session de collaboration vocale (title, groupId).")
-    public ResponseEntity<Map<String, Object>> createVoiceSession(@RequestBody Map<String, Object> body) {
-        String title = (String) body.get("title");
-        String groupId = (String) body.get("groupId");
-        String sessionId = "voice-" + java.util.UUID.randomUUID().toString().substring(0, 8);
-        
-        Map<String, Object> res = new HashMap<>();
-        res.put("sessionId", sessionId);
-        res.put("title", title);
-        res.put("groupId", groupId);
-        res.put("createdAt", java.time.LocalDateTime.now().toString());
-        res.put("success", true);
-        
-        logger.info("Session vocale créée: {} pour le groupe {}", sessionId, groupId);
-        return ResponseEntity.ok(res);
+    @Operation(summary = "Créer une session vocale (non disponible)", description = "Répond 501 : fonction non encore réalisée.")
+    public ResponseEntity<Map<String, Object>> createVoiceSession(@RequestBody(required = false) Map<String, Object> body) {
+        // Avant (balayage du 2026-11-13) : identifiant inventé, rien d'enregistré, « success » annoncé
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_IMPLEMENTED, "Les sessions vocales ne sont pas encore disponibles.");
     }
     
     @GetMapping("/voice-sessions")
@@ -231,22 +278,17 @@ public class CollaborationController {
     }
     
     @GetMapping("/voice-sessions/{sessionId}")
-    @Operation(summary = "Détails d'une session vocale", description = "Retourne les détails d'une session vocale spécifique.")
+    @Operation(summary = "Détails d'une session vocale", description = "Aucune session vocale n'existe encore : 404.")
     public ResponseEntity<Map<String, Object>> getVoiceSession(@PathVariable String sessionId) {
-        Map<String, Object> session = new HashMap<>();
-        session.put("sessionId", sessionId);
-        session.put("title", "Session vocale");
-        session.put("active", true);
-        return ResponseEntity.ok(session);
+        // Avant : session « active » inventée pour n'importe quel identifiant
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Session vocale introuvable.");
     }
     
     @DeleteMapping("/voice-sessions/{sessionId}")
-    @Operation(summary = "Supprimer une session vocale", description = "Termine une session vocale active.")
+    @Operation(summary = "Terminer une session vocale", description = "Aucune session vocale n'existe encore : 404.")
     public ResponseEntity<Map<String, Object>> deleteVoiceSession(@PathVariable String sessionId) {
-        Map<String, Object> res = new HashMap<>();
-        res.put("success", true);
-        res.put("message", "Session vocale terminée");
-        return ResponseEntity.ok(res);
+        // Avant : « Session vocale terminée » pour n'importe quel identifiant
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Session vocale introuvable.");
     }
     
     @GetMapping("/workgroups/{groupId}/voice")
@@ -260,41 +302,43 @@ public class CollaborationController {
     }
     
     @PostMapping("/workgroups/{groupId}/voice")
-    @Operation(summary = "Démarrer session vocale", description = "Démarre une nouvelle session vocale pour un groupe.")
+    @Operation(summary = "Démarrer une session vocale de groupe (non disponible)", description = "Répond 501 : fonction non encore réalisée.")
     public ResponseEntity<Map<String, Object>> startGroupVoiceSession(
             @Parameter(description = "Identifiant du groupe") @PathVariable("groupId") String groupId,
-            @RequestBody Map<String, Object> body) {
-        String sessionId = "voice-" + java.util.UUID.randomUUID().toString().substring(0, 8);
-        
-        Map<String, Object> res = new HashMap<>();
-        res.put("sessionId", sessionId);
-        res.put("groupId", groupId);
-        res.put("title", body.get("title"));
-        res.put("active", true);
-        res.put("startedAt", java.time.LocalDateTime.now().toString());
-        res.put("success", true);
-        
-        logger.info("Session vocale démarrée: {} pour le groupe {}", sessionId, groupId);
-        return ResponseEntity.ok(res);
+            @RequestBody(required = false) Map<String, Object> body) {
+        // Avant : session « active » inventée, rien d'enregistré
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_IMPLEMENTED, "Les sessions vocales ne sont pas encore disponibles.");
     }
 
     // ==================== ATTENDANCES & WIKI COLLABORATIF ====================
-    private static final List<Map<String, Object>> collaborationAttendances = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private static final List<Map<String, Object>> wikiPages = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private static final List<Map<String, Object>> wikiNotes = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private static final List<Map<String, Object>> wikiAudits = new java.util.concurrent.CopyOnWriteArrayList<>();
 
     @GetMapping("/attendances")
     @Operation(summary = "Présences collaboration", description = "Retourne la liste des présences aux réunions de collaboration.")
     public ResponseEntity<List<Map<String, Object>>> getCollaborationAttendances() {
-        return ResponseEntity.ok(collaborationAttendances);
+        // Encadrants : toutes les présences de l'école ; élève : les siennes (avant : liste en mémoire commune à toutes les écoles)
+        return ResponseEntity.ok(elementsCollaboratifs.lister(
+                ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService.PRESENCE, null));
     }
 
     @PostMapping("/attendances")
     @Operation(summary = "Enregistrer présence réunion", description = "Enregistre une présence à une réunion de groupe.")
     public ResponseEntity<Map<String, Object>> saveCollaborationAttendance(@RequestBody Map<String, Object> body) {
-        collaborationAttendances.add(body);
+        elementsCollaboratifs.enregistrer(
+                ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService.PRESENCE, body, null);
         return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    private static ecole_221.sn.ecole.modules.auth.domain.model.User moi() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u && u.getId() != null) {
+            return u;
+        }
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Veuillez vous connecter.");
+    }
+
+    private static String nomAffiche(ecole_221.sn.ecole.modules.auth.domain.model.User u) {
+        String n = ((u.getPrenom() == null ? "" : u.getPrenom()) + " " + (u.getNom() == null ? "" : u.getNom())).trim();
+        return n.isEmpty() ? u.getEmail() : n;
     }
 }
 
@@ -303,54 +347,54 @@ public class CollaborationController {
 @Tag(name = "Wiki", description = "Documentation collaborative, notes et logs d'audit")
 class WikiController {
 
-    private static final List<Map<String, Object>> pages = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private static final List<Map<String, Object>> notes = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private static final List<Map<String, Object>> audits = new java.util.concurrent.CopyOnWriteArrayList<>();
+    // Avant (balayage du 2026-11-13) : listes en mémoire COMMUNES À TOUTES LES ÉCOLES, perdues au redémarrage,
+    // notes privées lues par tous. Désormais : base de données par école (V8).
+    private final ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService elements;
+
+    WikiController(ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService elements) {
+        this.elements = elements;
+    }
+
+    private static final String PAGE = ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService.PAGE;
+    private static final String NOTE = ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService.NOTE;
+    private static final String JOURNAL = ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService.JOURNAL;
 
     @GetMapping("/pages")
     @Operation(summary = "Pages wiki", description = "Liste des pages du wiki collaboratif.")
     public ResponseEntity<List<Map<String, Object>>> getWikiPages() {
-        return ResponseEntity.ok(pages);
+        return ResponseEntity.ok(elements.lister(PAGE, null));
     }
 
     @PostMapping("/pages")
     @Operation(summary = "Sauvegarder page wiki", description = "Crée ou met à jour une page wiki.")
     public ResponseEntity<Map<String, Object>> saveWikiPage(@RequestBody Map<String, Object> body) {
-        String id = (String) body.get("id");
-        if (id != null) {
-            pages.removeIf(p -> id.equals(p.get("id")));
-        }
-        pages.add(body);
+        elements.enregistrer(PAGE, body, null);
         return ResponseEntity.ok(Map.of("success", true));
     }
 
     @GetMapping("/notes")
     @Operation(summary = "Notes collaboratives", description = "Liste des notes partagées.")
     public ResponseEntity<List<Map<String, Object>>> getNotes() {
-        return ResponseEntity.ok(notes);
+        return ResponseEntity.ok(elements.lister(NOTE, null));
     }
 
     @PostMapping("/notes")
     @Operation(summary = "Sauvegarder note", description = "Crée ou met à jour une note collaborative.")
     public ResponseEntity<Map<String, Object>> saveNote(@RequestBody Map<String, Object> body) {
-        String id = (String) body.get("id");
-        if (id != null) {
-            notes.removeIf(n -> id.equals(n.get("id")));
-        }
-        notes.add(body);
+        elements.enregistrer(NOTE, body, null);
         return ResponseEntity.ok(Map.of("success", true));
     }
 
     @GetMapping("/audits")
     @Operation(summary = "Audits wiki", description = "Historique d'audit des actions sur le wiki.")
     public ResponseEntity<List<Map<String, Object>>> getAudits() {
-        return ResponseEntity.ok(audits);
+        return ResponseEntity.ok(elements.lister(JOURNAL, null));
     }
 
     @PostMapping("/audits")
     @Operation(summary = "Sauvegarder audit", description = "Enregistre un événement d'audit.")
     public ResponseEntity<Map<String, Object>> saveAudit(@RequestBody Map<String, Object> body) {
-        audits.add(body);
+        elements.enregistrer(JOURNAL, body, null);
         return ResponseEntity.ok(Map.of("success", true));
     }
 }

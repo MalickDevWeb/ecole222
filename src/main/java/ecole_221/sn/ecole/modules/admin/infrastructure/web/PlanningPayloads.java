@@ -22,7 +22,10 @@ final class PlanningPayloads {
         for (Map<String, Object> m : lignes(corps)) {
             String nom = obligatoire(m, "le nom de la salle", "name", "nom");
             Integer cap = entier(m, "capacity", "capacite", "capacityMax");
-            if (cap != null && cap < 0) throw mauvais("La capacité de la salle « " + nom + " » ne peut pas être négative.");
+            // APP-QA-04 : capacité obligatoire et d'au moins 1 place (avant : absente → 0, puis toute la liste des salles
+            // devenait illisible, la règle « capacité positive » étant appliquée à la lecture)
+            if (cap == null) throw mauvais("La capacité de la salle « " + nom + " » est obligatoire.");
+            if (cap < 1) throw mauvais("La capacité de la salle « " + nom + " » doit être d'au moins 1 place.");
             res.add(RoomFactory.reconstruct(id(m), nom, cap == null ? 0 : cap, liste(m.get("equipment"))));
         }
         return res;
@@ -46,8 +49,9 @@ final class PlanningPayloads {
             Integer frais = entier(m, "price", "fraisAnnuels", "frais");
             if (frais != null && frais < 0) throw mauvais("Les frais annuels de la classe « " + nom + " » ne peuvent pas être négatifs.");
             Integer capacite = entier(m, "capacityMax", "capacity", "capacite");
-            // Avant : capacité nulle ou négative acceptée
-            if (capacite != null && capacite < 1) throw mauvais("La capacité de la classe « " + nom + " » doit être d'au moins 1 élève.");
+            // Avant : capacité nulle ou négative acceptée ; absente → classe illisible à la lecture (APP-QA-04)
+            if (capacite == null) throw mauvais("La capacité de la classe « " + nom + " » est obligatoire.");
+            if (capacite < 1) throw mauvais("La capacité de la classe « " + nom + " » doit être d'au moins 1 élève.");
             res.add(ClasseFactory.reconstruct(id(m), nom, filiere == null ? "" : filiere,
                     texte(m, "level", "niveau"), capacite,
                     frais == null ? null : frais.longValue()));
@@ -98,7 +102,14 @@ final class PlanningPayloads {
     private static String texte(Map<String, Object> m, String... cles) {
         for (String c : cles) {
             Object v = m.get(c);
-            if (v != null && !v.toString().isBlank()) return v.toString().trim();
+            if (v == null) continue;
+            // APP-QA-04 : une liste, un objet ou un booléen n'est plus converti en texte (avant : salle nommée « [a, 1, null] »)
+            if (!(v instanceof String) && !(v instanceof Number)) {
+                throw mauvais("Le champ « " + c + " » doit être un texte.");
+            }
+            String t = v.toString().trim();
+            if (t.length() > 200) throw mauvais("Le champ « " + c + " » ne doit pas dépasser 200 caractères.");
+            if (!t.isEmpty()) return t;
         }
         return null;
     }
@@ -106,6 +117,10 @@ final class PlanningPayloads {
     private static String obligatoire(Map<String, Object> m, String libelle, String... cles) {
         String v = texte(m, cles);
         if (v == null) throw mauvais("Champ obligatoire manquant : " + libelle + ".");
+        // un nom ne peut pas être un simple nombre envoyé comme tel (ex. -999999999999)
+        for (String c : cles) {
+            if (m.get(c) instanceof Number) throw mauvais("Le champ « " + c + " » doit être un texte, pas un nombre.");
+        }
         return v;
     }
 

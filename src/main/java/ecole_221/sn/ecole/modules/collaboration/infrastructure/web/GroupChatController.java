@@ -34,7 +34,15 @@ public class GroupChatController {
     @PostMapping("/groups")
     public ResponseEntity<?> createGroup(@RequestBody Map<String, String> request) {
         try {
-            String name = request.get("name");
+            // APP-QA-04 : nom obligatoire et borné (avant : discussion sans nom créée)
+            String name = request == null ? null : request.get("name");
+            if (name == null || name.isBlank()) {
+                throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le nom de la discussion est obligatoire.");
+            }
+            if (name.strip().length() > 100) {
+                throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le nom de la discussion ne doit pas dépasser 100 caractères.");
+            }
+            name = name.strip();
             String creatorId = exigerMoi(request.get("creatorId"));
             GroupChatDto created = groupChatService.createGroup(name, creatorId);
             return ResponseEntity.ok(created);
@@ -283,6 +291,13 @@ public class GroupChatController {
         try {
             String user1Id = exigerMoi(request.get("user1Id"));
             String user2Id = request.get("user2Id");
+            // APP-QA-04 : interlocuteur obligatoire et différent de soi (avant : discussion créée avec un interlocuteur nul)
+            if (user2Id == null || user2Id.isBlank() || user2Id.length() > 255) {
+                throw ecole_221.sn.ecole.partage.ChampsRequete.refus("L'interlocuteur est obligatoire.");
+            }
+            if (user2Id.equals(user1Id)) {
+                throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Vous ne pouvez pas ouvrir une discussion avec vous-même.");
+            }
             GroupChatDto created = groupChatService.createIndividualChat(user1Id, user2Id);
             return ResponseEntity.ok(created);
         } catch (Exception e) {
@@ -418,20 +433,7 @@ public class GroupChatController {
         }
     }
     
-    @PostMapping("/test/run-all")
-    public ResponseEntity<Map<String, Object>> runAllTests() {
-        try {
-            Map<String, Object> result = new java.util.HashMap<>();
-            result.put("status", "success");
-            result.put("message", "GroupChatController is operational");
-            result.put("endpoints", 26);
-            result.put("timestamp", java.time.LocalDateTime.now().toString());
-            return ResponseEntity.ok(result);
-        } catch (Exception e) {
-            logger.error("Erreur run all tests", e);
-            throw relancer(e);
-        }
-    }
+    // Balayage du 2026-11-13 : POST /test/run-all retiré (répondait « operational » sans rien tester, aucun écran ne l'utilisait).
 
     /**
      * Balayage de robustesse (2026-11-13) : chaque erreur devenait un 500, même un champ manquant ou une discussion

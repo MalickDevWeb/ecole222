@@ -61,7 +61,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Room> findAllRooms() {
         logger.debug("Récupération de toutes les salles depuis JPA");
         return roomJpaRepository.findAll().stream()
-            .map(this::toRoom)
+            .flatMap(e -> lisible(e, this::toRoom))
             .collect(Collectors.toList());
     }
     
@@ -78,7 +78,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Room> findRoomsByCapacityMin(int minCapacity) {
         logger.debug("Récupération des salles avec capacité minimale: {}", minCapacity);
         return roomJpaRepository.findByCapacityGreaterThanEqual(minCapacity).stream()
-            .map(this::toRoom)
+            .flatMap(e -> lisible(e, this::toRoom))
             .collect(Collectors.toList());
     }
     
@@ -86,7 +86,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Room> findRoomsByLocation(String location) {
         logger.debug("Récupération des salles par emplacement: {}", location);
         return roomJpaRepository.findByLocation(location).stream()
-            .map(this::toRoom)
+            .flatMap(e -> lisible(e, this::toRoom))
             .collect(Collectors.toList());
     }
     
@@ -111,7 +111,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Slot> findAllSlots() {
         logger.debug("Récupération de tous les créneaux depuis JPA");
         return slotJpaRepository.findAll().stream()
-            .map(this::toSlot)
+            .flatMap(e -> lisible(e, this::toSlot))
             .collect(Collectors.toList());
     }
     
@@ -128,7 +128,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Slot> findSlotsByDayOfWeek(String dayOfWeek) {
         logger.debug("Récupération des créneaux par jour: {}", dayOfWeek);
         return slotJpaRepository.findByDayOfWeek(dayOfWeek).stream()
-            .map(this::toSlot)
+            .flatMap(e -> lisible(e, this::toSlot))
             .collect(Collectors.toList());
     }
     
@@ -136,7 +136,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Slot> findSlotsByType(SlotType type) {
         logger.debug("Récupération des créneaux par type: {}", type);
         return slotJpaRepository.findByType(type.value()).stream()
-            .map(this::toSlot)
+            .flatMap(e -> lisible(e, this::toSlot))
             .collect(Collectors.toList());
     }
     
@@ -203,7 +203,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Classe> findAllClasses() {
         logger.debug("Récupération de toutes les classes depuis JPA");
         return classeJpaRepository.findAll().stream()
-            .map(this::toClasse)
+            .flatMap(e -> lisible(e, this::toClasse))
             .collect(Collectors.toList());
     }
     
@@ -220,7 +220,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Classe> findClassesByFiliere(String filiereId) {
         logger.debug("Récupération des classes de la filière: {}", filiereId);
         return classeJpaRepository.findByFiliereId(filiereId).stream()
-            .map(this::toClasse)
+            .flatMap(e -> lisible(e, this::toClasse))
             .collect(Collectors.toList());
     }
     
@@ -228,7 +228,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Classe> findClassesByLevel(String level) {
         logger.debug("Récupération des classes par niveau: {}", level);
         return classeJpaRepository.findByLevel(level).stream()
-            .map(this::toClasse)
+            .flatMap(e -> lisible(e, this::toClasse))
             .collect(Collectors.toList());
     }
     
@@ -323,5 +323,19 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
         entity.setCapacity(classe.getCapacity());
         entity.setCurrentSize(classe.getCurrentSize());
         return entity;
+    }
+
+    /**
+     * Lecture d'une ligne pour une LISTE : une ligne invalide en base (ex. salle de capacité 0 enregistrée avant le
+     * contrôle d'écriture) est signalée et ignorée, au lieu de faire échouer toute la liste pour toute l'école
+     * (balayage du 2026-11-13 : une seule salle sans capacité rendait GET /planning/rooms inutilisable).
+     */
+    private <E, D> java.util.stream.Stream<D> lisible(E ligne, java.util.function.Function<E, D> conversion) {
+        try {
+            return java.util.stream.Stream.of(conversion.apply(ligne));
+        } catch (IllegalArgumentException | NullPointerException ex) {
+            logger.warn("Ligne de planning invalide ignorée ({}) : {}", ligne.getClass().getSimpleName(), ex.getMessage());
+            return java.util.stream.Stream.empty();
+        }
     }
 }

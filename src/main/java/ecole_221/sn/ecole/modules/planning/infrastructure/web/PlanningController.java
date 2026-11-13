@@ -21,6 +21,9 @@ import java.util.Map;
 @RequestMapping("/planning")
 @Tag(name = "Planning", description = "Gestion du planning - salles, créneaux, filières, classes")
 public class PlanningController {
+    // Balayage du 2026-11-13 : les PUT /planning/{rooms,slots,filieres,classes} « en lot » répondaient 200 sans rien
+    // enregistrer (aucun écran ne les appelait) : retirés. Les écrans utilisent PUT /admin/planning/… (validé et enregistré).
+
     
     private static final Logger logger = LoggerFactory.getLogger(PlanningController.class);
     private final PlanningUseCase planningUseCase;
@@ -57,12 +60,6 @@ public class PlanningController {
         return ResponseEntity.ok(planningUseCase.saveRoom(roomDto));
     }
 
-    @PutMapping("/rooms")
-    @Operation(summary = "Mettre à jour les salles (batch)", description = "Met à jour la liste des salles.")
-    public ResponseEntity<Void> updateRoomsBatch(@RequestBody List<Map<String, Object>> rooms) {
-        logger.info("PUT /planning/rooms - Mise à jour de {} salles", rooms != null ? rooms.size() : 0);
-        return ResponseEntity.ok().build();
-    }
     
     @DeleteMapping("/rooms/{roomId}")
     @Operation(summary = "Supprimer une salle", description = "Supprime une salle par son identifiant.")
@@ -101,12 +98,6 @@ public class PlanningController {
         return ResponseEntity.ok(planningUseCase.saveSlot(slotDto));
     }
 
-    @PutMapping("/slots")
-    @Operation(summary = "Mettre à jour les créneaux (batch)", description = "Met à jour la liste des créneaux horaires.")
-    public ResponseEntity<Void> updateSlotsBatch(@RequestBody List<Map<String, Object>> slots) {
-        logger.info("PUT /planning/slots - Mise à jour de {} créneaux", slots != null ? slots.size() : 0);
-        return ResponseEntity.ok().build();
-    }
     
     @DeleteMapping("/slots/{slotId}")
     @Operation(summary = "Supprimer un créneau horaire", description = "Supprime un créneau horaire.")
@@ -141,12 +132,6 @@ public class PlanningController {
         return ResponseEntity.ok(planningUseCase.saveFiliere(filiereDto));
     }
 
-    @PutMapping("/filieres")
-    @Operation(summary = "Mettre à jour les filières (batch)", description = "Met à jour la liste des filières.")
-    public ResponseEntity<Void> updateFilieresBatch(@RequestBody List<Map<String, Object>> filieres) {
-        logger.info("PUT /planning/filieres - Mise à jour de {} filières", filieres != null ? filieres.size() : 0);
-        return ResponseEntity.ok().build();
-    }
     
     @DeleteMapping("/filieres/{filiereId}")
     @Operation(summary = "Supprimer une filière", description = "Supprime une filière.")
@@ -183,12 +168,6 @@ public class PlanningController {
         return ResponseEntity.ok(planningUseCase.saveClasse(classeDto));
     }
 
-    @PutMapping("/classes")
-    @Operation(summary = "Mettre à jour les classes (batch)", description = "Met à jour la liste des classes.")
-    public ResponseEntity<Void> updateClassesBatch(@RequestBody List<Map<String, Object>> classes) {
-        logger.info("PUT /planning/classes - Mise à jour de {} classes", classes != null ? classes.size() : 0);
-        return ResponseEntity.ok().build();
-    }
     
     @DeleteMapping("/classes/{classeId}")
     @Operation(summary = "Supprimer une classe", description = "Supprime une classe.")

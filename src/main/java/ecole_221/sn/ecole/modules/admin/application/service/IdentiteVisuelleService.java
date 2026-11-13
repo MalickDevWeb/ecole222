@@ -41,6 +41,10 @@ public class IdentiteVisuelleService {
         if (corps == null || corps.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Aucune modification envoyée.");
         }
+        // APP-QA-04 : aucun champ reconnu → refus (avant : « enregistré » sans rien changer)
+        if (!corps.containsKey("logoUrl") && !corps.containsKey("backgroundUrl") && !corps.containsKey("primaryColor")) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Aucun champ reconnu : logoUrl, primaryColor ou backgroundUrl attendu.");
+        }
         Organization ecole = ecoleCourante();
         Map<String, Object> reglages = new HashMap<>(ecole.getSettings() == null ? Map.of() : ecole.getSettings());
         if (corps.containsKey("logoUrl")) {

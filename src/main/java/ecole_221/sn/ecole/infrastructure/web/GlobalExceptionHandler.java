@@ -92,11 +92,34 @@ public class GlobalExceptionHandler {
         } else if (ex instanceof org.springframework.web.bind.MissingRequestHeaderException m) {
             message = "En-tête obligatoire manquant : " + m.getHeaderName() + ".";
         } else {
-            message = "Corps de requête illisible ou mal formé.";
+            message = messageCorpsIllisible(ex);
         }
         log.debug("[Bad Request] {}", ex.getMessage());
         return ResponseEntity.status(org.springframework.http.HttpStatus.BAD_REQUEST)
                 .body(ApiErrorResponse.of(ErrorCode.VALIDATION_ERROR, message));
+    }
+
+    /**
+     * Corps JSON illisible : nomme le champ fautif quand Jackson le connaît (APP-QA-04, 2026-11-13).
+     * Ex. « Le champ « capacity » n'a pas le bon type (nombre attendu). » au lieu d'un message générique.
+     */
+    static String messageCorpsIllisible(Throwable ex) {
+        Throwable c = ex;
+        while (c != null && !(c instanceof tools.jackson.databind.exc.MismatchedInputException)) {
+            c = c.getCause() == c ? null : c.getCause();
+        }
+        if (c instanceof tools.jackson.databind.exc.MismatchedInputException m && m.getPath() != null && !m.getPath().isEmpty()) {
+            String champ = m.getPath().stream()
+                    .map(r -> r.getPropertyName() != null ? r.getPropertyName() : "[" + r.getIndex() + "]")
+                    .reduce((x, y) -> y.startsWith("[") ? x + y : x + "." + y).orElse("?");
+            Class<?> cible = m.getTargetType();
+            String attendu = cible == null ? "" : String.class.equals(cible) ? " (texte attendu)"
+                    : (Number.class.isAssignableFrom(cible) || (cible.isPrimitive() && cible != boolean.class)) ? " (nombre attendu)"
+                    : (cible == Boolean.class || cible == boolean.class) ? " (true ou false attendu)"
+                    : (java.util.Collection.class.isAssignableFrom(cible) || cible.isArray()) ? " (liste attendue)" : "";
+            return "Le champ « " + champ + " » n'a pas le bon type" + attendu + ".";
+        }
+        return "Corps de requête illisible ou mal formé.";
     }
 
     /** Stockage indisponible : 503 explicite (APP-BE-05), jamais de faux succès. */

@@ -57,15 +57,10 @@ public class CollaborationService implements CollaborationUseCase {
     @Override
     public WorkgroupDto createWorkgroup(String name, String description, String creatorId) {
         logger.info("Création d'un groupe de travail: {} par {}", name, creatorId);
-        try {
-            Workgroup workgroup = WorkgroupFactory.create(name, description, creatorId, 1);
-            Workgroup savedWorkgroup = collaborationRepositoryPort.saveWorkgroup(workgroup);
-            return toWorkgroupDto(savedWorkgroup);
-        } catch (Exception e) {
-            logger.error("Erreur création workgroup", e);
-            // Fallback: retourner un DTO vide
-            return new WorkgroupDto("fallback-" + UUID.randomUUID().toString().substring(0, 8), name, description, creatorId, 1);
-        }
+        // APP-QA-04 : une erreur d'enregistrement remonte (avant : faux succès avec un identifiant « fallback-… » inventé)
+        Workgroup workgroup = WorkgroupFactory.create(name, description, creatorId, 1);
+        Workgroup savedWorkgroup = collaborationRepositoryPort.saveWorkgroup(workgroup);
+        return toWorkgroupDto(savedWorkgroup);
     }
     
     @Override
@@ -103,15 +98,10 @@ public class CollaborationService implements CollaborationUseCase {
     @Override
     public TaskDto createTask(String workgroupId, String title, String status, String assignedTo) {
         logger.info("Création d'une tâche: {}", title);
-        try {
-            Task task = TaskFactory.create(title, null, workgroupId, assignedTo, null);
-            Task savedTask = collaborationRepositoryPort.saveTask(task);
-            return toTaskDto(savedTask);
-        } catch (Exception e) {
-            logger.error("Erreur création task", e);
-            // Fallback: retourner un DTO vide
-            return new TaskDto("fallback-" + UUID.randomUUID().toString().substring(0, 8), title, null, workgroupId, assignedTo, status, "MEDIUM");
-        }
+        // APP-QA-04 : une erreur d'enregistrement remonte (avant : faux succès avec un identifiant « fallback-… » inventé)
+        Task task = TaskFactory.create(title, null, workgroupId, assignedTo, null);
+        Task savedTask = collaborationRepositoryPort.saveTask(task);
+        return toTaskDto(savedTask);
     }
     
     @Override
@@ -140,6 +130,7 @@ public class CollaborationService implements CollaborationUseCase {
 
     @Override
     public void addDocument(String groupId, String name, String type, String size, String url, String addedBy) {
+        exigerGroupe(groupId);
         DocumentJpaEntity doc = new DocumentJpaEntity();
         doc.setId("doc-" + UUID.randomUUID().toString().substring(0, 8));
         doc.setGroupId(groupId);
@@ -161,6 +152,31 @@ public class CollaborationService implements CollaborationUseCase {
             map.put("assignedTo", task.getAssignedTo());
             return map;
         }).toList();
+    }
+
+    @Override
+    public String enregistrerTache(String groupId, String id, String title, String status, String assignedTo) {
+        // Changement de statut = mise à jour de la même tâche (avant : chaque enregistrement créait une tâche en double)
+        exigerGroupe(groupId);
+        TaskJpaEntity task = id == null ? null : taskJpaRepository.findById(id)
+                .filter(t -> groupId.equals(t.getGroupId())).orElse(null);
+        if (task == null) {
+            task = new TaskJpaEntity();
+            task.setId("task-" + UUID.randomUUID().toString().substring(0, 8));
+            task.setGroupId(groupId);
+        }
+        task.setTitle(title);
+        task.setStatus(status);
+        task.setAssignedTo(assignedTo);
+        taskJpaRepository.save(task);
+        return task.getId();
+    }
+
+    private void exigerGroupe(String groupId) {
+        if (groupId == null || !workgroupJpaRepository.existsById(groupId)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,
+                    "Groupe de travail introuvable.");
+        }
     }
 
     @Override

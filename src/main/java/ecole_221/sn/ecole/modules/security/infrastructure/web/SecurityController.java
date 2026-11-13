@@ -90,8 +90,16 @@ public class SecurityController {
 
     @PostMapping("/security/scan-logs")
     public ResponseEntity<Map<String, Object>> scanBadge(@RequestBody Map<String, String> body) {
+        // APP-QA-04 : badge ou élève obligatoire (avant : un scan vide était journalisé comme « @gate-A »)
+        if (body == null || ((body.get("badgeId") == null || body.get("badgeId").isBlank())
+                && (body.get("studentId") == null || body.get("studentId").isBlank()))) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Badge ou élève obligatoire : aucun identifiant scanné.");
+        }
+        if ((body.get("badgeId") != null && body.get("badgeId").length() > 500) || (body.get("studentId") != null && body.get("studentId").length() > 255)) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Identifiant scanné trop long.");
+        }
         // Accept badgeId directly, or construct from studentId+checkpointId for QR scan
-        String badgeId = body.containsKey("badgeId")
+        String badgeId = body.get("badgeId") != null && !body.get("badgeId").isBlank()
             ? body.get("badgeId")
             : body.getOrDefault("studentId", "") + "@" + body.getOrDefault("checkpointId", "gate-A");
         

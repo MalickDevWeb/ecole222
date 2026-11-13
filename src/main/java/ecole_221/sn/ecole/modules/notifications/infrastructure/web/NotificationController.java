@@ -52,7 +52,23 @@ public class NotificationController {
     @Operation(summary = "Créer notification", description = "Crée une nouvelle notification")
     public ResponseEntity<NotificationDto> createNotification(@RequestBody NotificationDto notification) {
         logger.info("POST /notifications - Création notification");
-        return ResponseEntity.ok(notificationUseCase.createNotification(notification));
+        // APP-QA-04 : destinataire, titre et contenu obligatoires et bornés ; identifiant toujours attribué par le serveur
+        // (avant : un id fourni remplaçait la notification existante portant cet id ; champs vides acceptés)
+        if (notification == null) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Aucune donnée reçue.");
+        }
+        java.util.Map<String, Object> champs = new java.util.HashMap<>();
+        champs.put("recipientId", notification.recipientId());
+        champs.put("title", notification.title());
+        champs.put("content", notification.content());
+        champs.put("type", notification.type());
+        NotificationDto propre = new NotificationDto(null,
+                ecole_221.sn.ecole.partage.ChampsRequete.texte(champs, "recipientId", "Le destinataire", 255),
+                ecole_221.sn.ecole.partage.ChampsRequete.texte(champs, "title", "Le titre", 200),
+                ecole_221.sn.ecole.partage.ChampsRequete.texte(champs, "content", "Le contenu", 5_000),
+                ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(champs, "type", "Le type", 30),
+                null, null);
+        return ResponseEntity.ok(notificationUseCase.createNotification(propre));
     }
     
     @PatchMapping("/{id}/read")
@@ -117,15 +133,16 @@ public class NotificationController {
     
     @PostMapping("/send")
     @Operation(summary = "Envoyer notification", description = "Envoie une notification à un destinataire")
-    public ResponseEntity<NotificationJpaEntity> sendNotification(@RequestBody Map<String, String> body) {
+    public ResponseEntity<NotificationJpaEntity> sendNotification(@RequestBody Map<String, Object> body) {
         logger.info("POST /notifications/send - Envoi notification");
+        // APP-QA-04 : destinataire, titre et message obligatoires (avant : notification sans titre ni destinataire créée)
         return ResponseEntity.ok(notificationUseCase.sendNotification(
-            body.get("recipientId"),
-            body.get("recipientRole"),
-            body.get("title"),
-            body.get("message"),
-            body.get("category"),
-            body.get("priority")
+            texteObligatoire(body, "recipientId"),
+            ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(body, "recipientRole", "Le rôle du destinataire", 30),
+            texteObligatoire(body, "title"),
+            texteObligatoire(body, "message"),
+            ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(body, "category", "La catégorie", 50),
+            ecole_221.sn.ecole.partage.ChampsRequete.choix(body, "priority", "La priorité", List.of("low", "normal", "high", "urgent"), "normal")
         ));
     }
     

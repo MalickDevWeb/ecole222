@@ -72,8 +72,25 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     @Override
     public StudentFinanceJpaEntity updateStudentFinance(String id, StudentFinanceJpaEntity studentFinance) {
         logger.info("Mise à jour finance étudiant: {}", id);
-        studentFinance.setId(id);
-        return studentFinanceRepository.save(studentFinance);
+        // APP-QA-04 : fiche inexistante → 404 (avant : créée, champs nuls compris) ; seuls les champs éditables, bornés
+        StudentFinanceJpaEntity existante = studentFinanceRepository.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Fiche financière introuvable."));
+        if (studentFinance == null) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Aucune donnée reçue.");
+        }
+        if (studentFinance.getStudentName() != null) {
+            existante.setStudentName(texteBorne(studentFinance.getStudentName(), "Le nom de l'élève", 200));
+        }
+        if (studentFinance.getClasse() != null) {
+            existante.setClasse(texteBorne(studentFinance.getClasse(), "La classe", 100));
+        }
+        if (studentFinance.getStatus() != null) {
+            existante.setStatus(statutFinance(studentFinance.getStatus()));
+        }
+        existante.setDebt(montant(studentFinance.getDebt(), "La dette", existante.getDebt()));
+        existante.setPaid(montant(studentFinance.getPaid(), "Le montant payé", existante.getPaid()));
+        existante.setTotalRequired(montant(studentFinance.getTotalRequired(), "Le montant total", existante.getTotalRequired()));
+        return studentFinanceRepository.save(existante);
     }
     
     @Override
@@ -85,12 +102,12 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     @Override
     public StudentFinanceJpaEntity updateStudentStatus(String id, String status) {
         logger.info("Mise à jour statut étudiant: {} -> {}", id, status);
-        StudentFinanceJpaEntity studentFinance = studentFinanceRepository.findById(id).orElse(null);
-        if (studentFinance != null) {
-            studentFinance.setStatus(status);
-            return studentFinanceRepository.save(studentFinance);
-        }
-        return null;
+        // APP-QA-04 : statut dans la liste connue, fiche inexistante → 404 (avant : 200 avec un corps vide)
+        String statut = statutFinance(status);
+        StudentFinanceJpaEntity studentFinance = studentFinanceRepository.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Fiche financière introuvable."));
+        studentFinance.setStatus(statut);
+        return studentFinanceRepository.save(studentFinance);
     }
     
     // ==================== GESTION DES DÉPENSES (compatibilité JPA) ====================
@@ -301,5 +318,35 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
             "COMPLETED", // Statut par défaut
             entity.getTransactionDate() != null ? entity.getTransactionDate().toString() : null
         );
+    }
+
+    // ==================== CONTRÔLES DES CHAMPS (APP-QA-04, 2026-11-13) ====================
+    private static final java.util.List<String> STATUTS_FINANCE = java.util.List.of("En Règle", "En Avance", "En Retard");
+
+    private static String statutFinance(String s) {
+        if (s == null || !STATUTS_FINANCE.contains(s.strip())) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le statut doit être l'une des valeurs : " + String.join(", ", STATUTS_FINANCE) + ".");
+        }
+        return s.strip();
+    }
+
+    private static String texteBorne(String v, String libelle, int max) {
+        if (v.isBlank()) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus(libelle + " ne peut pas être vide.");
+        }
+        if (v.strip().length() > max) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus(libelle + " ne doit pas dépasser " + max + " caractères.");
+        }
+        return v.strip();
+    }
+
+    private static Long montant(Long v, String libelle, Long actuel) {
+        if (v == null) {
+            return actuel;
+        }
+        if (v < 0 || v > 1_000_000_000_000L) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus(libelle + " doit être un montant positif (FCFA).");
+        }
+        return v;
     }
 }

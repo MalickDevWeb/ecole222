@@ -144,8 +144,13 @@ public class AdmissionController {
 
     @PatchMapping("/settings/toggle")
     @Operation(summary = "Ouvrir/Fermer candidatures", description = "Corps {isOpen} ; même source que /candidatures/settings")
-    public ResponseEntity<Map<String, Object>> toggleAdmissions(@RequestBody Map<String, Boolean> body) {
-        boolean ouvert = Boolean.TRUE.equals(body == null ? null : body.get("isOpen"));
+    public ResponseEntity<Map<String, Object>> toggleAdmissions(@RequestBody(required = false) Map<String, Object> body) {
+        // APP-QA-04 : isOpen obligatoire (true / false). Avant : absent ou absurde → les candidatures étaient FERMÉES en silence.
+        Boolean choix = ecole_221.sn.ecole.partage.ChampsRequete.booleenOptionnel(body, "isOpen", "« isOpen »");
+        if (choix == null) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Indiquez isOpen : true pour ouvrir les candidatures, false pour les fermer.");
+        }
+        boolean ouvert = choix;
         reglages().definirOuverture(ouvert);
         return ResponseEntity.ok(Map.of("success", true, "isOpen", ouvert));
     }
@@ -386,6 +391,11 @@ public class AdmissionController {
         List<?> campagnes = listeDeMaps(body, "campaigns");
         List<?> journal = listeDeMaps(body, "auditLogs");
         List<?> messages = listeDeMaps(body, "messages");
+        // APP-QA-04 : rien à enregistrer → refus (avant : « success » sans rien écrire)
+        if (candidats == null && campagnes == null && journal == null && messages == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Aucune donnée à enregistrer (candidates, campaigns, auditLogs ou messages attendu).");
+        }
 
         // Validation AVANT toute écriture : pas d'enregistrement partiel, pas de formation par défaut.
         if (candidats != null) {

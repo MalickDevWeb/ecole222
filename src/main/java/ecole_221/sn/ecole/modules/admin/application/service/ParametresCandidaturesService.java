@@ -81,6 +81,11 @@ public class ParametresCandidaturesService {
     @Transactional
     public Map<String, Object> enregistrer(Map<String, Object> corps) {
         if (corps == null) throw mauvais("Corps de requête manquant.");
+        // APP-QA-04 : aucun réglage reconnu → refus (avant : « enregistré » sans rien changer)
+        if (java.util.stream.Stream.of("ouvert", "enabled", "dateOuverture", "dateFermeture", "messageAvis", "showRegisterButton", "docsRequis")
+                .noneMatch(corps::containsKey)) {
+            throw mauvais("Aucun réglage reconnu (ouvert, dateOuverture, dateFermeture, messageAvis, showRegisterButton, docsRequis).");
+        }
         ParametresCandidaturesJpaEntity p = chargerOuCreer();
         if (corps.containsKey("ouvert") || corps.containsKey("enabled")) {
             p.setOuvert(booleen(corps.containsKey("ouvert") ? corps.get("ouvert") : corps.get("enabled")));

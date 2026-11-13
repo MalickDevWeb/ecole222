@@ -113,8 +113,37 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
     
     @Override
     public NotificationTemplateJpaEntity updateTemplate(String id, NotificationTemplateJpaEntity template) {
-        template.setId(id);
-        return templateRepository.save(template);
+        // APP-QA-04 : modèle inexistant → 404 (avant : créé avec des champs nuls) ; champs éditables bornés
+        NotificationTemplateJpaEntity existant = templateRepository.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Modèle de notification introuvable."));
+        if (template == null) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Aucune donnée reçue.");
+        }
+        java.util.function.BiFunction<String, Integer, java.util.function.Function<String, String>> borne = (libelle, max) -> v -> {
+            if (v == null) return null;
+            if (v.isBlank()) throw ecole_221.sn.ecole.partage.ChampsRequete.refus(libelle + " ne peut pas être vide.");
+            if (v.strip().length() > max) throw ecole_221.sn.ecole.partage.ChampsRequete.refus(libelle + " ne doit pas dépasser " + max + " caractères.");
+            return v.strip();
+        };
+        if (template.getTemplateName() != null) existant.setTemplateName(borne.apply("Le nom du modèle", 200).apply(template.getTemplateName()));
+        if (template.getSubject() != null) existant.setSubject(borne.apply("Le sujet", 200).apply(template.getSubject()));
+        if (template.getBodyTemplate() != null) existant.setBodyTemplate(borne.apply("Le texte du modèle", 10_000).apply(template.getBodyTemplate()));
+        if (template.getCategory() != null) existant.setCategory(borne.apply("La catégorie", 50).apply(template.getCategory()));
+        if (template.getDescription() != null) existant.setDescription(borne.apply("La description", 1_000).apply(template.getDescription()));
+        if (template.getTemplateType() != null) {
+            if (!java.util.List.of("email", "sms", "push", "in_app").contains(template.getTemplateType())) {
+                throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le type doit être l'une des valeurs : email, sms, push, in_app.");
+            }
+            existant.setTemplateType(template.getTemplateType());
+        }
+        if (template.getDefaultPriority() != null) {
+            if (!java.util.List.of("low", "normal", "high", "urgent").contains(template.getDefaultPriority())) {
+                throw ecole_221.sn.ecole.partage.ChampsRequete.refus("La priorité doit être l'une des valeurs : low, normal, high, urgent.");
+            }
+            existant.setDefaultPriority(template.getDefaultPriority());
+        }
+        if (template.getIsActive() != null) existant.setIsActive(template.getIsActive());
+        return templateRepository.save(existant);
     }
     
     // ==================== ENVOI DE NOTIFICATIONS (compatibilité JPA) ====================

@@ -191,7 +191,20 @@ public class AuditUseCaseImpl implements AuditUseCase {
     @Override
     public void resolveSecurityEvent(String id, String resolutionNotes) {
         logger.info("Résolution de l'événement de sécurité: {}", id);
-        // Logique de résolution à implémenter
+        // APP-QA-04 : avant, rien n'était fait et « succès » était répondu, même pour un événement inexistant
+        SecurityEventJpaEntity evenement = securityEventJpaRepository.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Événement de sécurité introuvable."));
+        String notes = resolutionNotes == null ? null : resolutionNotes.strip();
+        if (notes != null && notes.length() > 2_000) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Les notes de résolution ne doivent pas dépasser 2000 caractères.");
+        }
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u) {
+            evenement.setResolvedBy(u.getId());
+        }
+        evenement.setInvestigationStatus("resolved");
+        evenement.setResolutionNotes(notes == null || notes.isEmpty() ? null : notes);
+        securityEventJpaRepository.save(evenement);
     }
     
     // ==================== ANALYTIQUES ====================

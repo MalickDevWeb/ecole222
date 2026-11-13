@@ -10,6 +10,9 @@ public interface NotificationJpaRepository extends JpaRepository<NotificationJpa
     List<NotificationJpaEntity> findByRecipientId(String recipientId);
 
     /** Même notification déjà envoyée à ce destinataire depuis {@code depuis} (double clic, double envoi). */
+    /** Demande encore en attente (non lue) pour ce même objet, ex. révision d'une note. */
+    boolean existsByActionTypeAndActionLinkAndIsReadFalse(String actionType, String actionLink);
+
     boolean existsByRecipientIdAndTitleAndMessageAndCreatedAtAfter(String recipientId, String title, String message, LocalDateTime depuis);
     List<NotificationJpaEntity> findByRecipientRole(String recipientRole);
     List<NotificationJpaEntity> findByCategory(String category);

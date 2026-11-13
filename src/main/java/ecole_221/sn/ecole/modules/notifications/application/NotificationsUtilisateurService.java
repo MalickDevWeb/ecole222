@@ -74,6 +74,29 @@ public class NotificationsUtilisateurService {
         return eleves.size();
     }
 
+    /**
+     * Demande de révision d'une note : transmise à l'administration de l'école (centre de notifications).
+     * Avant (2026-11-13) : « PENDING_REVIEW » répondu sans rien enregistrer ; personne n'était prévenu.
+     */
+    @Transactional
+    public void demanderRevisionNote(String eleveId, String eleveNom, String noteId, String module, String raison) {
+        String objet = eleveId + ":" + noteId;
+        if (notifications.existsByActionTypeAndActionLinkAndIsReadFalse("revision_note", objet)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Une demande de révision est déjà en cours pour cette note.");
+        }
+        NotificationJpaEntity n = new NotificationJpaEntity(UUID.randomUUID().toString(), "role:ADMIN", "ADMIN",
+                "Demande de révision de note" + (module == null || module.isBlank() ? "" : " — " + module),
+                (eleveNom == null ? "Un élève" : eleveNom) + " demande la révision de sa note"
+                        + (module == null || module.isBlank() ? "" : " en " + module) + ". Motif : " + raison.strip(),
+                "info", "academic", "normal");
+        n.setRecipientType("role");
+        n.setIsRead(false);
+        n.setActionRequired(true);
+        n.setActionType("revision_note");
+        n.setActionLink(objet);
+        notifications.save(n);
+    }
+
     /** Dernières notifications du compte, plus récentes d'abord, au format attendu par l'écran. */
     @Transactional(readOnly = true)
     public List<Map<String, Object>> mesNotifications(String utilisateurId, int limite) {

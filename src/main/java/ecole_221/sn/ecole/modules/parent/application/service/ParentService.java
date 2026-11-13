@@ -333,8 +333,31 @@ public class ParentService implements ParentUseCase {
         logger.info("Demande de RDV par le parent: {}, avec professeur: {}, date: {}", 
                    parentId, request.professeurId(), request.dateSouhaitee());
         
+        // APP-QA-04 : professeur, date et motif obligatoires ; professeur réel ; date valide et non passée
+        // (avant : rendez-vous enregistré sans professeur, sans date ni motif)
+        if (request == null) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Aucune donnée reçue.");
+        }
+        java.util.Map<String, Object> champs = new java.util.HashMap<>();
+        champs.put("professeurId", request.professeurId());
+        champs.put("dateSouhaitee", request.dateSouhaitee());
+        champs.put("motif", request.motif());
+        String professeurId = ecole_221.sn.ecole.partage.ChampsRequete.texte(champs, "professeurId", "Le professeur", 255);
+        String date = ecole_221.sn.ecole.partage.ChampsRequete.dateOptionnelle(champs, "dateSouhaitee", "La date souhaitée");
+        if (date == null) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("La date souhaitée est obligatoire.");
+        }
+        if (java.time.LocalDate.parse(date.substring(0, 10)).isBefore(java.time.LocalDate.now())) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("La date souhaitée est déjà passée.");
+        }
+        String motif = ecole_221.sn.ecole.partage.ChampsRequete.texte(champs, "motif", "Le motif", 1_000);
+        request = new AppointmentRequestDto(professeurId, date, motif);
+
         // APP-BE-19 : nom réel du professeur choisi (avant : « Dr. Sall » pour tout identifiant)
         String profNom = nomProfesseur(request.professeurId());
+        if (profNom == null && userRepositoryPort != null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Professeur introuvable.");
+        }
             
         Appointment appointment = Appointment.create(
             parentId,

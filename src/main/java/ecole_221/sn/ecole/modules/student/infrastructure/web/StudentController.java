@@ -55,6 +55,10 @@ public class StudentController {
     private final ecole_221.sn.ecole.modules.ai.application.port.usecase.AIUseCase aiUseCase;
     private final ecole_221.sn.ecole.modules.email.application.port.usecase.EmailUseCase emailUseCase;
 
+    /** Demandes de révision de note transmises à l'administration (APP-QA-04). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.notifications.application.NotificationsUtilisateurService notificationsUtilisateur;
+
     public StudentController(
             StudentUseCase studentUseCase,
             ecole_221.sn.ecole.modules.student.infrastructure.persistence.CourseDetailRepository courseDetailRepository,
@@ -192,13 +196,26 @@ public class StudentController {
         return ResponseEntity.ok(StudentMapper.toReactionResponseDto(sessionId, request.type()));
     }
 
+    // APP-QA-04 : lancer ou supprimer une séance en direct est un acte d'enseignant (avant : tout élève le pouvait)
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('PROFESSEUR','PROFESSOR','TEACHER','ADMIN','ADMINISTRATOR','SUPER_ADMIN')")
     @PostMapping("/live-sessions")
     @Operation(summary = "Démarrer une session live", description = "Enregistre une session live démarrée par un enseignant.")
     public ResponseEntity<Map<String, Object>> startLiveSession(@RequestBody Map<String, Object> body) {
         String id = "session-" + System.currentTimeMillis();
-        String title = (String) body.getOrDefault("title", (String) body.getOrDefault("courseName", "Session Live"));
-        String link = (String) body.getOrDefault("meetUrl", body.get("link"));
-        String time = (String) body.getOrDefault("time", java.time.LocalTime.now().toString().substring(0, 5));
+        // APP-QA-04 : champs contrôlés (avant : un nombre ou une liste faisait planter, un lien « javascript: » était accepté)
+        String titre = ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(body, "title", "Le titre", 200);
+        String cours = ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(body, "courseName", "Le cours", 200);
+        String title = titre != null ? titre : (cours != null ? cours : "Session Live");
+        String lienMeet = ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(body, "meetUrl", "Le lien de la séance", 1_000);
+        String link = lienMeet != null ? lienMeet : ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(body, "link", "Le lien de la séance", 1_000);
+        if (link == null) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le lien de la séance (meetUrl) est obligatoire.");
+        }
+        if (!link.matches("(?i)^https?://\\S+$")) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le lien de la séance doit commencer par http:// ou https://.");
+        }
+        String heure = ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(body, "time", "L'heure", 20);
+        String time = heure != null ? heure : java.time.LocalTime.now().toString().substring(0, 5);
         
         if (meetJpaRepository != null) {
             ecole_221.sn.ecole.modules.collaboration.infrastructure.persistence.MeetJpaEntity meet = 
@@ -211,6 +228,8 @@ public class StudentController {
         return ResponseEntity.ok(Map.of("success", true, "id", id, "title", title, "meetUrl", link != null ? link : ""));
     }
 
+    // APP-QA-04 : lancer ou supprimer une séance en direct est un acte d'enseignant (avant : tout élève le pouvait)
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('PROFESSEUR','PROFESSOR','TEACHER','ADMIN','ADMINISTRATOR','SUPER_ADMIN')")
     @DeleteMapping("/live-sessions/{id}")
     @Operation(summary = "Arrêter une session live", description = "Supprime ou termine une session live.")
     public ResponseEntity<Map<String, Object>> stopLiveSession(@PathVariable String id) {
@@ -277,8 +296,25 @@ public class StudentController {
     public ResponseEntity<Map<String, Object>> requestGradeReview(
             @PathVariable("gradeId") String gradeId,
             @Valid @RequestBody GradeReviewRequestDto request) {
-        logger.info("POST /student/grades/{}/review - Demande de revision: reason={}", gradeId, request.reason());
-        
+        logger.info("POST /student/grades/{}/review - Demande de revision", gradeId);
+        // APP-QA-04 : la note doit être l'une des siennes (404 sinon) et la demande est réellement transmise à
+        // l'administration (avant : « PENDING_REVIEW » répondu sans rien enregistrer)
+        String eleve = etudiant();
+        Map<String, Object> note = studentUseCase.getStudentGrades(eleve).stream()
+                .filter(g -> gradeId.equals(String.valueOf(g.get("id"))))
+                .findFirst()
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Note introuvable parmi vos notes."));
+        if (notificationsUtilisateur == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Les demandes de révision ne peuvent pas être transmises pour le moment.");
+        }
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        String nom = auth != null && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u
+                ? ((u.getPrenom() == null ? "" : u.getPrenom()) + " " + (u.getNom() == null ? "" : u.getNom())).trim() : null;
+        notificationsUtilisateur.demanderRevisionNote(eleve, nom, gradeId,
+                note.get("module") == null ? null : String.valueOf(note.get("module")), request.reason());
+
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
         response.put("gradeId", gradeId);
@@ -355,33 +391,7 @@ public class StudentController {
 
     // ==================== QUIZZES ====================
 
-    @PostMapping("/courses/{courseId}/quizzes/submit")
-    @Operation(summary = "Soumettre un quiz", description = "L'etudiant soumet ses reponses au quiz pour evaluation.")
-    public ResponseEntity<QuizSubmissionResponseDto> submitQuiz(
-            @PathVariable String courseId,
-            @RequestBody Map<String, Object> body) {
-        logger.info("POST /student/courses/{}/quizzes/submit - Soumission quiz", courseId);
-
-        @SuppressWarnings("unchecked")
-        List<Map<String, Integer>> answers = (List<Map<String, Integer>>) body.get("answers");
-        int correctCount = 0;
-        int total = 0;
-
-        if (answers != null) {
-            total = answers.size();
-            for (Map<String, Integer> answer : answers) {
-                Integer selected = answer.get("selectedOption");
-                Integer correct = answer.get("correctOption");
-                if (selected != null && correct != null && selected.equals(correct)) {
-                    correctCount++;
-                }
-            }
-        }
-
-        return ResponseEntity.ok(StudentMapper.toQuizSubmissionResponseDto(
-            courseId, correctCount, total, "Quiz evalue avec succes par le serveur !"
-        ));
-    }
+    // Balayage du 2026-11-13 : POST /courses/{courseId}/quizzes/submit retiré — le score était calculé à partir des bonnes réponses envoyées par l'élève lui-même ; aucun écran ne l'appelait. Les quiz passent par POST /student/quizzes/{quizId}/tentatives (corrigés par le serveur).
 
     // ==================== TUTOR CHAT ====================
 
@@ -389,8 +399,9 @@ public class StudentController {
     @Operation(summary = "Chat avec Tuteur IA", description = "L'etudiant converse avec son tuteur IA.")
     public ResponseEntity<Map<String, Object>> chatWithTutor(@RequestBody Map<String, Object> body) {
         logger.info("POST /student/tutor/chat - Message au tuteur IA");
-        String message = (String) body.get("message");
-        
+        // APP-QA-04 : question obligatoire, texte, bornée (avant : null transmis au service d'IA)
+        String message = ecole_221.sn.ecole.partage.ChampsRequete.texte(body, "message", "La question", 4_000);
+
         // Utiliser le nouveau service IA
         String aiResponse = aiUseCase.generateTutorResponse(message);
         
@@ -404,46 +415,9 @@ public class StudentController {
     
     // ==================== EMAIL NOTIFICATIONS ====================
     
-    @PostMapping("/send-notification")
-    @Operation(summary = "Envoyer une notification email", description = "L'etudiant peut s'envoyer une notification email.")
-    public ResponseEntity<Map<String, Object>> sendNotification(@RequestBody Map<String, Object> body) {
-        logger.info("POST /student/send-notification - Envoi de notification email");
-        
-        String to = (String) body.getOrDefault("to", "etudiant221@gmail.com");
-        String subject = (String) body.get("subject");
-        String content = (String) body.get("content");
-        
-        boolean success = emailUseCase.sendStudentNotification(to, subject, content);
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", success);
-        response.put("message", success ? "Notification envoyée avec succès" : "Échec de l'envoi");
-        response.put("provider", emailUseCase.getEmailServiceInfo().get("provider"));
-        response.put("available", emailUseCase.isEmailServiceAvailable());
-        
-        return ResponseEntity.ok(response);
-    }
+    // Balayage du 2026-11-13 : POST /send-notification retiré — un compte élève envoyait un e-mail à n'importe quelle adresse au nom de l'école (destinataire fourni par la requête) ; aucun écran ne l'appelait.
     
-    @PostMapping("/request-confirmation")
-    @Operation(summary = "Demander un email de confirmation", description = "L'etudiant peut demander un email de confirmation.")
-    public ResponseEntity<Map<String, Object>> requestConfirmation(@RequestBody Map<String, Object> body) {
-        logger.info("POST /student/request-confirmation - Demande de confirmation email");
-        
-        String to = (String) body.getOrDefault("to", "etudiant221@gmail.com");
-        String type = (String) body.getOrDefault("type", "inscription");
-        @SuppressWarnings("unchecked")
-        Map<String, Object> data = (Map<String, Object>) body.getOrDefault("data", new HashMap<>());
-        
-        boolean success = emailUseCase.sendConfirmationEmail(to, type, data);
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", success);
-        response.put("message", success ? "Confirmation envoyée avec succès" : "Échec de l'envoi");
-        response.put("provider", emailUseCase.getEmailServiceInfo().get("provider"));
-        response.put("available", emailUseCase.isEmailServiceAvailable());
-        
-        return ResponseEntity.ok(response);
-    }
+    // Balayage du 2026-11-13 : POST /request-confirmation retiré — même faille (e-mail vers une adresse fournie par la requête, envoyé pendant la requête) ; aucun écran ne l'appelait.
 
     @GetMapping("/live-sessions/{sessionId}/chat")
     @Operation(summary = "Chat live session", description = "Retourne les messages du chat d'une session live.")
@@ -462,9 +436,21 @@ public class StudentController {
         logger.info("POST /student/live-sessions/{}/chat - user={}, text={}", sessionId, body.get("user"), body.get("text"));
         
         String userId = etudiant();
-        String userName = body.get("user");
+        // APP-QA-04 : nom affiché = compte connecté (avant : champ « user » de la requête, usurpation possible) ;
+        // message obligatoire et borné
+        var authChat = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        String userName = authChat != null && authChat.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User moi
+                ? ((moi.getPrenom() == null ? "" : moi.getPrenom()) + " " + (moi.getNom() == null ? "" : moi.getNom())).trim()
+                : body.get("user");
         String userRole = "Student";
-        String text = body.get("text");
+        String text = body == null ? null : body.get("text");
+        if (text == null || text.isBlank()) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le message est vide.");
+        }
+        if (text.strip().length() > 2_000) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le message ne doit pas dépasser 2000 caractères.");
+        }
+        text = text.strip();
         
         studentUseCase.saveLiveChatMessage(sessionId, userId, userName, userRole, text);
         

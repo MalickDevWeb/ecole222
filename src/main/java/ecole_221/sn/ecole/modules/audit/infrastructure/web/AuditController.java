@@ -64,9 +64,29 @@ public class AuditController {
     
     @PostMapping("/logs")
     @Operation(summary = "Logger action", description = "Enregistre une nouvelle action dans le journal d'audit")
-    public ResponseEntity<AuditLogDto> logAction(@RequestBody AuditLogDto auditLog) {
+    public ResponseEntity<AuditLogDto> logAction(@RequestBody AuditLogDto auditLog,
+                                                 jakarta.servlet.http.HttpServletRequest requete) {
         logger.info("POST /audit/logs - Log action");
-        return ResponseEntity.ok(auditUseCase.logAction(auditLog));
+        // APP-QA-04 : auteur, adresse IP et date fixés par le serveur (avant : fournis par le client → une entrée du
+        // journal d'audit pouvait être écrite au nom de n'importe qui) ; action obligatoire, textes bornés
+        if (auditLog == null) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Aucune donnée reçue.");
+        }
+        java.util.Map<String, Object> champs = new java.util.HashMap<>();
+        champs.put("action", auditLog.action());
+        champs.put("description", auditLog.description());
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        String auteur = auth != null && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u ? u.getId() : null;
+        if (auteur == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Veuillez vous connecter.");
+        }
+        String agent = requete.getHeader("User-Agent");
+        AuditLogDto propre = new AuditLogDto(null, auteur,
+                ecole_221.sn.ecole.partage.ChampsRequete.texte(champs, "action", "L'action", 100),
+                ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(champs, "description", "La description", 2_000),
+                java.time.LocalDateTime.now().toString(), requete.getRemoteAddr(),
+                agent == null ? null : agent.substring(0, Math.min(agent.length(), 500)));
+        return ResponseEntity.ok(auditUseCase.logAction(propre));
     }
     
     // ==================== ENDPOINTS ÉVÉNEMENTS DE SÉCURITÉ ====================

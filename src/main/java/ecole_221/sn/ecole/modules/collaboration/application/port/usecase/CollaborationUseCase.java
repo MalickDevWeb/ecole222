@@ -77,6 +77,12 @@ public interface CollaborationUseCase {
      * Ajoute une tâche (compatibilité).
      */
     void addTask(String groupId, String title, String status, String assignedTo);
+
+    /** Crée la tâche, ou met à jour celle qui porte cet id dans ce groupe ; renvoie l'id enregistré. */
+    default String enregistrerTache(String groupId, String id, String title, String status, String assignedTo) {
+        addTask(groupId, title, status, assignedTo);
+        return id;
+    }
     
     /**
      * Récupère les messages d'un groupe (compatibilité).

@@ -96,14 +96,25 @@ public class SecurityService implements SecurityUseCase {
     @Override
     public VigilProfileDto updateVigilProfile(String id, VigilProfileDto vigilProfileDto) {
         logger.info("Mise à jour du profil de vigilance: {}", id);
-        VigilProfile vigilProfile = toVigilProfile(vigilProfileDto);
+        // APP-QA-04 : profil inexistant → 404 (avant : créé, nommé « Inconnu ») ; nom obligatoire, champs bornés
+        VigilProfile actuel = securityRepositoryPort.findVigilProfileById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Profil de vigile introuvable."));
+        if (vigilProfileDto == null || vigilProfileDto.name() == null || vigilProfileDto.name().isBlank()) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le nom est obligatoire.");
+        }
+        for (String[] c : new String[][]{{vigilProfileDto.name(), "Le nom", "200"}, {vigilProfileDto.role(), "Le rôle", "50"},
+                {vigilProfileDto.status(), "Le statut", "30"}}) {
+            if (c[0] != null && c[0].strip().length() > Integer.parseInt(c[2])) {
+                throw ecole_221.sn.ecole.partage.ChampsRequete.refus(c[1] + " ne doit pas dépasser " + c[2] + " caractères.");
+            }
+        }
         // Reconstruction avec l'ID existant via Factory
         VigilProfile updatedProfile = securityRepositoryPort.saveVigilProfile(
             ecole_221.sn.ecole.modules.security.domain.model.VigilProfileFactory.reconstitute(
                 id,
                 vigilProfileDto.name(),
                 vigilProfileDto.role(),
-                vigilProfileDto.userId(),
+                actuel.getUserId(),   // rattachement au compte : jamais modifié par ce formulaire
                 vigilProfileDto.status(),
                 vigilProfileDto.createdAt()
             )

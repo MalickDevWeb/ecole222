@@ -91,8 +91,17 @@ public class AdminController {
     @Operation(summary = "Assigner un portail", description = "Assigne un gardien/vigil a un portail d'acces. Accepte: gate + guard (ou vigilId).")
     public ResponseEntity<Map<String, Object>> assignGate(@RequestBody Map<String, String> body) {
         logger.info("POST /admin/gates/assign - Assignation portail");
-        String gate = body.get("gate");
-        String guard = body.getOrDefault("guard", body.getOrDefault("vigilId", null));
+        // APP-QA-04 : portail et vigile obligatoires (avant : « assigné » avec des valeurs nulles)
+        String gate = body == null ? null : body.get("gate");
+        String guard = body == null ? null : body.getOrDefault("guard", body.getOrDefault("vigilId", null));
+        if (gate == null || gate.isBlank() || gate.length() > 100) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le portail est obligatoire (100 caractères au maximum).");
+        }
+        if (guard == null || guard.isBlank() || guard.length() > 255) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le vigile est obligatoire.");
+        }
+        gate = gate.strip();
+        guard = guard.strip();
         adminUseCase.assignGate(gate, guard);
 
         actionLogger.logAdminAction("ASSIGN_GATE", "ADMIN", gate + " -> " + guard,
@@ -145,14 +154,15 @@ public class AdminController {
     @Operation(summary = "Mettre a jour parametres candidature", description = "Active ou desactive le systeme de candidature.")
     public ResponseEntity<Map<String, Object>> updateCandidaturesSettings(@RequestBody Map<String, Object> body) {
         logger.info("POST /admin/candidatures/settings - Mise a jour parametres: {}", body);
-        boolean enabled = false;
-        if (body != null) {
-            if (body.containsKey("enabled")) {
-                enabled = Boolean.parseBoolean(String.valueOf(body.get("enabled")));
-            } else if (body.containsKey("ouvert")) {
-                enabled = Boolean.parseBoolean(String.valueOf(body.get("ouvert")));
-            }
+        // APP-QA-04 : enabled (ou ouvert) obligatoire, true ou false. Avant : absent ou absurde → candidatures FERMÉES en silence.
+        Boolean choix = ecole_221.sn.ecole.partage.ChampsRequete.booleenOptionnel(body, "enabled", "« enabled »");
+        if (choix == null) {
+            choix = ecole_221.sn.ecole.partage.ChampsRequete.booleenOptionnel(body, "ouvert", "« ouvert »");
         }
+        if (choix == null) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Indiquez enabled : true pour ouvrir les candidatures, false pour les fermer.");
+        }
+        boolean enabled = choix;
         adminUseCase.updateCandidaturesSettings(enabled);
         return ResponseEntity.ok(Map.of("success", true, "candidaturesEnabled", enabled));
     }
