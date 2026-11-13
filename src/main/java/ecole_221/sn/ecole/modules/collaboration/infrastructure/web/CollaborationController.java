@@ -106,13 +106,16 @@ public class CollaborationController {
         String description = texteOptionnel(body, "description", "La description", 1_000);
         var moi = moi();
         String creatorId = moi.getId();   // créateur = compte connecté, jamais une valeur du client
-        // Membres, chef, classe et nom unique vérifiés AVANT la création : rien n'est créé si un élément est refusé
-        var composition = membresGroupe == null ? null : membresGroupe.preparer(body, name, moi);
-
-        var workgroup = collaborationUseCase.createWorkgroup(name, description, creatorId);
-        if (composition != null) {
-            membresGroupe.enregistrer(workgroup.id(), composition);
-        }
+        // Membres, chef, classe et nom unique vérifiés AVANT la création : rien n'est créé si un élément est refusé.
+        // Le tout dans une transaction, sous verrou du nom (envois simultanés : un seul groupe créé).
+        var workgroup = membresGroupe == null
+                ? collaborationUseCase.createWorkgroup(name, description, creatorId)
+                : membresGroupe.creerSousVerrou(name, () -> {
+                    var composition = membresGroupe.preparer(body, name, moi);
+                    var cree = collaborationUseCase.createWorkgroup(name, description, creatorId);
+                    membresGroupe.enregistrer(cree.id(), composition);
+                    return cree;
+                });
 
         actionLogger.logCollaborationAction("CREATE_WORKGROUP", creatorId, "NEW",
             "Création groupe: " + name);

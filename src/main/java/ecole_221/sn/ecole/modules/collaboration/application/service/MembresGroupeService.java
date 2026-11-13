@@ -70,6 +70,22 @@ public class MembresGroupeService {
         this.inscriptions = inscriptions;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.partage.VerrouCreation verrouCreation;
+
+    /**
+     * Création complète d'un groupe dans UNE transaction, sous verrou du nom (2026-11-13) : avant, 10 envois
+     * simultanés du même nom créaient 7 groupes, la vérification « nom déjà pris » passant pour tous.
+     */
+    @Transactional
+    public <T> T creerSousVerrou(String nom, java.util.function.Supplier<T> creation) {
+        if (verrouCreation != null) {
+            verrouCreation.verrouiller("groupe:" + TenantContext.getCurrentOrganizationId().orElse("") + ":"
+                    + ecole_221.sn.ecole.partage.TexteNormalise.cle(nom));
+        }
+        return creation.get();
+    }
+
     /** Vérifie nom, classe, membres et chef AVANT toute création : rien n'est créé si un élément est refusé. */
     @Transactional(readOnly = true)
     public Composition preparer(Map<String, Object> corps, String nom, User moi) {

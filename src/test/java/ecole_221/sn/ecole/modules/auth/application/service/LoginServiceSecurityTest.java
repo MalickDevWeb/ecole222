@@ -67,6 +67,46 @@ class LoginServiceSecurityTest {
     }
 
     @Test
+    void email_avec_majuscules_et_espaces_retrouve() {
+        var response = service.login(new LoginCommand("  SuperAdmin@Ecole221.SN ", REAL_PASSWORD));
+        assertThat(response.getToken()).isEqualTo("jwt-de-test");
+    }
+
+    @Test
+    void cinq_echecs_freinent_le_compte_meme_avec_le_bon_mot_de_passe() {
+        for (int i = 0; i < LoginService.ECHECS_MAX; i++) {
+            assertUnauthorized(() -> service.login(new LoginCommand("superadmin@ecole221.sn", "faux")));
+        }
+        assertThatThrownBy(() -> service.login(new LoginCommand("SUPERADMIN@ecole221.sn", REAL_PASSWORD)))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS))
+                .hasMessageContaining("Réessayez dans 15 minutes");
+        // fin de la fenêtre : de nouveau possible
+        service.horloge = java.time.Clock.offset(java.time.Clock.systemUTC(), java.time.Duration.ofMinutes(16));
+        assertThat(service.login(new LoginCommand("superadmin@ecole221.sn", REAL_PASSWORD)).getToken()).isEqualTo("jwt-de-test");
+    }
+
+    @Test
+    void une_connexion_reussie_remet_le_compteur_a_zero() {
+        for (int i = 0; i < LoginService.ECHECS_MAX - 1; i++) {
+            assertUnauthorized(() -> service.login(new LoginCommand("superadmin@ecole221.sn", "faux")));
+        }
+        service.login(new LoginCommand("superadmin@ecole221.sn", REAL_PASSWORD));
+        assertUnauthorized(() -> service.login(new LoginCommand("superadmin@ecole221.sn", "faux")));
+        assertThat(service.login(new LoginCommand("superadmin@ecole221.sn", REAL_PASSWORD)).getToken()).isEqualTo("jwt-de-test");
+    }
+
+    @Test
+    void un_email_inconnu_est_freine_comme_un_vrai_compte() {
+        for (int i = 0; i < LoginService.ECHECS_MAX; i++) {
+            assertUnauthorized(() -> service.login(new LoginCommand("admin@inventee-xyz.sn", "x")));
+        }
+        assertThatThrownBy(() -> service.login(new LoginCommand("admin@inventee-xyz.sn", "x")))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.TOO_MANY_REQUESTS));
+    }
+
+    @Test
     void un_mot_de_passe_null_est_refuse() {
         assertUnauthorized(() -> service.login(new LoginCommand("superadmin@ecole221.sn", null)));
     }

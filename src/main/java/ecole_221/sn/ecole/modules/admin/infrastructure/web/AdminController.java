@@ -423,6 +423,7 @@ public class AdminController {
 
     @PostMapping("/promotions")
     @Operation(summary = "Créer une promotion / classe", description = "Enregistre une nouvelle classe de l'école courante.")
+    @org.springframework.transaction.annotation.Transactional   // le verrou de création est tenu jusqu'à la validation
     public ResponseEntity<Map<String, Object>> createPromotion(@RequestBody Map<String, Object> body) {
         String name = texte(body.get("name"));
         if (name == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le nom de la promotion est obligatoire.");
@@ -433,8 +434,15 @@ public class AdminController {
         // mêmes règles que le modèle Classe du planning (sinon la classe fait échouer GET /planning/classes)
         int capacite = entier(premier(texte(body.get("capacity")), texte(body.get("capaciteMax"))));
         if (capacite <= 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La capacité de la promotion doit être un nombre positif.");
+        // Requêtes simultanées : un seul « vérifier puis enregistrer » à la fois pour ce nom dans cette école
+        // (avant, test du 2026-11-13 : 10 envois au même instant → 3 classes du même nom)
+        String cleNom = ecole_221.sn.ecole.partage.TexteNormalise.cle(name);
+        if (verrouCreation != null) {
+            verrouCreation.verrouiller("classe:" + ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext
+                    .getCurrentOrganizationId().orElse("") + ":" + cleNom);
+        }
         boolean existe = classeJpaRepository.findAll().stream()
-                .anyMatch(c -> name.equalsIgnoreCase(c.getName() != null ? c.getName() : c.getNom()));
+                .anyMatch(c -> cleNom.equals(ecole_221.sn.ecole.partage.TexteNormalise.cle(c.getName() != null ? c.getName() : c.getNom())));
         if (existe) throw new ResponseStatusException(HttpStatus.CONFLICT, "Une promotion porte déjà ce nom.");
         ClasseJpaEntity c = new ClasseJpaEntity();
         c.setId("cls-" + UUID.randomUUID());
@@ -452,6 +460,9 @@ public class AdminController {
         res.put("filiere", c.getFiliereId());
         return ResponseEntity.status(HttpStatus.CREATED).body(res);
     }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.partage.VerrouCreation verrouCreation;
 
     // ---------------------------------------------------------------- aides
 
@@ -579,7 +590,7 @@ public class AdminController {
 
     private static String texte(Object o) {
         if (o == null) return null;
-        String s = String.valueOf(o).trim();
+        String s = ecole_221.sn.ecole.partage.TexteNormalise.normaliser(String.valueOf(o));   // invisibles retirés, NFC
         return s.isEmpty() ? null : s;
     }
 

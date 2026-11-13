@@ -39,7 +39,7 @@ public final class ChampsRequete {
         if (!(v instanceof String s)) {
             throw refus(libelle + " doit être un texte.");
         }
-        String t = s.strip();
+        String t = TexteNormalise.normaliser(s);   // invisibles retirés, NFC (2026-11-13)
         if (t.isEmpty()) {
             return null;
         }

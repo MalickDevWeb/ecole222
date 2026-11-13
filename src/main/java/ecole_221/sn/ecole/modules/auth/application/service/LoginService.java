@@ -41,6 +41,47 @@ public class LoginService implements LoginUseCase {
         this.organizationRepositoryPort = organizationRepositoryPort;
     }
 
+    /**
+     * Freinage des essais de mot de passe (2026-11-13). Avant : après 8 mots de passe faux, le bon passait aussitôt —
+     * rien ne ralentissait un essai massif de mots de passe sur un compte. Désormais : 5 échecs en 15 minutes pour
+     * un même e-mail (existant ou non, pour ne pas révéler l'existence du compte) → 429 jusqu'à la fin de la fenêtre,
+     * même avec le bon mot de passe. Une connexion réussie remet le compteur à zéro. Mémoire du serveur : en cas de
+     * plusieurs instances, chaque instance compte de son côté (limite connue).
+     */
+    static final int ECHECS_MAX = 5;
+    static final java.time.Duration FENETRE = java.time.Duration.ofMinutes(15);
+    private final java.util.Map<String, java.util.Deque<java.time.Instant>> echecs = new java.util.concurrent.ConcurrentHashMap<>();
+    java.time.Clock horloge = java.time.Clock.systemUTC();
+
+    private void verifierFrein(String cle) {
+        java.time.Instant maintenant = horloge.instant();
+        java.util.Deque<java.time.Instant> recents = echecs.get(cle);
+        if (recents == null) {
+            return;
+        }
+        synchronized (recents) {
+            while (!recents.isEmpty() && recents.peekFirst().isBefore(maintenant.minus(FENETRE))) recents.pollFirst();
+            if (recents.isEmpty()) {
+                echecs.remove(cle, recents);
+                return;
+            }
+            if (recents.size() >= ECHECS_MAX) {
+                long minutes = Math.max(1, (java.time.Duration.between(maintenant, recents.peekFirst().plus(FENETRE)).getSeconds() + 59) / 60);
+                throw new ResponseStatusException(HttpStatus.TOO_MANY_REQUESTS,
+                        "Trop de tentatives de connexion pour ce compte. Réessayez dans " + minutes + " minute" + (minutes > 1 ? "s" : "") + ".");
+            }
+        }
+    }
+
+    private void noterEchec(String cle) {
+        if (echecs.size() > 10_000) {   // garde-fou mémoire : purge des fenêtres expirées
+            java.time.Instant limite = horloge.instant().minus(FENETRE);
+            echecs.entrySet().removeIf(e -> { synchronized (e.getValue()) { return e.getValue().isEmpty() || e.getValue().peekLast().isBefore(limite); } });
+        }
+        java.util.Deque<java.time.Instant> recents = echecs.computeIfAbsent(cle, k -> new java.util.ArrayDeque<>());
+        synchronized (recents) { recents.addLast(horloge.instant()); }
+    }
+
     @Override
     public LoginResponseDto login(LoginCommand command) {
         log.info("Tentative de connexion pour : {}", command.getEmail());
@@ -52,8 +93,17 @@ public class LoginService implements LoginUseCase {
 
         // SEC-002 : aucun compte n'est créé à la connexion (les comptes de démo sont créés au
         // démarrage par SuperAdminInitializer, hors profil prod) et aucun mot de passe universel.
-        User user = userRepositoryPort.findByEmail(command.getEmail())
+        // E-mail tapé avec espaces ou majuscules (clavier de téléphone) : retrouvé quand même (2026-11-13 ;
+        // avant : « Email ou mot de passe incorrect. » pour « Eleve@Ecole.sn »)
+        String email = ecole_221.sn.ecole.partage.TexteNormalise.normaliser(command.getEmail());
+        String cleFrein = email.toLowerCase(java.util.Locale.ROOT);
+        if (cleFrein.length() > 320) cleFrein = cleFrein.substring(0, 320);
+        verifierFrein(cleFrein);
+        final String cle = cleFrein;
+        User user = userRepositoryPort.findByEmail(email)
+                .or(() -> userRepositoryPort.findByEmail(email.toLowerCase(java.util.Locale.ROOT)))
                 .orElseThrow(() -> {
+                    noterEchec(cle);
                     log.warn("Email non trouvé : {}", command.getEmail());
                     return new ResponseStatusException(HttpStatus.UNAUTHORIZED,
                             "Email ou mot de passe incorrect.");
@@ -63,11 +113,13 @@ public class LoginService implements LoginUseCase {
                 && passwordEncoder.matches(command.getPassword(), user.getPassword());
 
         if (!passwordValid) {
+            noterEchec(cle);
             log.warn("Mot de passe incorrect pour : {}", command.getEmail());
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED,
                     "Email ou mot de passe incorrect.");
         }
 
+        echecs.remove(cle);
         log.info("Connexion réussie pour : {} (rôle={})", command.getEmail(), user.getRole());
         String token = jwtService.generateToken(user);
         String tenantSlug = resolveTenantSlug(user, command.getEmail());
