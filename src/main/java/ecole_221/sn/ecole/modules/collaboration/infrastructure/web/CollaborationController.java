@@ -28,6 +28,10 @@ public class CollaborationController {
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService elementsCollaboratifs;
 
+    /** Membres, chef et classe des groupes (V10 ; avant : choisis à l'écran puis ignorés par le serveur). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.collaboration.application.service.MembresGroupeService membresGroupe;
+
     private final ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances;
     private final ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort comptes;
 
@@ -49,6 +53,7 @@ public class CollaborationController {
     @GetMapping("/workgroups")
     @Operation(summary = "Liste des groupes de travail", description = "Retourne tous les groupes de travail disponibles.")
     public ResponseEntity<List<Map<String, Object>>> getWorkgroups() {
+        Map<String, Map<String, Object>> details = membresGroupe == null ? Map.of() : membresGroupe.detailsParGroupe();
         List<Map<String, Object>> result = collaborationUseCase.getWorkgroups().stream()
             .map(dto -> {
                 Map<String, Object> map = new HashMap<>();
@@ -56,8 +61,14 @@ public class CollaborationController {
                 map.put("name", dto.name());
                 map.put("nom", dto.name()); // Compatibilité frontend
                 map.put("description", dto.description());
-                map.put("membersCount", dto.memberCount());
-                map.put("membres", List.of()); // Placeholder pour compatibilité
+                Map<String, Object> d = details.get(dto.id());
+                if (d != null) {
+                    map.putAll(d);   // members, leaderId, leaderName, classId (réels)
+                    map.put("membersCount", ((List<?>) d.get("members")).size());
+                } else {
+                    map.put("members", List.of());
+                    map.put("membersCount", 0);
+                }
                 return map;
             })
             .toList();
@@ -66,13 +77,15 @@ public class CollaborationController {
 
     @GetMapping("/students")
     @Operation(summary = "Liste des étudiants", description = "Retourne la liste des étudiants pour la formation de groupes.")
-    public ResponseEntity<List<Map<String, Object>>> getStudents() {
+    public ResponseEntity<List<Map<String, Object>>> getStudents(
+            @Parameter(description = "Classe : seuls les élèves inscrits sont listés") @RequestParam(value = "classeId", required = false) String classeId) {
+        java.util.Set<String> filtre = classeId == null || classeId.isBlank() || membresGroupe == null ? null : membresGroupe.elevesDeLaClasse(classeId.strip());
         // Étudiants ACTIFS de l'école courante (avant : 8 étudiants inventés, moyennes comprises)
         List<Map<String, Object>> students = new java.util.ArrayList<>();
         String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse(null);
         if (ecole != null && appartenances != null && comptes != null) {
             for (var m : appartenances.findByOrganizationIdAndRole(ecole, "ETUDIANT")) {
-                if (!m.isActive()) continue;
+                if (!m.isActive() || (filtre != null && !filtre.contains(m.getUserId()))) continue;
                 comptes.findById(m.getUserId()).ifPresent(u -> {
                     Map<String, Object> e = new java.util.HashMap<>();
                     e.put("id", u.getId());
@@ -91,9 +104,15 @@ public class CollaborationController {
         // APP-QA-04 : nom obligatoire et texte, longueurs bornées (avant : groupe sans nom créé, ou faux succès « fallback-… »)
         String name = texte(body, "name", "Le nom du groupe", 100);
         String description = texteOptionnel(body, "description", "La description", 1_000);
-        String creatorId = moi().getId();   // créateur = compte connecté, jamais une valeur du client
+        var moi = moi();
+        String creatorId = moi.getId();   // créateur = compte connecté, jamais une valeur du client
+        // Membres, chef, classe et nom unique vérifiés AVANT la création : rien n'est créé si un élément est refusé
+        var composition = membresGroupe == null ? null : membresGroupe.preparer(body, name, moi);
 
         var workgroup = collaborationUseCase.createWorkgroup(name, description, creatorId);
+        if (composition != null) {
+            membresGroupe.enregistrer(workgroup.id(), composition);
+        }
 
         actionLogger.logCollaborationAction("CREATE_WORKGROUP", creatorId, "NEW",
             "Création groupe: " + name);
@@ -102,6 +121,16 @@ public class CollaborationController {
         res.put("success", true);
         res.put("id", workgroup.id());
         return ResponseEntity.ok(res);
+    }
+
+    @PutMapping("/workgroups/{groupId}/chef")
+    @Operation(summary = "Changer le chef d'un groupe", description = "Corps {leaderId} : un membre du groupe. Réservé à l'encadrement et au chef actuel.")
+    public ResponseEntity<Map<String, Object>> changerChef(@PathVariable("groupId") String groupId,
+                                                           @RequestBody(required = false) Map<String, Object> body) {
+        if (membresGroupe == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Membres des groupes indisponibles.");
+        }
+        return ResponseEntity.ok(membresGroupe.changerChef(groupId, body, moi()));
     }
 
     @GetMapping("/workgroups/{groupId}/documents")
