@@ -9,7 +9,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.Instant;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -31,9 +30,12 @@ public class StudentDashboardController {
     private static final Logger logger = LoggerFactory.getLogger(StudentDashboardController.class);
 
     private final StudentUseCase studentUseCase;
+    private final ecole_221.sn.ecole.modules.notifications.application.NotificationsUtilisateurService notificationsUtilisateur;
 
-    public StudentDashboardController(StudentUseCase studentUseCase) {
+    public StudentDashboardController(StudentUseCase studentUseCase,
+            ecole_221.sn.ecole.modules.notifications.application.NotificationsUtilisateurService notificationsUtilisateur) {
         this.studentUseCase = studentUseCase;
+        this.notificationsUtilisateur = notificationsUtilisateur;
     }
 
     // ── MEET / LIVE SESSION ───────────────────────────────────────────────────
@@ -61,35 +63,47 @@ public class StudentDashboardController {
     // ── NOTIFICATIONS ─────────────────────────────────────────────────────────
 
     /**
-     * Route attendue par {@code ApiNotificationRepository.ts} — polling toutes les 5 s.
-     * Retourne une liste vide tant que le module notifications n'est pas activé en base.
-     *
-     * @param limit nombre max de notifications (défaut 20)
+     * Notifications du compte connecté (cloche de l'élève), plus récentes d'abord.
+     * Avant (2026-11-13) : liste toujours vide.
      */
     @GetMapping("/notifications")
-    @Operation(summary = "Notifications courantes",
-               description = "Retourne les dernières notifications de l'utilisateur authentifié.")
+    @Operation(summary = "Mes notifications",
+               description = "Retourne les dernières notifications du compte connecté.")
     public ResponseEntity<List<Map<String, Object>>> getNotifications(
             @RequestParam(defaultValue = "20") int limit) {
-        logger.debug("GET /notifications?limit={}", limit);
-        // TODO (BE-next) : lire le userId depuis le SecurityContext JWT
-        // et appeler notificationUseCase.getNotificationsByRecipient(userId)
-        return ResponseEntity.ok(Collections.emptyList());
+        return ResponseEntity.ok(notificationsUtilisateur.mesNotifications(moi(), limit));
     }
 
     /**
-     * Route POST attendue par {@code ApiNotificationRepository.ts} pour créer une notification.
+     * Prévient les élèves d'une classe (cours modifié ou annulé). Réservé à l'administration et aux professeurs.
+     * Avant (2026-11-13) : ne faisait rien, renvoyait un identifiant inventé, et était ouvert à tout compte.
      */
     @PostMapping("/notifications")
-    @Operation(summary = "Créer une notification",
-               description = "Enregistre une notification émise côté client.")
+    @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','ADMINISTRATOR','SUPER_ADMIN','PLATFORM_ADMIN','PROFESSEUR','PROFESSOR','TEACHER')")
+    @Operation(summary = "Notifier les élèves d'une classe",
+               description = "Enregistre une notification pour chaque élève inscrit dans la classe indiquée (classeId).")
     public ResponseEntity<Map<String, Object>> createNotification(
             @RequestBody Map<String, Object> body) {
-        logger.debug("POST /notifications — body={}", body);
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "id", "notif-" + Instant.now().toEpochMilli()
-        ));
+        int prevenus = notificationsUtilisateur.notifierClasse(texte(body, "classeId", "La classe"),
+                texte(body, "title", "Le titre"), texte(body, "desc", "Le message"), texte(body, "icon", "L'icône"));
+        return ResponseEntity.ok(Map.of("success", true, "destinataires", prevenus));
+    }
+
+    private static String texte(Map<String, Object> body, String cle, String libelle) {
+        Object v = body == null ? null : body.get(cle);
+        if (v != null && !(v instanceof String)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    libelle + " doit être un texte.");
+        }
+        return (String) v;
+    }
+
+    private static String moi() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u && u.getId() != null) {
+            return u.getId();
+        }
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Veuillez vous connecter.");
     }
 
     // ── SCHEDULE ──────────────────────────────────────────────────────────────

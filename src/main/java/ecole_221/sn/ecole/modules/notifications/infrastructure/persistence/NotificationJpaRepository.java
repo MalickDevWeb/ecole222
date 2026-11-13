@@ -8,6 +8,9 @@ import java.util.List;
 
 public interface NotificationJpaRepository extends JpaRepository<NotificationJpaEntity, String> {
     List<NotificationJpaEntity> findByRecipientId(String recipientId);
+
+    /** Même notification déjà envoyée à ce destinataire depuis {@code depuis} (double clic, double envoi). */
+    boolean existsByRecipientIdAndTitleAndMessageAndCreatedAtAfter(String recipientId, String title, String message, LocalDateTime depuis);
     List<NotificationJpaEntity> findByRecipientRole(String recipientRole);
     List<NotificationJpaEntity> findByCategory(String category);
     List<NotificationJpaEntity> findByPriority(String priority);

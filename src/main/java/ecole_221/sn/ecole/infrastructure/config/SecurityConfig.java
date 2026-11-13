@@ -100,7 +100,8 @@ public class SecurityConfig {
                 .requestMatchers("/candidatures/**", "/admissions/**", "/v1/admissions/**")
                     .hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
                 // Routes exclusivement réservées au SUPER_ADMIN / PLATFORM_ADMIN
-                .requestMatchers("/super-admin/**", "/platform/**", "/v1/super-admin/**", "/v1/platform/**")
+                .requestMatchers("/super-admin/**", "/platform/**", "/v1/super-admin/**", "/v1/platform/**",
+                        "/api/v1/super-admin/**", "/api/v1/platform/**")  // contrôleurs mappés sous /api/v1 (défense en profondeur)
                     .hasAnyRole("SUPER_ADMIN", "PLATFORM_ADMIN")
                 // Envoi d'e-mails libres (destinataire, sujet, contenu au choix) : réservé à l'administration.
                 // Avant : tout compte connecté, élève compris, pouvait écrire à n'importe qui au nom de l'école.
@@ -112,7 +113,10 @@ public class SecurityConfig {
                     .hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
                 .requestMatchers("/admin/**", "/finance/**", "/dashboard/**", "/audit/**")
                     .hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
-                .requestMatchers("/planning/**").authenticated()
+                // Planning : lecture pour tout compte connecté ; écriture (salles, classes, filières, créneaux) réservée à
+                // l'administration. Avant (balayage du 2026-11-13) : un élève créait, modifiait ou supprimait le planning.
+                .requestMatchers(HttpMethod.GET, "/planning/**").authenticated()
+                .requestMatchers("/planning/**").hasAnyRole("ADMIN", "ADMINISTRATOR", "SUPER_ADMIN", "PLATFORM_ADMIN")
                 .requestMatchers("/vigil/check-ins").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "PROFESSEUR", "TEACHER", "SUPER_ADMIN")
                 .requestMatchers("/security/**", "/vigil/**").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "SUPER_ADMIN")
                 .requestMatchers("/professor/**", "/prof/**").hasAnyRole("PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR", "SUPER_ADMIN")
