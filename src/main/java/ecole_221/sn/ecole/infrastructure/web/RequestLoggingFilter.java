@@ -53,6 +53,14 @@ public class RequestLoggingFilter implements Filter {
                 refuserTropVolumineux(httpResponse);
                 return;
             }
+            // Texte démesuré dans un champ JSON (copier-coller géant, robot) : refus 400 explicite, avant tout traitement
+            if (estJson(httpRequest) && ((CachedBodyHttpServletRequest) wrappedRequest).contientTexteTropLong(TEXTE_MAX)) {
+                httpResponse.setStatus(400);
+                httpResponse.setContentType("application/json;charset=UTF-8");
+                httpResponse.getWriter().write("{\"success\":false,\"code\":\"VALIDATION_ERROR\",\"status\":400,"
+                        + "\"message\":\"Un champ dépasse " + TEXTE_MAX + " caractères : raccourcissez le texte.\"}");
+                return;
+            }
         }
         
         // Lire et logger la requête entrante
@@ -124,6 +132,14 @@ public class RequestLoggingFilter implements Filter {
             logger.info("║   ✓ Response time acceptable                                                                ║");
         }
         logger.info("╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝");
+    }
+
+    /** Longueur maximale d'une valeur texte d'un corps JSON (≈ 25 pages : assez pour une page de wiki). */
+    static final int TEXTE_MAX = 50_000;
+
+    private static boolean estJson(HttpServletRequest requete) {
+        String type = requete.getContentType();
+        return type != null && type.toLowerCase(java.util.Locale.ROOT).contains("json");
     }
 
     private static void refuserTropVolumineux(HttpServletResponse reponse) throws IOException {

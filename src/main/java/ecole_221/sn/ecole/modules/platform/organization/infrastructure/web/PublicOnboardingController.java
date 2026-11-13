@@ -72,6 +72,12 @@ public class PublicOnboardingController {
                     branding.put("primaryColor", primaryColor);
                     if (org.getLogo() != null && !org.getLogo().isBlank()) {
                         branding.put("logoUrl", org.getLogo());
+                if (org.getSettings() != null && org.getSettings().get("backgroundUrl") != null) {
+                    branding.put("backgroundUrl", String.valueOf(org.getSettings().get("backgroundUrl")));
+                }
+                    }
+                    if (org.getSettings() != null && org.getSettings().get("backgroundUrl") != null) {
+                        branding.put("backgroundUrl", String.valueOf(org.getSettings().get("backgroundUrl")));
                     }
                     return ResponseEntity.ok(publique(org.getId(), org.getName(), "ecole-221", branding,
                             org.getPhone(), org.getEmail(), org.getCity()));

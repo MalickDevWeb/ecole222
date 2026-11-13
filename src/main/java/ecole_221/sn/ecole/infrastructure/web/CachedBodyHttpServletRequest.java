@@ -76,4 +76,26 @@ public class CachedBodyHttpServletRequest extends HttpServletRequestWrapper {
             return inputStream.read();
         }
     }
+
+    /**
+     * Vrai si une chaîne JSON du corps dépasse {@code max} caractères (parcours linéaire, sans analyse complète :
+     * guillemets échappés pris en compte).
+     */
+    public boolean contientTexteTropLong(int max) {
+        String texte = new String(cachedBody, java.nio.charset.StandardCharsets.UTF_8);
+        boolean dansChaine = false;
+        int longueur = 0;
+        for (int i = 0; i < texte.length(); i++) {
+            char c = texte.charAt(i);
+            if (dansChaine) {
+                if (c == '\\') { i++; longueur++; }
+                else if (c == '"') { dansChaine = false; }
+                else if (++longueur > max) { return true; }
+            } else if (c == '"') {
+                dansChaine = true;
+                longueur = 0;
+            }
+        }
+        return false;
+    }
 }
