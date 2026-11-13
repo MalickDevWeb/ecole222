@@ -1,5 +1,6 @@
 package ecole_221.sn.ecole.modules.referential.infrastructure.web;
 
+import io.swagger.v3.oas.annotations.Operation;
 import ecole_221.sn.ecole.modules.referential.application.dto.EffectiveReferenceValue;
 import ecole_221.sn.ecole.modules.referential.application.dto.ReferenceCaller;
 import ecole_221.sn.ecole.modules.referential.application.service.ReferenceCommandService;
@@ -40,6 +41,7 @@ public class ReferenceValueController {
         this.commands = commands;
     }
 
+    @Operation(summary = "Listes paramétrables disponibles", description = "slug, libellé et mode de chaque liste (catégories de dépenses, statuts…).")
     @GetMapping
     public List<Map<String, String>> lists() {
         return Arrays.stream(ReferenceList.values())
@@ -47,12 +49,14 @@ public class ReferenceValueController {
                 .toList();
     }
 
+    @Operation(summary = "Valeurs d'une liste", description = "Valeurs effectives pour l'école (valeurs globales + valeurs de l'école) ; ?all=true inclut les valeurs désactivées. 404 si la liste est inconnue.")
     @GetMapping("/{list}")
     public List<EffectiveReferenceValue> values(@PathVariable String list,
                                                 @RequestParam(defaultValue = "false") boolean all) {
         return queries.effectiveValues(resolve(list), currentOrg(), all);
     }
 
+    @Operation(summary = "Ajouter une valeur à une liste", description = "Corps {code, label, color?, sortOrder?}. Administration de l'école ; ?scope=global réservé au super-administrateur. 201.")
     @PostMapping("/{list}")
     public ResponseEntity<EffectiveReferenceValue> create(@PathVariable String list, @Valid @RequestBody ReferenceValueRequest body,
                                                           @RequestParam(required = false) String scope, Authentication auth) {
@@ -62,6 +66,7 @@ public class ReferenceValueController {
         return ResponseEntity.status(HttpStatus.CREATED).body(view(l, caller, code));
     }
 
+    @Operation(summary = "Modifier une valeur", description = "Corps {label, color?, sortOrder?, active?}. Mêmes droits que l'ajout.")
     @PutMapping("/{list}/{code}")
     public EffectiveReferenceValue update(@PathVariable String list, @PathVariable String code,
                                           @Valid @RequestBody ReferenceValueRequest body,
@@ -72,6 +77,7 @@ public class ReferenceValueController {
         return view(l, caller, code.toUpperCase());
     }
 
+    @Operation(summary = "Supprimer une valeur", description = "Mêmes droits que l'ajout. 204.")
     @DeleteMapping("/{list}/{code}")
     public ResponseEntity<Void> delete(@PathVariable String list, @PathVariable String code,
                                        @RequestParam(required = false) String scope, Authentication auth) {

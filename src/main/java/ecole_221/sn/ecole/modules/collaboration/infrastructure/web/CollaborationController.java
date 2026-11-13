@@ -51,7 +51,7 @@ public class CollaborationController {
     }
 
     @GetMapping("/workgroups")
-    @Operation(summary = "Liste des groupes de travail", description = "Retourne tous les groupes de travail disponibles.")
+    @Operation(summary = "Liste des groupes de travail", description = "Groupes de l'école avec leurs membres réels (id, name, email, leader), chef (leaderId, leaderName), classe (classId) et nombre de membres.")
     public ResponseEntity<List<Map<String, Object>>> getWorkgroups() {
         Map<String, Map<String, Object>> details = membresGroupe == null ? Map.of() : membresGroupe.detailsParGroupe();
         List<Map<String, Object>> result = collaborationUseCase.getWorkgroups().stream()
@@ -76,7 +76,7 @@ public class CollaborationController {
     }
 
     @GetMapping("/students")
-    @Operation(summary = "Liste des étudiants", description = "Retourne la liste des étudiants pour la formation de groupes.")
+    @Operation(summary = "Élèves pour former un groupe", description = "Élèves actifs de l'école (id, nom, email) ; ?classeId= : seulement ceux inscrits dans la classe (404 si elle est inconnue).")
     public ResponseEntity<List<Map<String, Object>>> getStudents(
             @Parameter(description = "Classe : seuls les élèves inscrits sont listés") @RequestParam(value = "classeId", required = false) String classeId) {
         java.util.Set<String> filtre = classeId == null || classeId.isBlank() || membresGroupe == null ? null : membresGroupe.elevesDeLaClasse(classeId.strip());
@@ -99,7 +99,7 @@ public class CollaborationController {
     }
 
     @PostMapping("/workgroups")
-    @Operation(summary = "Créer un groupe", description = "Crée un nouveau groupe de travail (name obligatoire, description).")
+    @Operation(summary = "Créer un groupe", description = "Corps {name (obligatoire, unique dans l'école → 409), description?, classId?, memberIds?, leaderId?}. Enseignant ou administration : membres = élèves actifs de l'école, inscrits dans la classe si elle est donnée, chef parmi les membres (premier membre par défaut). Élève : seul membre et chef ; memberIds, leaderId ou classId → 403. Tout est vérifié avant la création.")
     public ResponseEntity<Map<String, Object>> createWorkgroup(@RequestBody Map<String, Object> body) {
         // APP-QA-04 : nom obligatoire et texte, longueurs bornées (avant : groupe sans nom créé, ou faux succès « fallback-… »)
         String name = texte(body, "name", "Le nom du groupe", 100);

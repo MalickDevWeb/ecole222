@@ -1,5 +1,6 @@
 package ecole_221.sn.ecole.modules.student.infrastructure.web;
-import org.slf4j.Logger;
+
+import io.swagger.v3.oas.annotations.Operation;import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.springframework.messaging.handler.annotation.DestinationVariable;
@@ -64,6 +65,7 @@ public class LiveSessionMessageController {
     /**
      * Endpoint REST pour récupérer l'historique du chat lorsqu'un étudiant rejoint la session en cours.
      */
+    @Operation(summary = "Historique du chat d'un cours en direct", description = "Messages enregistrés de la session, pour l'élève qui la rejoint en cours de route.")
     @GetMapping("/student/live-sessions/{sessionId}/chat-history")
     public List<LiveChatMessageJpaEntity> getChatHistory(@PathVariable String sessionId) {
         return messageRepository.findBySessionIdOrderByTimestampAsc(sessionId);

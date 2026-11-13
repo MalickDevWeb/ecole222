@@ -1,5 +1,6 @@
 package ecole_221.sn.ecole.modules.superadmin.infrastructure.web;
 
+import io.swagger.v3.oas.annotations.Operation;
 import ecole_221.sn.ecole.modules.superadmin.application.port.command.CreateGlobalUserCommand;
 import ecole_221.sn.ecole.modules.superadmin.application.port.dto.SuperAdminUserDto;
 import ecole_221.sn.ecole.modules.superadmin.application.port.usecase.CreateGlobalUserUseCase;
@@ -42,6 +43,7 @@ public class SuperAdminUserController {
     /**
      * Liste tous les utilisateurs de gestion globale (Super Admins, Admins).
      */
+    @Operation(summary = "Comptes de gestion globale", description = "Super-administrateurs et administrateurs de la plateforme.")
     @GetMapping
     public ResponseEntity<List<SuperAdminUserDto>> listGlobalUsers() {
         List<SuperAdminUserDto> users = listGlobalUsersUseCase.execute();
@@ -52,6 +54,7 @@ public class SuperAdminUserController {
      * Crée un nouvel utilisateur de gestion globale.
      * Les données sont strictement validées par jakarta.validation (@Valid).
      */
+    @Operation(summary = "Créer un compte de gestion globale", description = "Corps validé (CreateGlobalUserCommand) : email unique, rôle de plateforme.")
     @PostMapping
     public ResponseEntity<SuperAdminUserDto> createGlobalUser(@Valid @RequestBody CreateGlobalUserCommand command) {
         SuperAdminUserDto createdUser = createGlobalUserUseCase.execute(command);
@@ -61,6 +64,7 @@ public class SuperAdminUserController {
     /**
      * Récupère un utilisateur global par son ID.
      */
+    @Operation(summary = "Détail d'un compte de gestion globale", description = "404 s'il n'existe pas.")
     @GetMapping("/{userId}")
     public ResponseEntity<SuperAdminUserDto> getGlobalUser(@PathVariable String userId) {
         SuperAdminUserDto user = getGlobalUserUseCase.execute(userId);
@@ -70,6 +74,7 @@ public class SuperAdminUserController {
     /**
      * Supprime un utilisateur global par son ID.
      */
+    @Operation(summary = "Supprimer un compte de gestion globale", description = "204.")
     @DeleteMapping("/{userId}")
     public ResponseEntity<Void> deleteGlobalUser(@PathVariable String userId) {
         deleteGlobalUserUseCase.execute(userId);

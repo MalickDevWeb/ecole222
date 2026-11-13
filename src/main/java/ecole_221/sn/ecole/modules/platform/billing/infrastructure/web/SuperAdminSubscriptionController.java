@@ -1,5 +1,6 @@
 package ecole_221.sn.ecole.modules.platform.billing.infrastructure.web;
 
+import io.swagger.v3.oas.annotations.Operation;
 import ecole_221.sn.ecole.modules.platform.billing.application.port.command.AssignPlanCommand;
 import ecole_221.sn.ecole.modules.platform.billing.application.port.dto.SubscriptionDto;
 import ecole_221.sn.ecole.modules.platform.billing.application.service.SubscriptionService;
@@ -22,12 +23,14 @@ public class SuperAdminSubscriptionController {
         this.subscriptionService = subscriptionService;
     }
 
+    @Operation(summary = "Abonner un établissement à une offre", description = "Corps validé (AssignPlanCommand) : établissement et offre existants.")
     @PostMapping
     public ResponseEntity<SubscriptionDto> assignPlanToTenant(@Valid @RequestBody AssignPlanCommand command) {
         SubscriptionDto subscription = subscriptionService.subscribeTenant(command);
         return ResponseEntity.status(HttpStatus.CREATED).body(subscription);
     }
 
+    @Operation(summary = "Abonnements des établissements", description = "Tous les abonnements de la plateforme.")
     @GetMapping
     public ResponseEntity<List<SubscriptionDto>> listSubscriptions() {
         return ResponseEntity.ok(subscriptionService.listSubscriptions());

@@ -1,5 +1,6 @@
 package ecole_221.sn.ecole.modules.admin.infrastructure.web;
 
+import io.swagger.v3.oas.annotations.Operation;
 import ecole_221.sn.ecole.modules.admin.application.service.ComptesEcoleService;
 import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.DocumentEleveJpaEntity;
 import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.DocumentEleveJpaRepository;
@@ -50,12 +51,14 @@ public class AdminStudentProfileController {
         this.seances = seances;
     }
 
+    @Operation(summary = "Dossier 360° d'un élève", description = "Données réellement saisies (groupe sanguin, allergies) ; rubriques sans source renvoyées vides avec leur statut. 404 si l'élève n'est pas de l'école.")
     @GetMapping("/students/{id}/profile360")
     public ResponseEntity<Map<String, Object>> getProfile360(@PathVariable("id") String studentId) {
         comptesEcole.membre(studentId, "ETUDIANT");   // 404 si l'élève n'est pas de cette école
         return ResponseEntity.ok(profil(profils.findFirstByUserId(studentId).orElse(null)));
     }
 
+    @Operation(summary = "Compléter le dossier d'un élève", description = "Corps {bloodGroup?, allergies?} : seuls les champs envoyés changent. 404 si l'élève n'est pas de l'école.")
     @PostMapping("/students/{id}/profile360")
     public ResponseEntity<Map<String, Object>> updateProfile360(
             @PathVariable("id") String studentId,
@@ -71,12 +74,14 @@ public class AdminStudentProfileController {
         return ResponseEntity.ok(profil(p));
     }
 
+    @Operation(summary = "Documents d'un élève", description = "Pièces déposées pour l'élève, de la plus ancienne à la plus récente.")
     @GetMapping("/students/{id}/documents")
     public ResponseEntity<List<Map<String, Object>>> getDocuments(@PathVariable("id") String studentId) {
         comptesEcole.membre(studentId, "ETUDIANT");
         return ResponseEntity.ok(documents.findByUserIdOrderByCreatedAtAsc(studentId).stream().map(this::document).toList());
     }
 
+    @Operation(summary = "Ajouter un document à un élève", description = "Corps {name, url, size?} : le fichier est d'abord envoyé via /media/upload, puis son adresse est enregistrée ici. 201 avec la liste à jour.")
     @PostMapping("/students/{id}/documents")
     public ResponseEntity<Map<String, Object>> addDocument(
             @PathVariable("id") String studentId,
@@ -96,12 +101,14 @@ public class AdminStudentProfileController {
      * Diagnostic « IA » d'un élève : aucune donnée académique réelle (notes, présences) n'est transmise au
      * modèle, qui ne recevait que l'identifiant → texte inventé. Refusé tant qu'il n'est pas branché sur des données réelles.
      */
+    @Operation(summary = "Diagnostic d'un élève (indisponible)", description = "Répond 503 : le diagnostic n'est pas encore alimenté par les notes et présences réelles de l'élève.")
     @PostMapping("/student-diagnostic")
     public ResponseEntity<Map<String, String>> generateDiagnostic(@RequestBody Map<String, String> body) {
         throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
                 "Diagnostic indisponible : il n'est pas encore alimenté par les notes et présences réelles de l'élève.");
     }
 
+    @Operation(summary = "Programmer une séance d'un cours", description = "Corps {courseId, day, time, room, professorId?} : crée une séance planifiée pour un cours de l'école (professeur du cours par défaut). 201.")
     @PostMapping("/schedule/assign")
     public ResponseEntity<Map<String, Object>> assignSchedule(@RequestBody Map<String, String> body) {
         String courseId = texte(body.get("courseId"));

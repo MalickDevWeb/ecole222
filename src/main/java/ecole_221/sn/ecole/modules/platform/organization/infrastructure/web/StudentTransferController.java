@@ -1,5 +1,6 @@
 package ecole_221.sn.ecole.modules.platform.organization.infrastructure.web;
 
+import io.swagger.v3.oas.annotations.Operation;
 import ecole_221.sn.ecole.modules.auth.domain.model.User;
 import ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort;
 import ecole_221.sn.ecole.modules.platform.organization.application.StudentEnrollmentService;
@@ -54,6 +55,7 @@ public class StudentTransferController {
     }
 
     /** Inscrit un élève dans une école (refusé s'il est déjà actif ailleurs : passer par le transfert). */
+    @Operation(summary = "Inscrire un élève dans une école", description = "L'élève et l'école doivent exister ; refusé s'il est déjà actif ailleurs (passer par le transfert). Un administrateur d'école n'agit que sur sa propre école.")
     @PostMapping("/{studentId}/enroll")
     @PreAuthorize("hasAnyRole('SUPER_ADMIN', 'PLATFORM_ADMIN', 'ADMIN')")
     public ResponseEntity<Map<String, Object>> enrollStudent(

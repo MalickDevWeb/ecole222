@@ -1,5 +1,6 @@
 package ecole_221.sn.ecole.modules.security.infrastructure.web;
-import org.slf4j.Logger;
+
+import io.swagger.v3.oas.annotations.Operation;import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import org.springframework.http.ResponseEntity;
@@ -87,11 +88,13 @@ public class SecurityController {
 
     // ==================== ENDPOINTS OPÉRATIONS DE SÉCURITÉ ====================
 
+    @Operation(summary = "État du poste de contrôle", description = "Porte et gardien affectés (« Non configuré » / « Non assigné » s'ils ne le sont pas) et nombre de scans du jour dans l'école.")
     @GetMapping("/security/checkpoint-status")
     public ResponseEntity<Map<String, Object>> getCheckpointStatus() {
         return ResponseEntity.ok(securityUseCase.getCheckpointStatus());
     }
 
+    @Operation(summary = "Journaliser un scan de badge", description = "Corps {badgeId} ou {studentId, checkpointId?}. 403 si le terminal du vigile est désactivé ou révoqué ; scan vide → 400.")
     @PostMapping("/security/scan-logs")
     public ResponseEntity<Map<String, Object>> scanBadge(@RequestBody Map<String, String> body) {
         // APP-BE-21 : terminal du vigile connecté — 403 s'il a été désactivé ou révoqué par l'administration
@@ -119,11 +122,13 @@ public class SecurityController {
         return ResponseEntity.ok(securityUseCase.processBadgeScan(badgeId));
     }
 
+    @Operation(summary = "Journal des passages", description = "Scans enregistrés dans l'école courante.")
     @GetMapping("/vigil/check-ins")
     public ResponseEntity<List<Map<String, Object>>> getVigilCheckIns() {
         return ResponseEntity.ok(securityUseCase.getVigilCheckIns());
     }
 
+    @Operation(summary = "Profil du vigile connecté", description = "Profil enregistré du vigile ; à défaut, son nom et statut « non_configuré ».")
     @GetMapping("/vigil/profile")
     public ResponseEntity<Map<String, Object>> getVigilProfile() {
         // Profil du vigile CONNECTÉ (avant : profil « VIG-221 » pour tout le monde)
@@ -139,6 +144,7 @@ public class SecurityController {
         return ResponseEntity.ok(profil);
     }
 
+    @Operation(summary = "Scanner un badge ou un QR", description = "Corps {badgeId} (badge ou QR STU_SECURE signé). Résout le badge vers un élève réel de l'école ; renvoie Autorisé/Refusé, motif, statut des frais et terminal du vigile. 403 si ce terminal est désactivé ou révoqué.")
     @PostMapping("/vigil/scan")
     public ResponseEntity<Map<String, Object>> scanVigilBadge(@RequestBody Map<String, String> body) {
         // Plus d'acceptation « à l'aveugle » des préfixes SN-/badge- ni d'assiduité / statut de frais inventés :
@@ -205,6 +211,7 @@ public class SecurityController {
         return ResponseEntity.ok(result);
     }
 
+    @Operation(summary = "Dernier scan de l'école", description = "Dernier résultat de scan de l'école courante (« Aucun scan récent » sinon).")
     @GetMapping("/vigil/last-scan")
     public ResponseEntity<Map<String, Object>> getLastScan() {
         Map<String, Object> dernier = derniersScans.get(ecoleCourante());

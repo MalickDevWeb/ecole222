@@ -1,5 +1,6 @@
 package ecole_221.sn.ecole.modules.platform.billing.infrastructure.web;
 
+import io.swagger.v3.oas.annotations.Operation;
 import ecole_221.sn.ecole.modules.platform.billing.application.port.command.AddEntitlementCommand;
 import ecole_221.sn.ecole.modules.platform.billing.application.port.command.CreatePlanCommand;
 import ecole_221.sn.ecole.modules.platform.billing.application.port.dto.PlanDto;
@@ -23,12 +24,14 @@ public class SuperAdminPlanController {
         this.planService = planService;
     }
 
+    @Operation(summary = "Créer une offre d'abonnement", description = "Corps validé (CreatePlanCommand) : code, nom, prix, quotas.")
     @PostMapping
     public ResponseEntity<PlanDto> createPlan(@Valid @RequestBody CreatePlanCommand command) {
         PlanDto plan = planService.createPlan(command);
         return ResponseEntity.status(HttpStatus.CREATED).body(plan);
     }
 
+    @Operation(summary = "Offres d'abonnement", description = "Toutes les offres de la plateforme.")
     @GetMapping
     public ResponseEntity<List<PlanDto>> listPlans() {
         return ResponseEntity.ok(planService.listPlans());

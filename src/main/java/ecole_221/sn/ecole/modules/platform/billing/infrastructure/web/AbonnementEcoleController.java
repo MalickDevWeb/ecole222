@@ -1,5 +1,6 @@
 package ecole_221.sn.ecole.modules.platform.billing.infrastructure.web;
 
+import io.swagger.v3.oas.annotations.Operation;
 import ecole_221.sn.ecole.modules.platform.billing.domain.model.Entitlement;
 import ecole_221.sn.ecole.modules.platform.billing.domain.model.Plan;
 import ecole_221.sn.ecole.modules.platform.billing.domain.model.Subscription;
@@ -43,6 +44,7 @@ public class AbonnementEcoleController {
         this.appartenances = appartenances;
     }
 
+    @Operation(summary = "Abonnement de l'école", description = "Offre et quotas réels de l'école courante et consommation réelle (comptes actifs) ; disponible = false sans abonnement enregistré.")
     @GetMapping("/admin/abonnement")
     public ResponseEntity<Map<String, Object>> abonnement() {
         Map<String, Object> reponse = new LinkedHashMap<>();
