@@ -25,7 +25,8 @@ public interface StudentFinanceJpaRepository extends JpaRepository<StudentFinanc
     @Query("SELECT sf FROM StudentFinanceJpaEntity sf WHERE sf.debt > 0")
     List<StudentFinanceJpaEntity> findStudentsWithDebt();
     
-    @Query("SELECT SUM(sf.debt) FROM StudentFinanceJpaEntity sf WHERE sf.status = 'En Retard'")
+    /** Reste dû total de l'école (APP-TL-22 : avant, somme des seuls dossiers « En Retard » saisis à la main). */
+    @Query("SELECT COALESCE(SUM(sf.debt), 0) FROM StudentFinanceJpaEntity sf WHERE sf.debt > 0")
     Long totalDebtByStatus();
     
     @Query("SELECT COUNT(sf) FROM StudentFinanceJpaEntity sf WHERE sf.status = :status")

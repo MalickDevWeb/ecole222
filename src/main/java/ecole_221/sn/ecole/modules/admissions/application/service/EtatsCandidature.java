@@ -34,6 +34,23 @@ public final class EtatsCandidature {
         return e;
     }
 
+    public static final String DOSSIER_INSCRIT = "Dossier inscrit : l'élève a été créé, le dossier ne peut plus changer d'état ni être supprimé.";
+    public static final String FINALISE_MANUEL = "Le statut « Finalisé » est posé uniquement par l'inscription de l'admis (bouton « Inscrire »).";
+
+    /** 409 si le dossier est déjà inscrit (APP-TL-23) : son état et son existence sont figés. */
+    public static void exigerModifiable(CandidateJpaEntity c) {
+        if (c != null && c.estInscrit()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, DOSSIER_INSCRIT);
+        }
+    }
+
+    /** 409 si une décision manuelle tente de poser FINALISE : seule l'inscription le fait (APP-TL-23). */
+    public static void refuserFinaliseManuel(CandidateStatus statut) {
+        if (statut == CandidateStatus.FINALISE) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, FINALISE_MANUEL);
+        }
+    }
+
     /** À appeler après avoir changé la décision : l'étape suit. */
     public static void apresDecision(CandidateJpaEntity c) {
         CandidateStatus s = statut(c.getAdmissionStatus());

@@ -24,8 +24,8 @@ public final class CataloguePermissions {
     }
 
     public static final List<Module> MODULES = List.of(
-            new Module("eleves", "Élèves", "Annuaire, dossiers 360°, justificatifs d'absence, messages des parents",
-                    List.of("/admin/students", "/admin/justificatifs-absence", "/admin/messages-parents", "/admin/student-diagnostic")),
+            new Module("eleves", "Élèves", "Annuaire, dossiers 360° et synthèse du suivi, justificatifs d'absence, messages des parents",
+                    List.of("/admin/students", "/admin/justificatifs-absence", "/admin/messages-parents")),
             new Module("admissions", "Admissions", "Campagnes et dossiers de candidature",
                     List.of("/admissions", "/v1/admissions", "/candidatures", "/admin/candidatures")),
             new Module("finances", "Finances", "Frais, paiements, dépenses et rapports", List.of("/finance")),

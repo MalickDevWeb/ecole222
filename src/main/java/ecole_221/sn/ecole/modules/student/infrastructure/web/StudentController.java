@@ -52,7 +52,6 @@ public class StudentController {
     private final ecole_221.sn.ecole.modules.student.infrastructure.persistence.StudentDataRepository studentDataRepository;
     private final GradesReportService gradesReportService;
     private final ActionLogger actionLogger;
-    private final ecole_221.sn.ecole.modules.ai.application.port.usecase.AIUseCase aiUseCase;
     private final ecole_221.sn.ecole.modules.email.application.port.usecase.EmailUseCase emailUseCase;
 
     /** Demandes de révision de note transmises à l'administration (APP-QA-04). */
@@ -65,14 +64,12 @@ public class StudentController {
             ecole_221.sn.ecole.modules.student.infrastructure.persistence.StudentDataRepository studentDataRepository,
             GradesReportService gradesReportService,
             ActionLogger actionLogger,
-            ecole_221.sn.ecole.modules.ai.application.port.usecase.AIUseCase aiUseCase,
             ecole_221.sn.ecole.modules.email.application.port.usecase.EmailUseCase emailUseCase) {
         this.studentUseCase = studentUseCase;
         this.courseDetailRepository = courseDetailRepository;
         this.studentDataRepository = studentDataRepository;
         this.gradesReportService = gradesReportService;
         this.actionLogger = actionLogger;
-        this.aiUseCase = aiUseCase;
         this.emailUseCase = emailUseCase;
     }
 
@@ -400,26 +397,12 @@ public class StudentController {
 
     // Balayage du 2026-11-13 : POST /courses/{courseId}/quizzes/submit retiré — le score était calculé à partir des bonnes réponses envoyées par l'élève lui-même ; aucun écran ne l'appelait. Les quiz passent par POST /student/quizzes/{quizId}/tentatives (corrigés par le serveur).
 
-    // ==================== TUTOR CHAT ====================
+    // ==================== TUTEUR IA ====================
 
-    @PostMapping("/tutor/chat")
-    @Operation(summary = "Chat avec Tuteur IA", description = "L'etudiant converse avec son tuteur IA.")
-    public ResponseEntity<Map<String, Object>> chatWithTutor(@RequestBody Map<String, Object> body) {
-        logger.info("POST /student/tutor/chat - Message au tuteur IA");
-        // APP-QA-04 : question obligatoire, texte, bornée (avant : null transmis au service d'IA)
-        String message = ecole_221.sn.ecole.partage.ChampsRequete.texte(body, "message", "La question", 4_000);
+    // 2026-11-14 (APP-TL-24) : POST /tutor/chat retiré — l'IA générative est hors du périmètre de cette version
+    // (données mobiles, coût en devises, données de mineurs hors du Sénégal : loi n° 2008-12). Le module « ai »
+    // reste en place, sans route, pour un éventuel pilote.
 
-        // Utiliser le nouveau service IA
-        String aiResponse = aiUseCase.generateTutorResponse(message);
-        
-        Map<String, Object> chatResponse = new HashMap<>();
-        chatResponse.put("text", aiResponse);
-        chatResponse.put("provider", aiUseCase.getAIServiceInfo().get("provider"));
-        chatResponse.put("available", aiUseCase.isAIServiceAvailable());
-        
-        return ResponseEntity.ok(chatResponse);
-    }
-    
     // ==================== EMAIL NOTIFICATIONS ====================
     
     // Balayage du 2026-11-13 : POST /send-notification retiré — un compte élève envoyait un e-mail à n'importe quelle adresse au nom de l'école (destinataire fourni par la requête) ; aucun écran ne l'appelait.

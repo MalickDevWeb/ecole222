@@ -245,7 +245,6 @@ public class CollaborationService implements CollaborationUseCase {
             map.put("classIds", liste(meet.getClassIds()));
             map.put("classNames", liste(meet.getClassNames()));
             map.put("isPublished", Boolean.TRUE.equals(meet.getPublished()));
-            map.put("restrictToGoogleAccount", Boolean.TRUE.equals(meet.getRestrictToGoogleAccount()));
             return map;
         }).toList();
     }
@@ -284,7 +283,6 @@ public class CollaborationService implements CollaborationUseCase {
         meet.setClassIds(csv(d.get("classIds")));
         meet.setClassNames(csv(d.get("classNames")));
         meet.setPublished(Boolean.TRUE.equals(d.get("isPublished")));
-        meet.setRestrictToGoogleAccount(Boolean.TRUE.equals(d.get("restrictToGoogleAccount")));
         meetJpaRepository.save(meet);
     }
 

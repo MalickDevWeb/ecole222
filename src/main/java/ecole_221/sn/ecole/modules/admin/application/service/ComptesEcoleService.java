@@ -253,6 +253,11 @@ public class ComptesEcoleService {
         return parts.length > 1 ? new String[] {parts[0], parts[1]} : new String[] {"", brut};
     }
 
+    /** Matricule élève libre (ETU-AAAA-XXXXXX), même format que la création manuelle et l'import (APP-TL-23). */
+    public String nouveauMatriculeEleve() {
+        return nouveauMatricule("ETUDIANT");
+    }
+
     private String nouveauMatricule(String role) {
         String prefixe = switch (role == null ? "" : role.toUpperCase(Locale.ROOT)) {
             case "ETUDIANT" -> "ETU";

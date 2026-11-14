@@ -51,7 +51,7 @@ class SituationFinanciereEleveServiceTest {
 
     @Test
     void versementsSeulementLesPaiementsPositifsDansLOrdreDesDates() {
-        when(dossiers.findAllByStudentIdOrderByCreatedAtDesc("e1")).thenReturn(List.of(dossier("L1", 300_000, 150_000, 150_000L, "En Retard")));
+        when(dossiers.findAllByStudentIdOrderByCreatedAtDesc("e1")).thenReturn(List.of(dossier("L1", 300_000, 150_000, 150_000L, "Non soldé")));
         LocalDateTime j = LocalDateTime.of(2026, 10, 5, 10, 0);
         when(transactions.findByStudentId("e1")).thenReturn(List.of(
                 transaction("t2", "PAYMENT", 60_000, j.plusDays(20), null),

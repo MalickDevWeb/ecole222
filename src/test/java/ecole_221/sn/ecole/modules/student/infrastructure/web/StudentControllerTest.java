@@ -6,7 +6,6 @@ import ecole_221.sn.ecole.modules.student.infrastructure.persistence.CourseDetai
 import ecole_221.sn.ecole.modules.student.infrastructure.persistence.CourseDetail;
 import ecole_221.sn.ecole.modules.student.infrastructure.persistence.StudentDataRepository;
 import ecole_221.sn.ecole.infrastructure.logging.ActionLogger;
-import ecole_221.sn.ecole.modules.ai.application.port.usecase.AIUseCase;
 import ecole_221.sn.ecole.modules.email.application.port.usecase.EmailUseCase;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -32,7 +31,6 @@ class StudentControllerTest {
     private CourseDetailRepository courseDetailRepository;
     private StudentDataRepository studentDataRepository;
     private ActionLogger actionLogger;
-    private AIUseCase aiUseCase;
     private EmailUseCase emailUseCase;
     private MockMvc mockMvc;
 
@@ -56,12 +54,11 @@ class StudentControllerTest {
         courseDetailRepository = Mockito.mock(CourseDetailRepository.class);
         studentDataRepository = Mockito.mock(StudentDataRepository.class);
         actionLogger = Mockito.mock(ActionLogger.class);
-        aiUseCase = Mockito.mock(AIUseCase.class);
         emailUseCase = Mockito.mock(EmailUseCase.class);
         
         StudentController controller = new StudentController(
             studentUseCase, courseDetailRepository, studentDataRepository, 
-            null, actionLogger, aiUseCase, emailUseCase
+            null, actionLogger, emailUseCase
         );
         
         mockMvc = MockMvcBuilders

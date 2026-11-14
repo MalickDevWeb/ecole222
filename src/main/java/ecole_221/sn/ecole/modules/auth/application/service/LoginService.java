@@ -114,6 +114,7 @@ public class LoginService implements LoginUseCase {
         final String cle = cleFrein;
         User user = userRepositoryPort.findByEmail(email)
                 .or(() -> userRepositoryPort.findByEmail(email.toLowerCase(java.util.Locale.ROOT)))
+                .or(() -> parMatricule(email))
                 .orElseThrow(() -> {
                     // Même coût de calcul qu'un compte existant : la durée de la réponse ne révèle pas si l'adresse
                     // existe (énumération des comptes par chronométrage, 2026-11-13).
@@ -159,6 +160,21 @@ public class LoginService implements LoginUseCase {
         );
         reponse.setDoitChangerMotDePasse(user.isDoitChangerMotDePasse());
         return reponse;
+    }
+
+    /**
+     * APP-TL-23 : un élève sans e-mail personnel (fréquent pour les mineurs) se connecte avec son MATRICULE. Un
+     * identifiant sans « @ » est cherché parmi les matricules, et seuls les comptes élèves sont acceptés ainsi. Même
+     * frein et même message d'échec que pour un e-mail.
+     */
+    private java.util.Optional<User> parMatricule(String identifiant) {
+        if (identifiant == null || identifiant.contains("@") || identifiant.isBlank()) {
+            return java.util.Optional.empty();
+        }
+        String saisi = identifiant.trim();
+        return userRepositoryPort.findByMatricule(saisi)
+                .or(() -> userRepositoryPort.findByMatricule(saisi.toUpperCase(java.util.Locale.ROOT)))
+                .filter(u -> u.getRole() != null && "ETUDIANT".equals(u.getRole().value()));
     }
 
     private String resolveTenantSlug(User user, String inputEmail) {

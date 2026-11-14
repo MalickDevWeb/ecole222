@@ -1,7 +1,6 @@
 package ecole_221.sn.ecole.modules.admin.infrastructure.persistence;
 
 import ecole_221.sn.ecole.modules.admin.domain.port.repository.AdminRepositoryPort;
-import ecole_221.sn.ecole.modules.admin.domain.valueobject.StatutFrais;
 import ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext;
 import org.springframework.stereotype.Repository;
 
@@ -13,7 +12,8 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * Données d'administration d'une école.
  * <ul>
- *   <li>statut des frais : persisté par école (jamais présumé « En Règle ») ;</li>
+ *   <li>statut des frais : SUPPRIMÉ (APP-TL-22, 2026-11-14). L'état financier d'un élève vient uniquement de son
+ *       dossier (Finances › Écolages) ; la table {@code statuts_frais_eleves} n'est plus ni lue ni écrite ;</li>
  *   <li>affectation du portail : persistée par école (avant : partagée entre écoles, « Porte Principale » par défaut) ;</li>
  *   <li>journal temps réel : en mémoire mais PAR ÉCOLE (avant : un seul journal visible par toutes les écoles),
  *       limité aux 200 dernières lignes.</li>
@@ -24,11 +24,9 @@ public class InMemoryAdminRepository implements AdminRepositoryPort {
 
     private static final int TAILLE_JOURNAL = 200;
     private final Map<String, List<String>> journaux = new ConcurrentHashMap<>();
-    private final StatutFraisJpaRepository statutsFrais;
     private final AffectationPortailJpaRepository affectations;
 
-    public InMemoryAdminRepository(StatutFraisJpaRepository statutsFrais, AffectationPortailJpaRepository affectations) {
-        this.statutsFrais = statutsFrais;
+    public InMemoryAdminRepository(AffectationPortailJpaRepository affectations) {
         this.affectations = affectations;
     }
 
@@ -54,14 +52,6 @@ public class InMemoryAdminRepository implements AdminRepositoryPort {
     }
 
     @Override
-    public void updateStudentStatus(String studentId, StatutFrais status) {
-        StatutFraisJpaEntity ligne = statutsFrais.findById(studentId)
-                .orElseGet(() -> new StatutFraisJpaEntity(studentId, status.name()));
-        ligne.setStatut(status.name());
-        statutsFrais.save(ligne);
-    }
-
-    @Override
     public void addRealtimeLog(String message) {
         List<String> j = journaux.computeIfAbsent(ecole(), k -> new CopyOnWriteArrayList<>());
         j.add(0, "[" + LocalDateTime.now() + "] " + message);
@@ -71,12 +61,6 @@ public class InMemoryAdminRepository implements AdminRepositoryPort {
     @Override
     public List<String> getRealtimeLogs() {
         return new ArrayList<>(journaux.getOrDefault(ecole(), List.of()));
-    }
-
-    @Override
-    public StatutFrais getStudentStatus(String studentId) {
-        // null = non renseigné : l'application ne présume JAMAIS qu'un élève est « En Règle »
-        return statutsFrais.findById(studentId).map(l -> StatutFrais.valueOf(l.getStatut())).orElse(null);
     }
 
     private static String ecole() {

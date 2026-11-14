@@ -5,7 +5,6 @@ import ecole_221.sn.ecole.infrastructure.web.GlobalExceptionHandler;
 import ecole_221.sn.ecole.modules.admin.application.port.usecase.AdminUseCase;
 import ecole_221.sn.ecole.modules.admin.application.service.ComptesEcoleService;
 import ecole_221.sn.ecole.modules.admin.domain.port.repository.AdminRepositoryPort;
-import ecole_221.sn.ecole.modules.admin.domain.valueobject.StatutFrais;
 import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaEntity;
 import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaRepository;
 import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.PointagePersonnelJpaRepository;
@@ -123,26 +122,22 @@ class AdminControllerTest {
         Mockito.verify(adminUseCase).assignGate("Gate A", "Guard 1");
     }
 
+    /**
+     * APP-TL-22 (2026-11-14) : le statut de frais saisi à la main (« En Règle / En Retard »), qui faisait refuser l'élève
+     * au portique, n'existe plus : la route n'est plus servie et rien n'est enregistré.
+     */
     @Test
-    void statutFraisModifiableSeulementPourUnEleveDeLEcole() throws Exception {
+    void statutFraisNePeutPlusEtreSaisiALaMain() throws Exception {
         Mockito.when(comptes.findById("e1")).thenReturn(Optional.of(compte("e1", "Awa", "Fall", "awa@a.sn")));
         Mockito.when(appartenances.findByUserIdAndOrganizationId("e1", ecole.getId()))
                 .thenReturn(Optional.of(lien("e1", "ETUDIANT", "ACTIVE")));
 
         mockMvc.perform(patch("/admin/students/e1/status").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"statutFrais\":\"En Règle\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.status").value("En Règle"));
-        Mockito.verify(adminUseCase).updateStudentStatus(eq("e1"), eq(StatutFrais.EN_REGLE));
-
-        // élève d'une autre école : invisible
-        mockMvc.perform(patch("/admin/students/autre/status").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"statutFrais\":\"En Règle\"}"))
-                .andExpect(status().isNotFound());
-        // valeur inconnue : refusée (avant : devenait « En Retard »)
-        mockMvc.perform(patch("/admin/students/e1/status").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"statutFrais\":\"n'importe quoi\"}"))
-                .andExpect(status().isBadRequest());
+                .content("{\"statutFrais\":\"En Retard\"}"))
+                // route retirée : aucun traitement (le code exact dépend du gestionnaire d'erreurs ; jamais un succès)
+                .andExpect(result -> org.junit.jupiter.api.Assertions.assertTrue(result.getResponse().getStatus() >= 400,
+                        "statut " + result.getResponse().getStatus()));
+        Mockito.verifyNoInteractions(adminUseCase);
     }
 
     @Test
@@ -189,14 +184,14 @@ class AdminControllerTest {
         Mockito.when(appartenances.findByOrganizationIdAndRole(ecole.getId(), "ETUDIANT"))
                 .thenReturn(List.of(lien("e1", "ETUDIANT", "ACTIVE")));
         Mockito.when(comptes.findAllById(List.of("e1"))).thenReturn(List.of(compte("e1", "Awa", "Fall", "awa@a.sn")));
-        Mockito.when(adminRepository.getStudentStatus("e1")).thenReturn(null);
 
         mockMvc.perform(get("/admin/students"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.length()").value(1))
                 .andExpect(jsonPath("$[0].name").value("Awa Fall"))
                 .andExpect(jsonPath("$[0].matricule").value("ETU-e1"))
-                .andExpect(jsonPath("$[0].statutFrais").doesNotExist())   // non renseigné, pas « En Règle »
+                .andExpect(jsonPath("$[0].statutFrais").doesNotExist())   // APP-TL-22 : aucune donnée financière
+                .andExpect(jsonPath("$[0].financialStatus").doesNotExist())
                 .andExpect(jsonPath("$[0].qrStatus").value("AUTORISÉ"))
                 .andExpect(jsonPath("$[0].moyenne").doesNotExist())
                 .andExpect(jsonPath("$[0].presence").doesNotExist())
@@ -213,7 +208,6 @@ class AdminControllerTest {
     @Test
     void eleveCreeAvecMotDePasseProvisoireEtRattacheALEcole() throws Exception {
         Mockito.when(comptes.findFirstByMatricule(anyString())).thenReturn(Optional.empty());
-        Mockito.when(adminRepository.getStudentStatus(anyString())).thenReturn(null);
 
         mockMvc.perform(post("/admin/students").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"Awa Fall\",\"email\":\"Awa.Fall@exemple.sn\",\"matricule\":\"2026-TEST-001\"}"))

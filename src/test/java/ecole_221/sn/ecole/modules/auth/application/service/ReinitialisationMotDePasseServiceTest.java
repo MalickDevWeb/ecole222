@@ -54,6 +54,10 @@ class ReinitialisationMotDePasseServiceTest {
         awa.setDoitChangerMotDePasse(true);
         Mockito.when(comptes.findByEmail("awa.diop@exemple.sn")).thenReturn(Optional.of(awa));
         Mockito.when(comptes.findByEmail("personne@exemple.sn")).thenReturn(Optional.empty());
+        UserJpaEntity eleveSansEmail = new UserJpaEntity();   // APP-TL-23 : compte existant, identifiant technique
+        eleveSansEmail.setId("u-eleve");
+        eleveSansEmail.setEmail("etu-2026-abcdef@sans-email.invalid");
+        Mockito.when(comptes.findByEmail("etu-2026-abcdef@sans-email.invalid")).thenReturn(Optional.of(eleveSansEmail));
         Mockito.when(comptes.findById("u-awa")).thenReturn(Optional.of(awa));
 
         ReinitialisationMotDePasseJpaRepository demandes = Mockito.mock(ReinitialisationMotDePasseJpaRepository.class);
@@ -93,6 +97,14 @@ class ReinitialisationMotDePasseServiceTest {
         assertThat(bcrypt.matches("Nouveau-2026x", awa.getPassword())).isTrue();
         assertThat(awa.getDoitChangerMotDePasse()).isNull();
         refus(() -> service.reinitialiser(jeton, "Encore-2026xx"), HttpStatus.BAD_REQUEST, "plus valide");
+    }
+
+    @Test
+    void eleveSansEmailAucunLienNiEnvoi() {
+        // APP-TL-23 : identifiant technique sur le domaine réservé .invalid — rien n'est créé ni envoyé
+        service.demander("ETU-2026-ABCDEF@sans-email.invalid", "ecole-221");
+        assertThat(emails).isEmpty();
+        assertThat(stockees).isEmpty();
     }
 
     @Test

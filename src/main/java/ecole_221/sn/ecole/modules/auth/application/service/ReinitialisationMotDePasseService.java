@@ -94,6 +94,12 @@ public class ReinitialisationMotDePasseService {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Adresse e-mail invalide : vérifiez le format.");
         }
         limiter(adresse);
+        if (adresse.endsWith(".invalid")) {
+            // APP-TL-23 : identifiant technique d'un élève sans e-mail (domaine réservé, jamais livrable) : aucun lien
+            // créé ni envoyé ; même réponse que pour une adresse sans compte. L'élève s'adresse à son école.
+            logger.info("Demande de réinitialisation pour un compte sans e-mail (aucun envoi)");
+            return;
+        }
         UserJpaEntity compte = comptes.findByEmail(adresse).orElse(null);
         if (compte == null) {
             logger.info("Demande de réinitialisation pour une adresse sans compte (réponse identique)");

@@ -82,12 +82,21 @@ class Profile360SansDonneesInventeesTest {
         Mockito.verify(profils, Mockito.never()).save(any());
     }
 
+    /** APP-TL-24 : la synthèse du suivi remplace le « diagnostic IA » ; jamais pour un élève d'une autre école. */
     @Test
-    void diagnosticInventeRefuse() throws Exception {
-        mvc.perform(post("/admin/student-diagnostic").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"studentId\":\"e42\"}"))
-                .andExpect(status().isServiceUnavailable())
-                .andExpect(content().string(not(containsString("profil stable"))));
+    void syntheseDuSuiviLimiteeAuxElevesDeLEcole() throws Exception {
+        var syntheses = Mockito.mock(ecole_221.sn.ecole.modules.student.application.service.SyntheseSuiviEleveService.class);
+        Mockito.when(syntheses.synthese("e42")).thenReturn(java.util.Map.of("niveau", "donnees_insuffisantes"));
+        var controleur = new AdminStudentProfileController(comptesEcole, profils,
+                Mockito.mock(DocumentEleveJpaRepository.class), cours, Mockito.mock(ScheduleSessionJpaRepository.class));
+        controleur.setSyntheses(syntheses);
+        MockMvc mvcSynthese = MockMvcBuilders.standaloneSetup(controleur).setControllerAdvice(new GlobalExceptionHandler()).build();
+
+        mvcSynthese.perform(get("/admin/students/autre/synthese")).andExpect(status().isNotFound());
+        Mockito.verify(syntheses, Mockito.never()).synthese("autre");
+        mvcSynthese.perform(get("/admin/students/e42/synthese"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.niveau").value("donnees_insuffisantes"));
     }
 
     @Test

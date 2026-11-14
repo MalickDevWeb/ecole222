@@ -67,6 +67,8 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     @Override
     public StudentFinanceJpaEntity createStudentFinance(StudentFinanceJpaEntity studentFinance) {
         logger.info("Création finance étudiant: {}", studentFinance.getStudentName());
+        // APP-TL-22 : statut jamais saisi à la main, recalculé à partir du dû et du payé
+        studentFinance.setStatus(EcolagesService.statut(nul0(studentFinance.getTotalRequired()), nul0(studentFinance.getPaid())));
         return studentFinanceRepository.save(studentFinance);
     }
     
@@ -85,12 +87,15 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
         if (studentFinance.getClasse() != null) {
             existante.setClasse(texteBorne(studentFinance.getClasse(), "La classe", 100));
         }
-        if (studentFinance.getStatus() != null) {
-            existante.setStatus(statutFinance(studentFinance.getStatus()));
+        if (studentFinance.getStatus() != null && !studentFinance.getStatus().strip().equals(existante.getStatus())) {
+            // APP-TL-22 : le statut n'est plus saisissable (avant : « En Retard » saisi à la main, sans lien avec les versements)
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus(
+                    "Le statut n'est pas modifiable : il est calculé à partir du montant dû et des versements enregistrés.");
         }
         existante.setDebt(montant(studentFinance.getDebt(), "La dette", existante.getDebt()));
         existante.setPaid(montant(studentFinance.getPaid(), "Le montant payé", existante.getPaid()));
         existante.setTotalRequired(montant(studentFinance.getTotalRequired(), "Le montant total", existante.getTotalRequired()));
+        existante.setStatus(EcolagesService.statut(nul0(existante.getTotalRequired()), nul0(existante.getPaid())));
         return studentFinanceRepository.save(existante);
     }
     
@@ -110,17 +115,6 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
                     "Ce dossier porte des versements enregistrés : il ne peut pas être supprimé (historique comptable).");
         }
         studentFinanceRepository.delete(d);
-    }
-    
-    @Override
-    public StudentFinanceJpaEntity updateStudentStatus(String id, String status) {
-        logger.info("Mise à jour statut étudiant: {} -> {}", id, status);
-        // APP-QA-04 : statut dans la liste connue, fiche inexistante → 404 (avant : 200 avec un corps vide)
-        String statut = statutFinance(status);
-        StudentFinanceJpaEntity studentFinance = studentFinanceRepository.findById(id)
-                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Fiche financière introuvable."));
-        studentFinance.setStatus(statut);
-        return studentFinanceRepository.save(studentFinance);
     }
     
     // ==================== GESTION DES DÉPENSES (compatibilité JPA) ====================
@@ -209,12 +203,8 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
                     studentFinance.setDebt(Math.max(0, studentFinance.getDebt() - amount));
                     studentFinance.setLastPaymentDate(LocalDateTime.now());
                     
-                    // Mettre à jour le statut si nécessaire
-                    if (studentFinance.getDebt() == 0) {
-                        studentFinance.setStatus("En Règle");
-                    } else if (studentFinance.getPaid() > studentFinance.getTotalRequired()) {
-                        studentFinance.setStatus("En Avance");
-                    }
+                    // APP-TL-22 : statut recalculé comme pour un encaissement (En Règle, En Avance ou Non soldé)
+                    studentFinance.setStatus(EcolagesService.statut(nul0(studentFinance.getTotalRequired()), nul0(studentFinance.getPaid())));
                     
                     studentFinanceRepository.save(studentFinance);
                 } catch (NumberFormatException e) {
@@ -336,13 +326,10 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     }
 
     // ==================== CONTRÔLES DES CHAMPS (APP-QA-04, 2026-11-13) ====================
-    private static final java.util.List<String> STATUTS_FINANCE = java.util.List.of("En Règle", "En Avance", "En Retard");
-
-    private static String statutFinance(String s) {
-        if (s == null || !STATUTS_FINANCE.contains(s.strip())) {
-            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le statut doit être l'une des valeurs : " + String.join(", ", STATUTS_FINANCE) + ".");
-        }
-        return s.strip();
+    // APP-TL-22 : statuts d'un dossier tous calculés par EcolagesService.statut (En Règle, En Avance, Non soldé) ;
+    // « En Retard » saisi à la main est supprimé.
+    private static long nul0(Long v) {
+        return v == null ? 0 : v;
     }
 
     private static String texteBorne(String v, String libelle, int max) {

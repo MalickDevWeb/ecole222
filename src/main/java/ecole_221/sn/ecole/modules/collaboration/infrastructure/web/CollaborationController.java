@@ -21,6 +21,9 @@ import java.util.Map;
 public class CollaborationController {
     private static final Logger logger = LoggerFactory.getLogger(CollaborationController.class);
 
+    /** Lien d'une réunion Google Meet (même expression que POST /student/live-sessions, StudentController). */
+    static final String LIEN_MEET = "(?i)^https://meet\\.google\\.com/[a-z]{3}-[a-z]{4}-[a-z]{3}(\\?\\S*)?$";
+
     private final CollaborationUseCase collaborationUseCase;
     private final ActionLogger actionLogger;
 
@@ -250,7 +253,7 @@ public class CollaborationController {
     }
 
     @PostMapping("/meets")
-    @Operation(summary = "Créer une réunion", description = "Planifie une classe virtuelle (subjectName ou title, meetLink ou link en http(s), date, time).")
+    @Operation(summary = "Créer une réunion", description = "Planifie une classe virtuelle (subjectName ou title, meetLink ou link : lien Google Meet https://meet.google.com/abc-defg-hij, date, time).")
     public ResponseEntity<Map<String, Object>> createMeet(@RequestBody Map<String, Object> body) {
         // APP-QA-04 : seuls les champs connus, contrôlés (avant : corps enregistré tel quel, nombre ou liste compris)
         corpsRequis(body);
@@ -260,8 +263,10 @@ public class CollaborationController {
         d.put("title", texteOptionnel(body, "title", "Le titre de la réunion", 200) != null ? texteOptionnel(body, "title", "Le titre de la réunion", 200) : d.get("subjectName"));
         String lien = texteOptionnel(body, "meetLink", "Le lien de la réunion", 1_000);
         lien = lien != null ? lien : texte(body, "link", "Le lien de la réunion", 1_000);
-        if (!lien.matches("(?i)^https?://\\S+$")) {
-            throw refus("Le lien de la réunion doit commencer par http:// ou https://.");
+        // APP-TL-26 (2026-11-14) : seul un lien Google Meet collé est accepté, même règle que les cours en direct
+        // (StudentController, POST /student/live-sessions). Avant : n'importe quelle adresse http(s).
+        if (!lien.matches(LIEN_MEET)) {
+            throw refus("Le lien de la réunion doit être un lien Google Meet, de la forme https://meet.google.com/abc-defg-hij.");
         }
         d.put("link", lien);
         d.put("meetLink", lien);
@@ -271,7 +276,8 @@ public class CollaborationController {
         d.put("classIds", listeTextes(body.get("classIds"), "Les classes"));
         d.put("classNames", listeTextes(body.get("classNames"), "Les noms de classes"));
         d.put("isPublished", Boolean.TRUE.equals(booleenOptionnel(body, "isPublished", "« Publiée »")));
-        d.put("restrictToGoogleAccount", Boolean.TRUE.equals(booleenOptionnel(body, "restrictToGoogleAccount", "« Compte Google obligatoire »")));
+        // APP-TL-26 : plus de « compte Google obligatoire » : l'application ne peut pas l'imposer (l'accès à la
+        // réunion se règle dans Google Meet par son organisateur) ; le champ était enregistré sans effet.
         collaborationUseCase.createMeet(d);
         Map<String, Object> res = new HashMap<>();
         res.put("success", true);

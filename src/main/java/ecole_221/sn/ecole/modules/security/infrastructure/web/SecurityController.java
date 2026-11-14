@@ -218,7 +218,6 @@ public class SecurityController {
         Map<String, Object> result = new HashMap<>();
         boolean isValid;
         String message;
-        String statutFrais = null;
         String owner = "Inconnu";
 
         // 2026-11-13 : le badge QR dynamique (STU_SECURE:…) est vérifié par processBadgeScan, commun à toutes les
@@ -235,8 +234,6 @@ public class SecurityController {
             Map<String, Object> scan = securityUseCase.processBadgeScan(payload);
             isValid = Boolean.TRUE.equals(scan.get("accessGranted"));
             message = String.valueOf(scan.getOrDefault("message", ""));
-            Object frais = scan.get("statutFrais");
-            statutFrais = frais == null ? null : frais.toString();
             Object nom = scan.get("studentName");
             owner = nom == null || nom.toString().isBlank() ? "Inconnu" : nom.toString();
         }
@@ -246,7 +243,8 @@ public class SecurityController {
         result.put("statut", isValid ? "Autorisé" : "Refusé");
         result.put("message", message);
         result.put("assiduite", null);          // aucune source d'assiduité fiable ici : pas de valeur inventée
-        result.put("statutFrais", statutFrais); // null si inconnu ; « Non renseigné » si jamais saisi
+        // APP-TL-22 : plus de statut de frais dans la réponse du scan (le vigile n'a pas à connaître la situation
+        // financière d'une famille ; l'accès n'en dépend plus)
         result.put("zone", pointDePassage);     // terminal affecté au vigile ; null s'il n'en a aucun (jamais inventé)
         result.put("time", LocalDateTime.now().toString());
 

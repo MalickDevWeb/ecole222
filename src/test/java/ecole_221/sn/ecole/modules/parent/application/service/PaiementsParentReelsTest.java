@@ -68,16 +68,17 @@ class PaiementsParentReelsTest {
     }
 
     @Test
-    void plusieursEnfantsLignesNommeesEtRetardSignale() {
+    void plusieursEnfantsLignesNommeesEtResteDuEnCours() {
         when(parents.findParentEnfantsByParentId("p1")).thenReturn(List.of(
                 ParentEnfant.create("p1", "e1", "MERE"), ParentEnfant.create("p1", "e2", "MERE")));
         when(situations.situation("e1")).thenReturn(Optional.of(situation("e1", 300_000, 300_000, 0, "En Règle",
                 new Versement("t1", 300_000, LocalDateTime.of(2026, 9, 1, 9, 0), null, null, null))));
-        when(situations.situation("e2")).thenReturn(Optional.of(situation("e2", 200_000, 0, 200_000, "En Retard")));
+        when(situations.situation("e2")).thenReturn(Optional.of(situation("e2", 200_000, 0, 200_000, "Non soldé")));
         PaymentDto r = service.getParentPayments("p1");
         assertThat(r.totalAnnuel()).isEqualTo(500_000);
         assertThat(r.echeances()).extracting(PaymentDto.PaymentInstallmentDto::label)
                 .containsExactly("Versement — Awa Sarr", "Reste à payer (L1) — Modou Sarr");
-        assertThat(r.echeances().get(1).statut()).isEqualTo("RETARD");
+        // APP-TL-22 : sans échéance enregistrée, un reste dû n'est jamais présenté « en retard »
+        assertThat(r.echeances().get(1).statut()).isEqualTo("EN_COURS");
     }
 }

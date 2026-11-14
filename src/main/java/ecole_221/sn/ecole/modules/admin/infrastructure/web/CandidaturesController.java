@@ -90,7 +90,9 @@ public class CandidaturesController {
                 String email = String.valueOf(body.getOrDefault("email", ""));
                 String telephone = String.valueOf(body.getOrDefault("telephone", ""));
                 String filiere = String.valueOf(body.getOrDefault("filiere", ""));
-                boolean fraisPayes = Boolean.parseBoolean(String.valueOf(body.getOrDefault("fraisPayes", false)));
+                // APP-TL-23 : les frais de dossier sont confirmés par l'école (guichet, Wave, Orange Money), jamais par
+                // la déclaration du candidat. Avant : « fraisPayes: true » envoyé par le portail public était enregistré.
+                boolean fraisPayes = false;
                 // APP-BE-04 : aucun moyen de paiement par défaut (plus de « WAVE ») ; absent ou vide → null
                 String modePaiement = textOrNull(body.get("modePaiement"));
                 String refPaiement = textOrNull(body.get("referencePaiement"));
@@ -267,9 +269,12 @@ public class CandidaturesController {
             @PathVariable String id, 
             @RequestBody Map<String, String> body) {
         // Validation + normalisation : « ACCEPTE », « VALIDE »… → ACCEPTED ; valeur inconnue → 400 (BUG-QA-01)
-        String newStatut = CandidateStatus.from(body.get("statut")).name();
+        CandidateStatus decision = CandidateStatus.from(body.get("statut"));
+        ecole_221.sn.ecole.modules.admissions.application.service.EtatsCandidature.refuserFinaliseManuel(decision);   // APP-TL-23
+        String newStatut = decision.name();
         CandidateJpaEntity e = candidateJpaRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Candidature introuvable : " + id));
+        ecole_221.sn.ecole.modules.admissions.application.service.EtatsCandidature.exigerModifiable(e);   // dossier inscrit → 409
         e.setAdmissionStatus(newStatut);
         ecole_221.sn.ecole.modules.admissions.application.service.EtatsCandidature.apresDecision(e);   // l'étape suit (APP-BE-24)
         candidateJpaRepository.save(e);

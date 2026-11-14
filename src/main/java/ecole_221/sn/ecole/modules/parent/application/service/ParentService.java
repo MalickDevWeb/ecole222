@@ -333,10 +333,11 @@ public class ParentService implements ParentUseCase {
                         "Versements enregistrés sans détail" + pour, s.versementsSansDetail(), date, "PAYE", date));
             }
             if (s.resteDu() > 0) {
-                boolean retard = s.statut() != null && s.statut().toLowerCase(java.util.Locale.ROOT).contains("retard");
+                // APP-TL-22 : aucune échéance n'est enregistrée, rien ne permet de dire « en retard » (le statut
+                // « En Retard » saisi à la main est supprimé) : le reste dû est « en cours ».
                 lignes.add(new PaymentDto.PaymentInstallmentDto("reste-" + s.eleveId(),
                         "Reste à payer" + (s.classe() == null || s.classe().isBlank() ? "" : " (" + s.classe() + ")") + pour,
-                        s.resteDu(), null, retard ? "RETARD" : "EN_COURS", null));
+                        s.resteDu(), null, "EN_COURS", null));
             }
         }
         return new PaymentDto(total, lignes, PaymentDto.STATUT_DISPONIBLE);

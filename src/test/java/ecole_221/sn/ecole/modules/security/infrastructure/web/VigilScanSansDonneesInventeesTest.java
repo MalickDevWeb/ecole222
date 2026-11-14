@@ -55,11 +55,11 @@ class VigilScanSansDonneesInventeesTest {
         TenantContext.clear();
     }
 
-    private static Map<String, Object> resultat(boolean accorde, String nom, String frais, String message) {
+    /** Décision renvoyée par le contrôle commun ; APP-TL-22 : plus aucun statut de frais. */
+    private static Map<String, Object> resultat(boolean accorde, String nom, String message) {
         Map<String, Object> m = new HashMap<>();
         m.put("accessGranted", accorde);
         m.put("studentName", nom);
-        m.put("statutFrais", frais);
         m.put("message", message);
         return m;
     }
@@ -68,28 +68,30 @@ class VigilScanSansDonneesInventeesTest {
     void matriculeInconnuEstRefuseMalgreLePrefixeSN() throws Exception {
         TenantContext.setCurrentOrganization(ecoleA);
         Mockito.when(securite.processBadgeScan("SN-INVENTE")).thenReturn(
-                resultat(false, "Inconnu", null, "Accès refusé : badge non reconnu."));
+                resultat(false, "Inconnu", "Accès refusé : badge non reconnu."));
 
         mockMvc.perform(post("/vigil/scan").contentType(MediaType.APPLICATION_JSON).content("{\"badgeId\":\"SN-INVENTE\"}"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.statut").value("Refusé"))
                 .andExpect(jsonPath("$.badgeOwner").value("Inconnu"))
                 .andExpect(jsonPath("$.assiduite").value(nullValue()))
-                .andExpect(jsonPath("$.statutFrais").value(nullValue()))
+                .andExpect(jsonPath("$.statutFrais").doesNotExist())
                 .andExpect(jsonPath("$.zone").value(nullValue()));
         verify(securite).processBadgeScan("SN-INVENTE");
     }
 
+    /** APP-TL-22 : le vigile ne reçoit jamais la situation financière d'un élève, même si le contrôle en portait une. */
     @Test
-    void eleveReelDeLEcoleAvecStatutNonRenseigne() throws Exception {
+    void eleveReelDeLEcoleSansAucuneDonneeFinanciere() throws Exception {
         TenantContext.setCurrentOrganization(ecoleA);
-        Mockito.when(securite.processBadgeScan("badge-ETU-1")).thenReturn(
-                resultat(true, "Awa Fall", "Non renseigné", "Accès autorisé. Statut des frais non renseigné par l'administration."));
+        Map<String, Object> decision = resultat(true, "Awa Fall", "Accès autorisé.");
+        decision.put("statutFrais", "Non soldé");   // donnée parasite : ne doit pas être relayée au vigile
+        Mockito.when(securite.processBadgeScan("badge-ETU-1")).thenReturn(decision);
 
         mockMvc.perform(post("/vigil/scan").contentType(MediaType.APPLICATION_JSON).content("{\"badgeId\":\"badge-ETU-1\"}"))
                 .andExpect(jsonPath("$.statut").value("Autorisé"))
                 .andExpect(jsonPath("$.badgeOwner").value("Awa Fall"))
-                .andExpect(jsonPath("$.statutFrais").value("Non renseigné"))
+                .andExpect(jsonPath("$.statutFrais").doesNotExist())
                 .andExpect(jsonPath("$.assiduite").value(nullValue()));
     }
 
@@ -98,7 +100,7 @@ class VigilScanSansDonneesInventeesTest {
         // 2026-11-13 : le jeton est vérifié par processBadgeScan (commun à toutes les routes de scan)
         TenantContext.setCurrentOrganization(ecoleA);
         Mockito.when(securite.processBadgeScan("STU_SECURE:ETU-1:123:faux")).thenReturn(
-                resultat(false, "Inconnu", null, "Accès refusé : QR expiré ou invalide. Faites actualiser le badge dans l'application."));
+                resultat(false, "Inconnu", "Accès refusé : QR expiré ou invalide. Faites actualiser le badge dans l'application."));
 
         mockMvc.perform(post("/vigil/scan").contentType(MediaType.APPLICATION_JSON).content("{\"badgeId\":\"STU_SECURE:ETU-1:123:faux\"}"))
                 .andExpect(jsonPath("$.statut").value("Refusé"));
@@ -108,17 +110,17 @@ class VigilScanSansDonneesInventeesTest {
     @Test
     void jetonQrValideResoluVersLeCompteReel() throws Exception {
         TenantContext.setCurrentOrganization(ecoleA);
-        Mockito.when(securite.processBadgeScan("STU_SECURE:ETU-1:123:ok")).thenReturn(resultat(true, "Awa Fall", "En Règle", "Accès autorisé."));
+        Mockito.when(securite.processBadgeScan("STU_SECURE:ETU-1:123:ok")).thenReturn(resultat(true, "Awa Fall", "Accès autorisé."));
 
         mockMvc.perform(post("/vigil/scan").contentType(MediaType.APPLICATION_JSON).content("{\"badgeId\":\"STU_SECURE:ETU-1:123:ok\"}"))
                 .andExpect(jsonPath("$.statut").value("Autorisé"))
-                .andExpect(jsonPath("$.statutFrais").value("En Règle"));
+                .andExpect(jsonPath("$.statutFrais").doesNotExist());
     }
 
     @Test
     void dernierScanCloisonneParEcole() throws Exception {
         TenantContext.setCurrentOrganization(ecoleA);
-        Mockito.when(securite.processBadgeScan("ETU-1")).thenReturn(resultat(true, "Awa Fall", "En Règle", "Accès autorisé."));
+        Mockito.when(securite.processBadgeScan("ETU-1")).thenReturn(resultat(true, "Awa Fall", "Accès autorisé."));
         mockMvc.perform(post("/vigil/scan").contentType(MediaType.APPLICATION_JSON).content("{\"badgeId\":\"ETU-1\"}"))
                 .andExpect(status().isOk());
         mockMvc.perform(get("/vigil/last-scan")).andExpect(jsonPath("$.badgeOwner").value("Awa Fall"));

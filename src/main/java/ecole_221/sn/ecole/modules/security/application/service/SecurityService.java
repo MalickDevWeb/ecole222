@@ -1,7 +1,6 @@
 package ecole_221.sn.ecole.modules.security.application.service;
 
 import ecole_221.sn.ecole.modules.admin.domain.port.repository.AdminRepositoryPort;
-import ecole_221.sn.ecole.modules.admin.domain.valueobject.StatutFrais;
 import ecole_221.sn.ecole.modules.security.application.port.dto.VigilProfileDto;
 import ecole_221.sn.ecole.modules.security.application.port.usecase.SecurityUseCase;
 import ecole_221.sn.ecole.modules.security.domain.model.VigilProfile;
@@ -152,7 +151,7 @@ public class SecurityService implements SecurityUseCase {
     @Override
     public Map<String, Object> processBadgeScan(String badgeId) {
         Decision d = decider(badgeId, null);
-        return journaliser(d.nom(), d.autorise(), d.statutFrais(), d.message());
+        return journaliser(d.nom(), d.autorise(), d.message());
     }
 
     /** Décision d'accès pour un contenu scanné ; fraîcheur du QR jugée à la minute {@code minuteDuScan} (null = maintenant). */
@@ -167,7 +166,7 @@ public class SecurityService implements SecurityUseCase {
         var dynamique = jetonBadge.lire(lu, minuteDuScan);
         boolean jetonVerifie = dynamique.map(ecole_221.sn.ecole.partage.JetonBadge.Lecture::valide).orElse(false);
         if (dynamique.isPresent() && !jetonVerifie) {
-            return new Decision("Inconnu", false, null, "Accès refusé : QR expiré ou invalide. Faites actualiser le badge dans l'application.");
+            return new Decision("Inconnu", false, "Accès refusé : QR expiré ou invalide. Faites actualiser le badge dans l'application.");
         }
         String brut = dynamique.map(ecole_221.sn.ecole.partage.JetonBadge.Lecture::matricule).orElse(lu);
         String sansPrefixe = brut.startsWith("badge-") ? brut.substring(6) : brut;
@@ -179,7 +178,6 @@ public class SecurityService implements SecurityUseCase {
 
         boolean accessGranted;
         String nom;
-        String statutFrais = null;
         String msg;
         if (titulaire.isEmpty()) {
             accessGranted = false;
@@ -197,35 +195,28 @@ public class SecurityService implements SecurityUseCase {
                 accessGranted = false;
                 msg = "Accès refusé : présentez le badge QR de l'application (le matricule seul ne suffit pas).";
             } else if (u.getRole() != null && "ETUDIANT".equals(u.getRole().value())) {
-                StatutFrais frais = adminRepository.getStudentStatus(u.getId());
-                if (frais == null) {
-                    // statut jamais saisi : on ne présume ni « En Règle » ni « En Retard », on le signale
-                    statutFrais = "Non renseigné";
-                    accessGranted = true;
-                    msg = "Accès autorisé. Statut des frais non renseigné par l'administration.";
-                } else {
-                    statutFrais = frais.getDisplayName();
-                    accessGranted = frais == StatutFrais.EN_REGLE;
-                    msg = accessGranted ? "Accès autorisé."
-                            : "Accès refusé. Veuillez régulariser votre situation financière auprès de la comptabilité.";
-                }
+                // APP-TL-22 (2026-11-14) : l'accès au campus ne dépend JAMAIS des frais de scolarité. Avant : un élève
+                // marqué « En Retard » à la main était refusé au portique (enfant laissé dehors, vigile informé de la
+                // situation financière de la famille). Badge QR valide + élève actif de l'école = accès.
+                accessGranted = true;
+                msg = "Accès autorisé.";
             } else {
                 accessGranted = true;   // personnel de l'école
                 msg = "Accès autorisé (personnel).";
             }
         }
 
-        return new Decision(nom, accessGranted, statutFrais, msg);
+        return new Decision(nom, accessGranted, msg);
     }
 
-    /** Résultat d'une décision d'accès (avant journalisation). */
-    record Decision(String nom, boolean autorise, String statutFrais, String message) {
+    /** Résultat d'une décision d'accès (avant journalisation). Aucune donnée financière (APP-TL-22). */
+    record Decision(String nom, boolean autorise, String message) {
     }
 
     /**
      * Liste d'accès pour la décision HORS LIGNE du terminal du vigile (EF-10, 2026-11-14) : clé publique des badges
-     * (vérification de la signature sans pouvoir en fabriquer), élèves actifs de l'école avec le statut de leurs frais,
-     * et membres du personnel. Valable 24 h ; le terminal la retélécharge dès que le réseau revient.
+     * (vérification de la signature sans pouvoir en fabriquer), élèves actifs de l'école (matricule et nom seulement :
+     * aucune donnée financière, APP-TL-22) et membres du personnel. Valable 24 h ; le terminal la retélécharge dès que le réseau revient.
      */
     @Override
     public Map<String, Object> listeAccesHorsLigne() {
@@ -241,12 +232,9 @@ public class SecurityService implements SecurityUseCase {
             String nom = ((u.getPrenom() == null ? "" : u.getPrenom() + " ") + (u.getNom() == null ? "" : u.getNom())).trim();
             if ("ETUDIANT".equalsIgnoreCase(m.getRole())) {
                 if (u.getMatricule() == null || u.getMatricule().isBlank()) continue;   // pas de badge sans matricule
-                StatutFrais frais = adminRepository.getStudentStatus(u.getId());
                 Map<String, Object> e = new HashMap<>();
                 e.put("matricule", u.getMatricule());
                 e.put("nom", nom);
-                e.put("statutFrais", frais == null ? "Non renseigné" : frais.getDisplayName());
-                e.put("autorise", frais == null || frais == StatutFrais.EN_REGLE);
                 eleves.add(e);
             } else {
                 Map<String, Object> p = new HashMap<>();
@@ -277,20 +265,19 @@ public class SecurityService implements SecurityUseCase {
         boolean conteste = d.autorise() != autoriseParLeTerminal;
         String msg = "Scan hors ligne du " + scanneLe + " : terminal « " + (autoriseParLeTerminal ? "Autorisé" : "Refusé")
                 + " » ; contrôle du serveur : " + d.message() + (conteste ? " — DÉCISION CONTESTÉE" : "");
-        Map<String, Object> log = journaliser(d.nom(), autoriseParLeTerminal, d.statutFrais(), msg);
+        Map<String, Object> log = journaliser(d.nom(), autoriseParLeTerminal, msg);
         log.put("horsLigne", true);
         log.put("conteste", conteste);
         log.put("scanneLe", scanneLe.toString());
         return log;
     }
 
-    private Map<String, Object> journaliser(String nom, boolean accessGranted, String statutFrais, String msg) {
+    private Map<String, Object> journaliser(String nom, boolean accessGranted, String msg) {
         Map<String, Object> log = new HashMap<>();
         log.put("id", "scan-" + UUID.randomUUID().toString().substring(0, 8));
         log.put("studentName", nom);
         log.put("status", accessGranted ? "ENTREE" : "BLOQUE");
         log.put("timestamp", LocalDateTime.now().toString());
-        log.put("statutFrais", statutFrais);
         log.put("accessGranted", accessGranted);
         log.put("message", msg);
         journalEcole().add(0, log);

@@ -33,8 +33,8 @@ public class MeetJpaEntity {
     @jakarta.persistence.Column(name = "class_names", length = 2000)
     private String classNames;
     private Boolean published;
-    @jakarta.persistence.Column(name = "restrict_google")
-    private Boolean restrictToGoogleAccount;
+    // APP-TL-26 (2026-11-14) : champ « compte Google obligatoire » retiré (enregistré sans aucun effet). La colonne
+    // restrict_google (V1) reste en base, facultative et inutilisée : aucune migration.
 
     public MeetJpaEntity() {}
 
@@ -67,7 +67,5 @@ public class MeetJpaEntity {
     public void setClassNames(String v) { this.classNames = v; }
     public Boolean getPublished() { return published; }
     public void setPublished(Boolean v) { this.published = v; }
-    public Boolean getRestrictToGoogleAccount() { return restrictToGoogleAccount; }
-    public void setRestrictToGoogleAccount(Boolean v) { this.restrictToGoogleAccount = v; }
     public void setActive(boolean active) { this.active = active; }
 }

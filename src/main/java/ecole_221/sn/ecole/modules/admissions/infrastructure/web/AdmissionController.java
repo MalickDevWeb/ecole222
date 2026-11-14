@@ -206,14 +206,33 @@ public class AdmissionController {
                 "message", passes + " dossier(s) passé(s) à l'étape « entretien ». Aucune invitation n'est envoyée automatiquement : prévenez les candidats."));
     }
     
-    @PostMapping("/automation/matricules")
-    @Operation(summary = "Générer matricules", description = "Génère les matricules pour les candidats acceptés")
-    public ResponseEntity<Map<String, Object>> generateMatricules() {
-        // APP-BE-24 : la méthode calculait des matricules sans rien enregistrer ni créer de compte élève, puis
-        // répondait « Matricules générées avec succès ». Inscription réelle des admis : à concevoir (décision).
-        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_IMPLEMENTED,
-                "Génération des matricules non disponible : l'inscription automatique des candidats admis n'est pas encore en place. "
-                        + "Créez les comptes élèves depuis Gestion Élèves (création ou import).");
+    // APP-TL-23 : POST /automation/matricules est retiré (il calculait des matricules sans rien enregistrer, puis
+    // répondait 501). L'inscription d'un admis se fait dossier par dossier : POST /candidates/{id}/inscription.
+
+    /** Inscription d'un admis en élève (APP-TL-23) ; absente des tests qui construisent le contrôleur à la main. */
+    private ecole_221.sn.ecole.modules.admin.application.service.InscriptionAdmisService inscription;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setInscription(ecole_221.sn.ecole.modules.admin.application.service.InscriptionAdmisService inscription) {
+        this.inscription = inscription;
+    }
+
+    @PostMapping("/candidates/{id}/inscription")
+    @Operation(summary = "Inscrire un candidat admis",
+            description = "Crée le compte élève d'un dossier admis dont les frais de dossier sont confirmés par l'école "
+                    + "(matricule, connexion par e-mail ou par matricule), lie le parent qui a déposé le dossier, et, si demandé, "
+                    + "affecte une classe et ouvre le dossier financier. Une seule transaction ; un dossier n'est inscrit qu'une fois. "
+                    + "Corps : {emailEleve?, sansEmail?, ine?, classeId?, relationParent?, lierGarant?, fraisDossier?: {moyen, reference?}, "
+                    + "dossierFinancier?: {montantDu}, eleveExistantId?}. Mots de passe provisoires renvoyés une seule fois.")
+    public ResponseEntity<Map<String, Object>> inscrire(@PathVariable String id,
+                                                        @RequestBody(required = false) Map<String, Object> body) {
+        if (inscription == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Inscription des admis indisponible.");
+        }
+        logger.info("POST /admissions/candidates/{}/inscription", id);
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
+                .body(inscription.inscrire(id, body == null ? Map.of() : body));
     }
 
     // ==================== ENDPOINT CANDIDATURE PORTAL DB ====================
@@ -295,6 +314,10 @@ public class AdmissionController {
                         : (e.getCourseChoice().contains("Master") ? "MASTER" : "LICENCE"));
                 c.put("step", e.getCurrentStep() != null ? e.getCurrentStep() : "new");
                 c.put("registrationFeePaid", Boolean.TRUE.equals(e.getRegistrationFeePaid()));
+                // APP-TL-23 : dossier inscrit (élève créé) → l'écran n'affiche plus le bouton « Inscrire »
+                c.put("inscrit", e.estInscrit());
+                c.put("eleveId", e.getEleveId());
+                c.put("parentDeposant", e.getParentId() != null);
                 c.put("docs", Map.of(
                     "idCard", Boolean.TRUE.equals(e.getIdCardUploaded()),
                     "diploma", Boolean.TRUE.equals(e.getDiplomaUploaded()),
@@ -432,6 +455,19 @@ public class AdmissionController {
                         return ne;
                     });
 
+                if (entity.estInscrit()) {
+                    // APP-TL-23 : un dossier inscrit est figé ; la synchronisation du portail le renvoie tel quel.
+                    boolean modifie = !java.util.Objects.equals(name, entity.getFullName())
+                            || !java.util.Objects.equals(email, entity.getEmail())
+                            || !java.util.Objects.equals(course, entity.getCourseChoice())
+                            || (step != null && !step.equals(entity.getCurrentStep()))
+                            || paid != Boolean.TRUE.equals(entity.getRegistrationFeePaid());
+                    if (modifie) {
+                        throw new org.springframework.web.server.ResponseStatusException(
+                                org.springframework.http.HttpStatus.CONFLICT, EtatsCandidature.DOSSIER_INSCRIT + " (" + id + ")");
+                    }
+                    continue;
+                }
                 entity.setFullName(name);
                 String[] parts = name.split("\\s+", 2);
                 entity.setFirstName(parts[0]);

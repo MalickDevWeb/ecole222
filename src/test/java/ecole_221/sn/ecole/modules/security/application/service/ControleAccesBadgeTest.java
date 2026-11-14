@@ -1,7 +1,6 @@
 package ecole_221.sn.ecole.modules.security.application.service;
 
 import ecole_221.sn.ecole.modules.admin.domain.port.repository.AdminRepositoryPort;
-import ecole_221.sn.ecole.modules.admin.domain.valueobject.StatutFrais;
 import ecole_221.sn.ecole.modules.auth.domain.model.User;
 import ecole_221.sn.ecole.modules.auth.domain.model.UserFactory;
 import ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort;
@@ -77,9 +76,8 @@ class ControleAccesBadgeTest {
     }
 
     @Test
-    void eleveEnRegleAutoriseAvecLeBadgeDynamique() {
+    void eleveAutoriseAvecLeBadgeDynamique() {
         compte("e1", "ETU-001", RoleUtilisateur.ETUDIANT, ecoleA);
-        Mockito.when(admin.getStudentStatus("e1")).thenReturn(StatutFrais.EN_REGLE);
         Map<String, Object> r = service.processBadgeScan(badge("ETU-001"));
         assertEquals(true, r.get("accessGranted"));
         assertEquals("Fatou Ba", r.get("studentName"));
@@ -89,7 +87,6 @@ class ControleAccesBadgeTest {
     void eleveRefuseAvecSonSeulMatricule() {
         // 2026-11-13 : un matricule tapé ou photocopié n'ouvre plus la porte
         compte("e1", "ETU-001", RoleUtilisateur.ETUDIANT, ecoleA);
-        Mockito.when(admin.getStudentStatus("e1")).thenReturn(StatutFrais.EN_REGLE);
         Map<String, Object> r = service.processBadgeScan("ETU-001");
         assertEquals(false, r.get("accessGranted"));
         assertTrue(String.valueOf(r.get("message")).contains("badge QR"));
@@ -98,7 +95,6 @@ class ControleAccesBadgeTest {
     @Test
     void badgeFalsifieOuExpireRefuse() {
         compte("e1", "ETU-001", RoleUtilisateur.ETUDIANT, ecoleA);
-        Mockito.when(admin.getStudentStatus("e1")).thenReturn(StatutFrais.EN_REGLE);
         long m = ecole_221.sn.ecole.partage.JetonBadge.minuteCourante();
         // signé avec une autre clé (ce que pouvait faire n'importe qui avec l'ancienne clé écrite dans le code)
         String falsifie = ecole_221.sn.ecole.partage.JetonBadge.aleatoire().contenu("ETU-001", m);
@@ -110,17 +106,39 @@ class ControleAccesBadgeTest {
         assertEquals(false, service.processBadgeScan("STU_SECURE:ETU-001").get("accessGranted"));
     }
 
+    /**
+     * APP-TL-22 (2026-11-14) : l'accès au campus ne dépend jamais des frais. Avant : un élève marqué « En Retard » à la
+     * main était refusé au portique. Désormais un élève au QR valide et membre actif entre, quel que soit son reste dû,
+     * et aucune donnée financière n'apparaît dans la décision ni dans le journal du vigile.
+     */
     @Test
-    void eleveEnRetardRefuse() {
+    void eleveAvecResteDuAutoriseSansDonneeFinanciere() {
         compte("e2", "ETU-002", RoleUtilisateur.ETUDIANT, ecoleA);
-        Mockito.when(admin.getStudentStatus("e2")).thenReturn(StatutFrais.EN_RETARD);
-        assertEquals(false, service.processBadgeScan(badge("ETU-002")).get("accessGranted"));
+        Map<String, Object> r = service.processBadgeScan(badge("ETU-002"));
+        assertEquals(true, r.get("accessGranted"));
+        assertEquals("Accès autorisé.", r.get("message"));
+        assertFalse(r.containsKey("statutFrais"));
+        assertFalse(String.valueOf(r).toLowerCase().contains("frais"));
+        assertFalse(String.valueOf(r).toLowerCase().contains("régulariser"));
+        assertTrue(service.getVigilCheckIns().stream().noneMatch(l -> l.containsKey("statutFrais")));
+    }
+
+    /** APP-TL-22 : la liste hors ligne du vigile ne porte, pour un élève, que son matricule et son nom. */
+    @Test
+    void listeHorsLigneSansDonneeFinanciere() {
+        compte("e2", "ETU-002", RoleUtilisateur.ETUDIANT, ecoleA);
+        Mockito.when(appartenances.findByOrganizationId(ecoleA.getId()))
+                .thenReturn(java.util.List.of(OrganizationUserFactory.create("e2", ecoleA.getId(), RoleUtilisateur.ETUDIANT.value())));
+        @SuppressWarnings("unchecked")
+        java.util.List<Map<String, Object>> eleves = (java.util.List<Map<String, Object>>) service.listeAccesHorsLigne().get("eleves");
+        assertEquals(1, eleves.size());
+        assertEquals(java.util.Set.of("matricule", "nom"), eleves.get(0).keySet());
+        assertEquals("ETU-002", eleves.get(0).get("matricule"));
     }
 
     @Test
     void badgeDUneAutreEcoleRefuse() {
         compte("e3", "ETU-003", RoleUtilisateur.ETUDIANT, ecoleB);
-        Mockito.when(admin.getStudentStatus("e3")).thenReturn(StatutFrais.EN_REGLE);
         Map<String, Object> r = service.processBadgeScan(badge("ETU-003"));
         assertEquals(false, r.get("accessGranted"));
         assertTrue(String.valueOf(r.get("message")).contains("n'appartient pas"));

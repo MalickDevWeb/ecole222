@@ -52,6 +52,13 @@ public class UserJpaEntity {
     @Column(name = "doit_changer_mot_de_passe")
     private Boolean doitChangerMotDePasse;
 
+    /** Identifiant National de l'Élève (INE) : facultatif, saisi par l'école, jamais généré (V16). */
+    @Column(name = "ine", length = 30)
+    private String ine;
+
+    public String getIne() { return ine; }
+    public void setIne(String ine) { this.ine = ine; }
+
     public UserJpaEntity() {}
 
     public UserJpaEntity(String id, String nom, String prenom, String email, String password, 

@@ -27,7 +27,8 @@ import java.util.*;
  * école, donc lisibles depuis une autre école) ; le diagnostic « IA » était inventé à partir du seul
  * identifiant (texte fixe en cas d'échec) ; l'affectation de créneau répondait « success » sans rien
  * enregistrer. Désormais : persistance par école (@TenantId), élève obligatoirement membre de l'école,
- * diagnostic refusé faute de données réelles, créneau réellement créé.</p>
+ * diagnostic refusé faute de données réelles, créneau réellement créé. 2026-11-14 (APP-TL-24) : le diagnostic
+ * est remplacé par une synthèse du suivi calculée par règles (GET /admin/students/{id}/synthese).</p>
  */
 @RestController
 @RequestMapping("/admin")
@@ -97,15 +98,27 @@ public class AdminStudentProfileController {
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("documents", docs));
     }
 
+    /** APP-TL-24 : synthèse calculée par règles ; facultative pour les tests sans contexte Spring. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.student.application.service.SyntheseSuiviEleveService syntheses;
+
+    void setSyntheses(ecole_221.sn.ecole.modules.student.application.service.SyntheseSuiviEleveService s) {
+        this.syntheses = s;
+    }
+
     /**
-     * Diagnostic « IA » d'un élève : aucune donnée académique réelle (notes, présences) n'est transmise au
-     * modèle, qui ne recevait que l'identifiant → texte inventé. Refusé tant qu'il n'est pas branché sur des données réelles.
+     * Synthèse du suivi d'un élève (APP-TL-24) : remplace l'ancien « diagnostic IA » (POST /admin/student-diagnostic,
+     * qui répondait 503). Calculée par règles à partir du bulletin, de l'appel et des devoirs enregistrés ; aucune IA,
+     * aucun score ni probabilité.
      */
-    @Operation(summary = "Diagnostic d'un élève (indisponible)", description = "Répond 503 : le diagnostic n'est pas encore alimenté par les notes et présences réelles de l'élève.")
-    @PostMapping("/student-diagnostic")
-    public ResponseEntity<Map<String, String>> generateDiagnostic(@RequestBody Map<String, String> body) {
-        throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE,
-                "Diagnostic indisponible : il n'est pas encore alimenté par les notes et présences réelles de l'élève.");
+    @Operation(summary = "Synthèse du suivi d'un élève", description = "Moyenne générale, matières sous 10/20, assiduité et devoirs non rendus, calculés sur les données enregistrées, avec les alertes et les règles appliquées (R1 à R4). 404 si l'élève n'est pas de l'école.")
+    @GetMapping("/students/{id}/synthese")
+    public ResponseEntity<Map<String, Object>> getSynthese(@PathVariable("id") String studentId) {
+        comptesEcole.membre(studentId, "ETUDIANT");   // 404 si l'élève n'est pas de cette école
+        if (syntheses == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Synthèse du suivi indisponible.");
+        }
+        return ResponseEntity.ok(syntheses.synthese(studentId));
     }
 
     @Operation(summary = "Programmer une séance d'un cours", description = "Corps {courseId, day, time, room, professorId?} : crée une séance planifiée pour un cours de l'école (professeur du cours par défaut). 201.")

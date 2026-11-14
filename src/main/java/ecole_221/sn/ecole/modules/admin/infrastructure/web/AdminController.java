@@ -4,7 +4,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import io.swagger.v3.oas.annotations.Operation;
-import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -14,7 +13,6 @@ import ecole_221.sn.ecole.modules.admin.application.port.usecase.AdminUseCase;
 import ecole_221.sn.ecole.modules.admin.application.service.ComptesEcoleService;
 import ecole_221.sn.ecole.modules.admin.application.service.ComptesEcoleService.CompteCree;
 import ecole_221.sn.ecole.modules.admin.domain.port.repository.AdminRepositoryPort;
-import ecole_221.sn.ecole.modules.admin.domain.valueobject.StatutFrais;
 import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaEntity;
 import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaRepository;
 import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.PointagePersonnelJpaEntity;
@@ -34,7 +32,6 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.UUID;
 
@@ -114,25 +111,9 @@ public class AdminController {
         return ResponseEntity.ok(response);
     }
 
-    @PatchMapping("/students/{id}/status")
-    @Operation(summary = "Modifier statut etudiant", description = "Met a jour le statut de frais d'un etudiant de l'école (En Règle, En Retard).")
-    public ResponseEntity<Map<String, Object>> updateStudentStatus(
-            @Parameter(description = "Identifiant de l'etudiant") @PathVariable("id") String studentId,
-            @RequestBody Map<String, String> body) {
-        String saisi = body == null ? null : body.get("statutFrais");
-        logger.info("PATCH /admin/students/{}/status - Mise a jour statut: {}", studentId, saisi);
-        StatutFrais status = statutFraisStrict(saisi);
-        comptesEcole.membre(studentId, "ETUDIANT");   // 404 si l'élève n'est pas de cette école
-        adminUseCase.updateStudentStatus(studentId, status);
-
-        actionLogger.logAdminAction("UPDATE_STUDENT_STATUS", "ADMIN", studentId,
-            "Statut frais changé à " + status.getDisplayName() + " pour étudiant " + studentId);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("success", true);
-        response.put("status", status.getDisplayName());
-        return ResponseEntity.ok(response);
-    }
+    // APP-TL-22 (2026-11-14) : PATCH /admin/students/{id}/status (statut de frais « En Règle / En Retard » saisi à la
+    // main, qui faisait refuser l'élève au portique) est SUPPRIMÉ. L'état financier d'un élève vient uniquement de son
+    // dossier (Finances › Écolages, permission finances.lire) et ne pénalise jamais l'enfant.
 
     @PatchMapping("/students/{id}/toggle-status")
     @Operation(summary = "Suspendre / réactiver un élève", description = "Bascule l'appartenance de l'élève à l'école (ACTIVE ⇄ SUSPENDED). Un élève suspendu n'a plus accès à l'école (badge refusé, connexion refusée).")
@@ -506,16 +487,17 @@ public class AdminController {
         map.put("prenom", s.getPrenom());
         map.put("nom", s.getNom());
         map.put("matricule", s.getMatricule());
-        map.put("email", s.getEmail());
+        // APP-TL-23 : élève sans e-mail (connexion par matricule) → aucune adresse affichée, jamais l'identifiant technique
+        boolean sansEmail = ecole_221.sn.ecole.modules.admin.application.service.InscriptionAdmisService.sansEmail(s.getEmail());
+        map.put("email", sansEmail ? null : s.getEmail());
+        map.put("sansEmail", sansEmail);
         map.put("telephone", s.getTelephone());
         map.put("photoUrl", s.getPhotoUrl());
         ClasseJpaEntity classe = classeParEleve == null ? null : classeParEleve.get(s.getId());
         map.put("classeId", classe == null ? null : classe.getId());
         map.put("classe", classe == null ? null : nomClasse(classe));
-        StatutFrais frais = adminRepository.getStudentStatus(s.getId());
-        String libelle = frais == null ? null : frais.getDisplayName();   // null = non renseigné
-        map.put("statutFrais", libelle);
-        map.put("financialStatus", libelle);
+        // APP-TL-22 : plus de statut de frais dans la liste des élèves (minimisation : l'état financier reste dans
+        // Finances › Écolages, sous la permission finances.lire)
         map.put("status", ComptesEcoleService.libelleStatut(statutAppartenance));
         map.put("qrStatus", qrStatus(statutAppartenance));
         return map;
@@ -565,18 +547,6 @@ public class AdminController {
 
     private static String qrStatus(String statutAppartenance) {
         return "ACTIVE".equalsIgnoreCase(statutAppartenance) ? "AUTORISÉ" : "SUSPENDU";
-    }
-
-    /** Statut saisi : « En Règle » ou « En Retard » uniquement (avant : toute valeur inconnue devenait « En Retard »). */
-    private static StatutFrais statutFraisStrict(String saisi) {
-        if (saisi == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Statut de frais manquant.");
-        String v = saisi.trim().toLowerCase(Locale.ROOT);
-        return switch (v) {
-            case "en règle", "en regle", "regle", "paye", "en_regle" -> StatutFrais.EN_REGLE;
-            case "en retard", "retard", "impaye", "en_retard" -> StatutFrais.EN_RETARD;
-            default -> throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Statut de frais invalide : « En Règle » ou « En Retard » attendu.");
-        };
     }
 
     /** Prénom / nom : champs séparés s'ils sont fournis, sinon découpe de « name ». */

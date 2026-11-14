@@ -72,6 +72,12 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
     @Override
     public CandidateDto createCandidate(CandidateDto candidateDto) {
         logger.info("Création candidat: {}", candidateDto.nom());
+        if (candidateDto.id() != null && !candidateDto.id().isBlank()) {
+            candidateRepository.findById(candidateDto.id()).ifPresent(EtatsCandidature::exigerModifiable);
+        }
+        if (candidateDto.statut() != null && !candidateDto.statut().isBlank()) {
+            EtatsCandidature.refuserFinaliseManuel(CandidateStatus.from(candidateDto.statut()));
+        }
         Candidate candidate = toCandidate(candidateDto);
         Candidate savedCandidate = admissionRepositoryPort.saveCandidate(candidate);
         return toCandidateDto(savedCandidate);
@@ -80,6 +86,10 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
     @Override
     public CandidateDto updateCandidate(String id, CandidateDto candidateDto) {
         logger.info("Mise à jour candidat: {}", id);
+        candidateRepository.findById(id == null ? "" : id).ifPresent(EtatsCandidature::exigerModifiable);
+        if (candidateDto.statut() != null && !candidateDto.statut().isBlank()) {
+            EtatsCandidature.refuserFinaliseManuel(CandidateStatus.from(candidateDto.statut()));
+        }
         Candidate candidate = toCandidate(candidateDto);
         // Use factory reconstruct to create Candidate with existing ID
         Candidate updatedCandidate = CandidateFactory.reconstruct(
@@ -99,6 +109,7 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
     @Override
     public void deleteCandidate(String id) {
         logger.info("Suppression candidat: {}", id);
+        candidateRepository.findById(id == null ? "" : id).ifPresent(EtatsCandidature::exigerModifiable);
         admissionRepositoryPort.deleteCandidate(id);
     }
     
@@ -107,6 +118,7 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
         // Avant : l'étape (« docs », « interview »…) était rangée dans le STATUT, d'où un refus pour toute vraie étape.
         String etape = EtatsCandidature.etape(step);
         CandidateJpaEntity c = dossier(id);
+        EtatsCandidature.exigerModifiable(c);
         c.setCurrentStep(etape);
         EtatsCandidature.apresEtape(c);
         candidateRepository.save(c);
@@ -116,7 +128,9 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
     @Override
     public CandidateDto updateCandidateStatus(String id, String status, String rejectionReason) {
         CandidateStatus statut = CandidateStatus.from(status);   // valeur inconnue → 400
+        EtatsCandidature.refuserFinaliseManuel(statut);
         CandidateJpaEntity c = dossier(id);
+        EtatsCandidature.exigerModifiable(c);
         c.setAdmissionStatus(statut.name());
         // Avant : le motif de refus reçu était ignoré
         c.setRejectionReason(statut == CandidateStatus.REJECTED && rejectionReason != null && !rejectionReason.isBlank()

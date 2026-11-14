@@ -30,6 +30,26 @@ public class CandidateJpaEntity {
 
     public String getParentId() { return parentId; }
     public void setParentId(String parentId) { this.parentId = parentId; }
+
+    /** Élève créé (ou rattaché) à l'inscription du dossier admis (APP-TL-23, V16) ; null tant qu'il n'est pas inscrit. */
+    @Column(name = "eleve_id")
+    private String eleveId;
+
+    @Column(name = "inscrit_le")
+    private java.time.Instant inscritLe;
+
+    /** Compte de l'agent qui a inscrit le dossier. */
+    @Column(name = "inscrit_par")
+    private String inscritPar;
+
+    public String getEleveId() { return eleveId; }
+    public void setEleveId(String eleveId) { this.eleveId = eleveId; }
+    public java.time.Instant getInscritLe() { return inscritLe; }
+    public void setInscritLe(java.time.Instant inscritLe) { this.inscritLe = inscritLe; }
+    public String getInscritPar() { return inscritPar; }
+    public void setInscritPar(String inscritPar) { this.inscritPar = inscritPar; }
+    /** Dossier inscrit : il ne change plus d'état (APP-TL-23). */
+    public boolean estInscrit() { return eleveId != null; }
     
     @Column(name = "first_name")
     private String firstName;
