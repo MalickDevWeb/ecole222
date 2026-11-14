@@ -10,3 +10,9 @@ spring:
       ddl-auto: update
   flyway:
     enabled: false
+
+# 2026-11-14 : pas de purge planifiée du journal d'audit pendant les tests (table créée par Flyway, absente ici)
+ecole:
+  audit:
+    purge:
+      active: false
