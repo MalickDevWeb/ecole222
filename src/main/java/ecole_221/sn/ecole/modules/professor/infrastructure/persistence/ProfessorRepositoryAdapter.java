@@ -80,15 +80,28 @@ public class ProfessorRepositoryAdapter implements ProfessorRepositoryPort {
         );
     }
 
+    /** Inscriptions élève ↔ classe (facultatif : absent des tests unitaires construits sans Spring). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaRepository inscriptions;
+
+    void setInscriptions(ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaRepository i) {
+        this.inscriptions = i;
+    }
+
     /**
-     * Étudiants ACTIFS de l'école courante. Avant : tous les étudiants de toutes les écoles.
-     * Aucun modèle d'inscription élève ↔ classe n'existe encore (UserJpaEntity n'a pas de classe et
-     * OrganizationUserJpaEntity non plus) : le paramètre « classe » ne peut donc pas filtrer ; on renvoie
-     * les étudiants de l'école sans prétendre qu'ils appartiennent à cette classe.
+     * Étudiants ACTIFS de l'école courante inscrits dans la classe {@code classe} (identifiant de classe).
+     * Avant : tous les étudiants de toutes les écoles, puis (2026-11) tous ceux de l'école, la classe étant ignorée.
+     * 2026-11-14 : filtrés par les inscriptions élève ↔ classe ; sans inscriptions disponibles, liste vide (jamais
+     * toute l'école).
      */
     @Override
     public List<User> getStudentsByClass(String classe) {
+        if (inscriptions == null || classe == null) return List.of();
+        java.util.Set<String> inscrits = inscriptions.findByClasseId(classe).stream()
+            .map(ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaEntity::getUserId)
+            .collect(java.util.stream.Collectors.toSet());
         return comptesEcole.membres("ETUDIANT").stream()
+            .filter(m -> inscrits.contains(m.getKey().getId()))
             .filter(m -> "ACTIVE".equalsIgnoreCase(m.getValue().getStatus()))
             .map(Map.Entry::getKey)
             .map(entity -> {

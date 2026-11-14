@@ -76,8 +76,16 @@ public class ProfExtraController {
             @Parameter(description = "Identifiant de la classe") @PathVariable("classId") String classId) {
         
         logger.info("GET /prof/classes/{}/students", classId);
+        // APP-TL-05 (2026-11-14) : avant, getStudents("M1 GL") écrit en dur → TOUS les élèves actifs de l'école (avec
+        // leur e-mail), quelle que soit la classe, pour n'importe quel professeur. Désormais : classe de l'école
+        // (404 sinon), professeur qui y enseigne (403 sinon), élèves inscrits dans CETTE classe seulement.
+        if (accesCours == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Contrôle d'accès indisponible.");
+        }
+        accesCours.verifierClasse(classId);
         try {
-            List<User> users = professorUseCase.getStudents("M1 GL");
+            List<User> users = professorUseCase.getStudents(classId);
             logger.debug("Retrieved {} students for class {}", users.size(), classId);
             return ResponseEntity.ok(ProfessorMapper.toStudentDtoList(users));
         } catch (Exception e) {

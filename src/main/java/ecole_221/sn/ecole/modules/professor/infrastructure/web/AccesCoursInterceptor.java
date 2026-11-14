@@ -87,6 +87,32 @@ public class AccesCoursInterceptor implements HandlerInterceptor {
         return c;
     }
 
+    /** Classes de l'école (facultatif : absent des tests unitaires construits sans Spring). */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository classes;
+
+    void setClasses(ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository c) {
+        this.classes = c;
+    }
+
+    /**
+     * APP-TL-05 (2026-11-14) : la classe existe dans l'école de la requête (sinon 404, comme une classe inexistante :
+     * on ne révèle pas les classes d'une autre école) et le professeur connecté y enseigne au moins un cours
+     * (sinon 403) ; l'administration de l'école y a accès.
+     */
+    public void verifierClasse(String classeId) {
+        if (classes == null || classeId == null || classes.findById(classeId).isEmpty()) {   // @TenantId : école courante
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Classe introuvable dans cet établissement.");
+        }
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        boolean admin = auth != null && auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).anyMatch(ROLES_ADMIN::contains);
+        if (admin) return;
+        String moi = auth != null && auth.getPrincipal() instanceof User u ? u.getId() : null;
+        if (moi == null || cours.findByClasse(classeId).stream().noneMatch(c -> moi.equals(c.getProfId()))) {
+            throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Vous n'enseignez dans aucun cours de cette classe.");
+        }
+    }
+
     /** L'élève est membre (élève) de l'école de la requête. */
     public void verifierEleve(String studentId) {
         if (comptesEcole.appartenance(studentId, "ETUDIANT").isEmpty()) {

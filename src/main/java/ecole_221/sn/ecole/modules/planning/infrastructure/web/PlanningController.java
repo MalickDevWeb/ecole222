@@ -158,7 +158,13 @@ public class PlanningController {
     public ResponseEntity<ClasseDto> getClasseById(
             @Parameter(description = "Identifiant de la classe") @PathVariable("classeId") String classeId) {
         logger.info("GET /planning/classes/{} - Détails classe", classeId);
-        return ResponseEntity.ok(planningUseCase.getClasseById(classeId));
+        // APP-TL-05 (2026-11-14) : avant, 200 avec un corps vide pour une classe inconnue ou d'une autre école
+        ClasseDto c = planningUseCase.getClasseById(classeId);
+        if (c == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Classe introuvable dans cet établissement.");
+        }
+        return ResponseEntity.ok(c);
     }
     
     @PostMapping("/classes")

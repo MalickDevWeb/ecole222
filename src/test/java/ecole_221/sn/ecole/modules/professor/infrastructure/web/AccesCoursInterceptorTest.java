@@ -84,4 +84,41 @@ class AccesCoursInterceptorTest {
         Mockito.when(comptes.appartenance("e1", "ETUDIANT")).thenReturn(Optional.of(new OrganizationUserJpaEntity()));
         assertTrue(intercepteur.preHandle(requete(Map.of("courseId", "c-a", "studentId", "e1")), new MockHttpServletResponse(), null));
     }
+
+    // APP-TL-05 (2026-11-14) : liste des élèves d'une classe côté professeur
+    private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository classesAvec(String... ids) {
+        var repo = Mockito.mock(ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository.class);
+        for (String id : ids) {
+            Mockito.when(repo.findById(id)).thenReturn(Optional.of(new ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaEntity()));
+        }
+        Mockito.when(repo.findById("cls-autre-ecole")).thenReturn(Optional.empty());   // filtrée par @TenantId
+        return repo;
+    }
+
+    @Test
+    void uneClasseHorsEcoleEstIntrouvableCommeUneClasseInexistante() {
+        connecter("prof-a", RoleUtilisateur.PROFESSEUR);
+        intercepteur.setClasses(classesAvec("cls-l1"));
+        var e = assertThrows(ResponseStatusException.class, () -> intercepteur.verifierClasse("cls-autre-ecole"));
+        assertEquals(404, e.getStatusCode().value());
+    }
+
+    @Test
+    void uneClasseOuLeProfesseurNEnseignePasEstInterdite() {
+        connecter("prof-a", RoleUtilisateur.PROFESSEUR);
+        intercepteur.setClasses(classesAvec("cls-l1"));
+        Mockito.when(cours.findByClasse("cls-l1")).thenReturn(java.util.List.of(new CourseJpaEntity("c-b", "Réseaux", "cls-l1", 30, "prof-b")));
+        var e = assertThrows(ResponseStatusException.class, () -> intercepteur.verifierClasse("cls-l1"));
+        assertEquals(403, e.getStatusCode().value());
+    }
+
+    @Test
+    void sesClassesEtCellesDeLAdministrationSontAccessibles() {
+        intercepteur.setClasses(classesAvec("cls-l1"));
+        Mockito.when(cours.findByClasse("cls-l1")).thenReturn(java.util.List.of(new CourseJpaEntity("c-a", "Algo", "cls-l1", 30, "prof-a")));
+        connecter("prof-a", RoleUtilisateur.PROFESSEUR);
+        intercepteur.verifierClasse("cls-l1");
+        connecter("adm", RoleUtilisateur.ADMIN);
+        intercepteur.verifierClasse("cls-l1");
+    }
 }

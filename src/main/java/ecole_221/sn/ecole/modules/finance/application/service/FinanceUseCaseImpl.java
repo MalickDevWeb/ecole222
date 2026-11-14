@@ -97,7 +97,19 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     @Override
     public void deleteStudentFinance(String id) {
         logger.info("Suppression finance étudiant: {}", id);
-        studentFinanceRepository.deleteById(id);
+        // APP-TL-05 (2026-11-14) : avant, deleteById silencieux → « succès » pour un dossier inexistant ou d'une autre
+        // école (rien n'était supprimé). Désormais 404 ; et un dossier qui porte des versements n'est pas supprimé
+        // (409) : ce serait effacer l'historique comptable de l'élève.
+        StudentFinanceJpaEntity d = studentFinanceRepository.findById(id)   // @TenantId : école courante
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Dossier financier introuvable dans cet établissement."));
+        boolean versements = (d.getPaid() != null && d.getPaid() > 0) || transactionRepository.findByStudentId(d.getStudentId()).stream()
+                .anyMatch(t -> id.equals(t.getStudentFinanceId()));
+        if (versements) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
+                    "Ce dossier porte des versements enregistrés : il ne peut pas être supprimé (historique comptable).");
+        }
+        studentFinanceRepository.delete(d);
     }
     
     @Override

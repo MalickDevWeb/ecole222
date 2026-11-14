@@ -175,4 +175,11 @@ class PlanningControllerTest {
 
         Mockito.verify(planningUseCase, Mockito.times(1)).saveSlot(any(SlotDto.class));
     }
+
+    @Test
+    void classeInconnueOuDUneAutreEcole404() throws Exception {
+        // APP-TL-05 (2026-11-14) : avant, 200 avec un corps vide
+        Mockito.when(planningUseCase.getClasseById("cls-x")).thenReturn(null);
+        mockMvc.perform(get("/planning/classes/cls-x")).andExpect(status().isNotFound());
+    }
 }
