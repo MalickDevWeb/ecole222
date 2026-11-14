@@ -151,6 +151,12 @@ public class SecurityService implements SecurityUseCase {
 
     @Override
     public Map<String, Object> processBadgeScan(String badgeId) {
+        Decision d = decider(badgeId, null);
+        return journaliser(d.nom(), d.autorise(), d.statutFrais(), d.message());
+    }
+
+    /** Décision d'accès pour un contenu scanné ; fraîcheur du QR jugée à la minute {@code minuteDuScan} (null = maintenant). */
+    Decision decider(String badgeId, Long minuteDuScan) {
         // APP-SEC-18 : le badge est rattaché à un compte RÉEL (identifiant ou matricule), membre ACTIF de
         // l'école courante. Avant : tout badge était attribué à l'élève fictif « Mamadou Sall » (ou
         // « Awa Diop ») et l'accès décidé d'après sa situation — un badge inconnu pouvait être accepté.
@@ -158,10 +164,10 @@ public class SecurityService implements SecurityUseCase {
         // 2026-11-13 : badge QR dynamique (STU_SECURE:…) vérifié ICI pour toutes les routes de scan ; un élève n'entre
         // plus avec son seul matricule (tapé, photocopié ou deviné) : seul le QR signé par le serveur, valable
         // ± 1 minute, est accepté pour lui. Les badges du personnel restent des identifiants simples.
-        var dynamique = jetonBadge.lire(lu);
+        var dynamique = jetonBadge.lire(lu, minuteDuScan);
         boolean jetonVerifie = dynamique.map(ecole_221.sn.ecole.partage.JetonBadge.Lecture::valide).orElse(false);
         if (dynamique.isPresent() && !jetonVerifie) {
-            return refusSansTitulaire("Accès refusé : QR expiré ou invalide. Faites actualiser le badge dans l'application.");
+            return new Decision("Inconnu", false, null, "Accès refusé : QR expiré ou invalide. Faites actualiser le badge dans l'application.");
         }
         String brut = dynamique.map(ecole_221.sn.ecole.partage.JetonBadge.Lecture::matricule).orElse(lu);
         String sansPrefixe = brut.startsWith("badge-") ? brut.substring(6) : brut;
@@ -209,11 +215,73 @@ public class SecurityService implements SecurityUseCase {
             }
         }
 
-        return journaliser(nom, accessGranted, statutFrais, msg);
+        return new Decision(nom, accessGranted, statutFrais, msg);
     }
 
-    private Map<String, Object> refusSansTitulaire(String msg) {
-        return journaliser("Inconnu", false, null, msg);
+    /** Résultat d'une décision d'accès (avant journalisation). */
+    record Decision(String nom, boolean autorise, String statutFrais, String message) {
+    }
+
+    /**
+     * Liste d'accès pour la décision HORS LIGNE du terminal du vigile (EF-10, 2026-11-14) : clé publique des badges
+     * (vérification de la signature sans pouvoir en fabriquer), élèves actifs de l'école avec le statut de leurs frais,
+     * et membres du personnel. Valable 24 h ; le terminal la retélécharge dès que le réseau revient.
+     */
+    @Override
+    public Map<String, Object> listeAccesHorsLigne() {
+        String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId()
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "École inconnue : précisez l'école (X-Tenant-Slug)."));
+        List<Map<String, Object>> eleves = new java.util.ArrayList<>();
+        List<Map<String, Object>> personnel = new java.util.ArrayList<>();
+        for (var m : appartenances.findByOrganizationId(ecole)) {
+            if (!m.isActive() || m.isExpired()) continue;
+            var u = comptes.findById(m.getUserId()).orElse(null);
+            if (u == null) continue;
+            String nom = ((u.getPrenom() == null ? "" : u.getPrenom() + " ") + (u.getNom() == null ? "" : u.getNom())).trim();
+            if ("ETUDIANT".equalsIgnoreCase(m.getRole())) {
+                if (u.getMatricule() == null || u.getMatricule().isBlank()) continue;   // pas de badge sans matricule
+                StatutFrais frais = adminRepository.getStudentStatus(u.getId());
+                Map<String, Object> e = new HashMap<>();
+                e.put("matricule", u.getMatricule());
+                e.put("nom", nom);
+                e.put("statutFrais", frais == null ? "Non renseigné" : frais.getDisplayName());
+                e.put("autorise", frais == null || frais == StatutFrais.EN_REGLE);
+                eleves.add(e);
+            } else {
+                Map<String, Object> p = new HashMap<>();
+                p.put("id", u.getId());
+                p.put("matricule", u.getMatricule());
+                p.put("nom", nom);
+                personnel.add(p);
+            }
+        }
+        Map<String, Object> r = new HashMap<>();
+        r.put("clePublique", jetonBadge.clePubliqueBase64());
+        r.put("algorithme", "Ed25519");
+        r.put("genereLe", java.time.Instant.now().toString());
+        r.put("valideJusquA", java.time.Instant.now().plus(java.time.Duration.ofHours(24)).toString());
+        r.put("eleves", eleves);
+        r.put("personnel", personnel);
+        return r;
+    }
+
+    /**
+     * Scan effectué HORS LIGNE puis transmis au retour du réseau (EF-10) : le serveur refait le contrôle à la minute
+     * du scan et inscrit au journal ce qui s'est réellement passé (la décision du terminal), en signalant toute
+     * décision contestée.
+     */
+    @Override
+    public Map<String, Object> enregistrerScanHorsLigne(String badgeId, java.time.Instant scanneLe, boolean autoriseParLeTerminal) {
+        Decision d = decider(badgeId, scanneLe.toEpochMilli() / 60_000L);
+        boolean conteste = d.autorise() != autoriseParLeTerminal;
+        String msg = "Scan hors ligne du " + scanneLe + " : terminal « " + (autoriseParLeTerminal ? "Autorisé" : "Refusé")
+                + " » ; contrôle du serveur : " + d.message() + (conteste ? " — DÉCISION CONTESTÉE" : "");
+        Map<String, Object> log = journaliser(d.nom(), autoriseParLeTerminal, d.statutFrais(), msg);
+        log.put("horsLigne", true);
+        log.put("conteste", conteste);
+        log.put("scanneLe", scanneLe.toString());
+        return log;
     }
 
     private Map<String, Object> journaliser(String nom, boolean accessGranted, String statutFrais, String msg) {

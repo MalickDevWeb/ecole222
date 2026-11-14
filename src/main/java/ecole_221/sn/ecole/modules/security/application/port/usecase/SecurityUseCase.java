@@ -58,6 +58,12 @@ public interface SecurityUseCase {
      * Traite un scan de badge.
      */
     Map<String, Object> processBadgeScan(String badgeId);
+
+    /** Liste d'accès pour la décision hors ligne du terminal (EF-10). */
+    Map<String, Object> listeAccesHorsLigne();
+
+    /** Scan fait hors ligne, transmis au retour du réseau (EF-10). */
+    Map<String, Object> enregistrerScanHorsLigne(String badgeId, java.time.Instant scanneLe, boolean autoriseParLeTerminal);
     
     /**
      * Récupère les points de contrôle de vigilance.

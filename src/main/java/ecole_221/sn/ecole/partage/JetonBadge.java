@@ -3,36 +3,47 @@ package ecole_221.sn.ecole.partage;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.GeneralSecurityException;
+import java.security.KeyPair;
+import java.security.KeyPairGenerator;
 import java.security.MessageDigest;
+import java.security.PrivateKey;
+import java.security.PublicKey;
 import java.security.SecureRandom;
-import java.util.HexFormat;
+import java.security.Signature;
+import java.security.spec.NamedParameterSpec;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.Optional;
 
 /**
- * Jeton du badge QR dynamique des élèves (2026-11-13, sécurité maximale).
+ * Jeton du badge QR dynamique des élèves.
  *
- * <p>Avant : hachage FNV-1a 32 bits avec une « clé secrète » écrite en dur dans le code, recopiée (avec une autre
- * valeur !) dans le frontend. N'importe qui pouvait fabriquer le badge valide de n'importe quel élève à partir de son
- * matricule, et le badge affiché par l'application était de toute façon refusé.</p>
+ * <p>2026-11-13 : avant, hachage FNV-1a 32 bits avec une « clé secrète » écrite dans le code (badge falsifiable).</p>
  *
- * <p>Désormais : HMAC-SHA256, clé connue du seul serveur (ECOLE_BADGE_SECRET, sinon dérivée de JWT_SECRET, sinon
- * aléatoire au démarrage), 16 caractères hexadécimaux (64 bits), valable pour la minute indiquée ± 1 minute, comparé
- * en temps constant. Le badge n'est produit que par le serveur ({@code GET /student/digital-badge}).</p>
+ * <p>2026-11-14 (décision d'accès hors ligne, EF-10) : signature <b>Ed25519</b>. Le serveur signe avec sa clé PRIVÉE ;
+ * le téléphone du vigile vérifie avec la clé PUBLIQUE ({@link #clePubliqueBase64()}), qui permet de vérifier un badge
+ * mais pas d'en fabriquer. La clé est dérivée du secret du serveur (ECOLE_BADGE_SECRET, sinon JWT_SECRET) : identique
+ * à chaque redémarrage et sur chaque instance ; sans secret configuré, une clé aléatoire est tirée au démarrage.</p>
+ *
+ * <p>Contenu du QR : {@code STU_SECURE:{matricule}:{minute}:{signature base64url}}, valable pour la minute indiquée
+ * ± 1 minute.</p>
  */
 @Component
 public class JetonBadge {
 
     public static final String PREFIXE = "STU_SECURE:";
-    private static final int LONGUEUR = 16;
+    private static final Base64.Encoder B64 = Base64.getUrlEncoder().withoutPadding();
+    private static final Base64.Decoder D64 = Base64.getUrlDecoder();
 
-    private final byte[] cle;
+    private final PrivateKey privee;
+    private final PublicKey publique;
 
     public JetonBadge(@Value("${ecole.badge.secret:}") String secretBadge, @Value("${jwt.secret:}") String secretJwt) {
-        this.cle = deriver(secretBadge, secretJwt);
+        KeyPair paire = paire(graine(secretBadge, secretJwt));
+        this.privee = paire.getPrivate();
+        this.publique = paire.getPublic();
     }
 
     /** Clé aléatoire (tests, ou serveur sans secret configuré : les badges ne survivent pas à un redémarrage). */
@@ -40,32 +51,59 @@ public class JetonBadge {
         return new JetonBadge("", "");
     }
 
-    private static byte[] deriver(String secretBadge, String secretJwt) {
+    private static byte[] graine(String secretBadge, String secretJwt) {
         try {
             MessageDigest sha = MessageDigest.getInstance("SHA-256");
             if (secretBadge != null && !secretBadge.isBlank()) {
-                return sha.digest(("badge:" + secretBadge).getBytes(StandardCharsets.UTF_8));
+                return sha.digest(("badge-ed25519:" + secretBadge).getBytes(StandardCharsets.UTF_8));
             }
             if (secretJwt != null && !secretJwt.isBlank()) {
-                return sha.digest(("badge-qr-ecole221:" + secretJwt).getBytes(StandardCharsets.UTF_8));
+                return sha.digest(("badge-qr-ed25519-ecole221:" + secretJwt).getBytes(StandardCharsets.UTF_8));
             }
-            byte[] k = new byte[32];
-            new SecureRandom().nextBytes(k);
-            return k;
+            byte[] g = new byte[32];
+            new SecureRandom().nextBytes(g);
+            return g;
         } catch (GeneralSecurityException e) {
             throw new IllegalStateException("SHA-256 indisponible", e);
         }
     }
 
-    /** Jeton du matricule pour la minute donnée (minutes depuis l'époque Unix). */
+    /** Paire Ed25519 déterministe : le générateur reçoit exactement la graine de 32 octets. */
+    private static KeyPair paire(byte[] graine) {
+        try {
+            KeyPairGenerator g = KeyPairGenerator.getInstance("Ed25519");
+            g.initialize(NamedParameterSpec.ED25519, new SecureRandom() {
+                @Override
+                public void nextBytes(byte[] octets) {
+                    Arrays.fill(octets, (byte) 0);
+                    System.arraycopy(graine, 0, octets, 0, Math.min(graine.length, octets.length));
+                }
+            });
+            return g.generateKeyPair();
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("Ed25519 indisponible", e);
+        }
+    }
+
+    /** Clé publique brute (32 octets) en base64url : diffusée aux vigiles pour la vérification hors ligne. */
+    public String clePubliqueBase64() {
+        byte[] spki = publique.getEncoded();   // SubjectPublicKeyInfo : 12 octets d'en-tête + 32 octets de clé
+        return B64.encodeToString(Arrays.copyOfRange(spki, spki.length - 32, spki.length));
+    }
+
+    private static byte[] message(String matricule, long minute) {
+        return (matricule + ":" + minute).getBytes(StandardCharsets.UTF_8);
+    }
+
+    /** Signature du matricule pour la minute donnée (minutes depuis l'époque Unix), en base64url. */
     public String jeton(String matricule, long minute) {
         try {
-            Mac mac = Mac.getInstance("HmacSHA256");
-            mac.init(new SecretKeySpec(cle, "HmacSHA256"));
-            byte[] h = mac.doFinal((matricule + ":" + minute).getBytes(StandardCharsets.UTF_8));
-            return HexFormat.of().withUpperCase().formatHex(h).substring(0, LONGUEUR);
+            Signature s = Signature.getInstance("Ed25519");
+            s.initSign(privee);
+            s.update(message(matricule, minute));
+            return B64.encodeToString(s.sign());
         } catch (GeneralSecurityException e) {
-            throw new IllegalStateException("HMAC-SHA256 indisponible", e);
+            throw new IllegalStateException("Signature Ed25519 impossible", e);
         }
     }
 
@@ -73,28 +111,42 @@ public class JetonBadge {
         return System.currentTimeMillis() / 60_000L;
     }
 
-    /** Contenu du QR : STU_SECURE:{matricule}:{minute}:{jeton}. */
+    /** Contenu du QR : STU_SECURE:{matricule}:{minute}:{signature}. */
     public String contenu(String matricule, long minute) {
         return PREFIXE + matricule + ":" + minute + ":" + jeton(matricule, minute);
     }
 
-    /** Vrai si le jeton correspond au matricule et à la minute, et si cette minute est à ±1 de maintenant. */
+    /** Signature authentique pour ce matricule et cette minute (sans contrôle de fraîcheur). */
+    public boolean signatureValide(String matricule, long minute, String jeton) {
+        if (matricule == null || matricule.isBlank() || jeton == null || jeton.length() > 200) return false;
+        try {
+            byte[] sig = D64.decode(jeton);
+            // longueur exacte et encodage canonique (refuse une autre écriture de la même signature)
+            if (sig.length != 64 || !B64.encodeToString(sig).equals(jeton)) return false;
+            Signature s = Signature.getInstance("Ed25519");
+            s.initVerify(publique);
+            s.update(message(matricule, minute));
+            return s.verify(sig);
+        } catch (IllegalArgumentException | GeneralSecurityException e) {
+            return false;
+        }
+    }
+
+    /** Vrai si la signature est authentique ET si la minute est à ±1 de maintenant. */
     public boolean valide(String matricule, long minute, String jeton) {
-        if (matricule == null || matricule.isBlank() || jeton == null || jeton.length() != LONGUEUR) {
-            return false;
-        }
-        if (Math.abs(minuteCourante() - minute) > 1) {
-            return false;
-        }
-        return MessageDigest.isEqual(jeton(matricule, minute).getBytes(StandardCharsets.US_ASCII),
-                jeton.toUpperCase(java.util.Locale.ROOT).getBytes(StandardCharsets.US_ASCII));
+        return Math.abs(minuteCourante() - minute) <= 1 && signatureValide(matricule, minute, jeton);
+    }
+
+    /** Lit un contenu scanné. Vide si ce n'est pas un badge dynamique ; sinon le matricule et la validité. */
+    public Optional<Lecture> lire(String contenu) {
+        return lire(contenu, null);
     }
 
     /**
-     * Lit un contenu scanné. Vide si ce n'est pas un badge dynamique ; sinon le matricule si le jeton est valide, ou
-     * {@code null} dans l'Optional présent… (voir {@link Lecture}).
+     * Comme {@link #lire(String)}, mais la fraîcheur est jugée par rapport à {@code scanneLe} (minute du scan
+     * effectué hors ligne) au lieu de maintenant.
      */
-    public Optional<Lecture> lire(String contenu) {
+    public Optional<Lecture> lire(String contenu, Long minuteDuScan) {
         if (contenu == null || !contenu.startsWith(PREFIXE)) {
             return Optional.empty();
         }
@@ -104,7 +156,9 @@ public class JetonBadge {
         }
         try {
             long minute = Long.parseLong(p[2]);
-            return Optional.of(new Lecture(p[1], valide(p[1], minute, p[3])));
+            long reference = minuteDuScan == null ? minuteCourante() : minuteDuScan;
+            boolean frais = Math.abs(reference - minute) <= 1;
+            return Optional.of(new Lecture(p[1], frais && signatureValide(p[1], minute, p[3])));
         } catch (NumberFormatException e) {
             return Optional.of(new Lecture(p[1], false));
         }

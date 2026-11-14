@@ -94,6 +94,63 @@ public class SecurityController {
         return ResponseEntity.ok(securityUseCase.getCheckpointStatus());
     }
 
+    @Operation(summary = "Liste d'accès hors ligne (EF-10)", description = "Clé publique des badges, élèves actifs (statut des frais) et personnel de l'école : permet au terminal du vigile de décider sans réseau. Valable 24 h.")
+    @GetMapping("/vigil/acces-hors-ligne")
+    public ResponseEntity<Map<String, Object>> accesHorsLigne() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (terminauxAcces != null && auth != null && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User vigile) {
+            terminauxAcces.exigerTerminalUtilisable(vigile.getId());   // terminal désactivé : pas de liste
+        }
+        return ResponseEntity.ok(securityUseCase.listeAccesHorsLigne());
+    }
+
+    /** Scans faits hors ligne, transmis au retour du réseau (EF-10) : au plus 200, datés des 72 dernières heures. */
+    @Operation(summary = "Transmettre les scans faits hors ligne (EF-10)", description = "Corps {scans: [{badgeId, scanneLe (ISO-8601), decision: Autorisé|Refusé}]} ; le serveur refait le contrôle à la minute du scan et signale les décisions contestées.")
+    @PostMapping("/vigil/scans-hors-ligne")
+    public ResponseEntity<Map<String, Object>> scansHorsLigne(@RequestBody(required = false) Map<String, Object> corps) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (terminauxAcces != null && auth != null && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User vigile) {
+            terminauxAcces.exigerTerminalUtilisable(vigile.getId());
+        }
+        Object brut = corps == null ? null : corps.get("scans");
+        if (!(brut instanceof List<?> scans) || scans.isEmpty()) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("La liste « scans » est obligatoire.");
+        }
+        if (scans.size() > 200) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Au plus 200 scans par envoi.");
+        }
+        java.time.Instant maintenant = java.time.Instant.now();
+        List<Map<String, Object>> resultats = new java.util.ArrayList<>();
+        int contestes = 0;
+        for (Object o : scans) {
+            Map<String, Object> r = new HashMap<>();
+            if (!(o instanceof Map<?, ?> m) || !(m.get("badgeId") instanceof String badge) || badge.isBlank() || badge.length() > 500
+                    || !(m.get("scanneLe") instanceof String quand) || !(m.get("decision") instanceof String decision)) {
+                r.put("erreur", "Scan incomplet : badgeId, scanneLe et decision sont obligatoires.");
+                resultats.add(r);
+                continue;
+            }
+            java.time.Instant scanneLe;
+            try {
+                scanneLe = java.time.Instant.parse(quand);
+            } catch (java.time.format.DateTimeParseException e) {
+                r.put("erreur", "Date du scan invalide : " + quand + ".");
+                resultats.add(r);
+                continue;
+            }
+            if (scanneLe.isAfter(maintenant.plusSeconds(300)) || scanneLe.isBefore(maintenant.minus(java.time.Duration.ofHours(72)))) {
+                r.put("erreur", "Date du scan hors des 72 dernières heures : " + quand + ".");
+                resultats.add(r);
+                continue;
+            }
+            Map<String, Object> log = securityUseCase.enregistrerScanHorsLigne(badge.trim(), scanneLe, "Autorisé".equals(decision));
+            if (Boolean.TRUE.equals(log.get("conteste"))) contestes++;
+            resultats.add(log);
+        }
+        return ResponseEntity.ok(Map.of("enregistres", resultats.stream().filter(x -> !x.containsKey("erreur")).count(),
+                "contestes", contestes, "resultats", resultats));
+    }
+
     @Operation(summary = "Journaliser un scan de badge", description = "Corps {badgeId} ou {studentId, checkpointId?}. 403 si le terminal du vigile est désactivé ou révoqué ; scan vide → 400.")
     @PostMapping("/security/scan-logs")
     public ResponseEntity<Map<String, Object>> scanBadge(@RequestBody Map<String, String> body) {

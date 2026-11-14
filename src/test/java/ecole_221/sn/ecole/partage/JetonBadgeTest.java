@@ -2,9 +2,14 @@ package ecole_221.sn.ecole.partage;
 
 import org.junit.jupiter.api.Test;
 
+import java.security.KeyFactory;
+import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
+
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Badge QR dynamique signé par le serveur (2026-11-13). */
+/** Badge QR dynamique signé par le serveur (Ed25519, 2026-11-14). */
 class JetonBadgeTest {
 
     private final JetonBadge jetons = new JetonBadge("", "secret-jwt-de-test-assez-long-0123456789");
@@ -23,18 +28,39 @@ class JetonBadgeTest {
         long m = JetonBadge.minuteCourante();
         assertThat(jetons.valide("ETU-001", m - 2, jetons.jeton("ETU-001", m - 2))).isFalse();
         assertThat(jetons.valide("ETU-002", m, jetons.jeton("ETU-001", m))).isFalse();
+        // scan hors ligne : la fraîcheur est jugée à la minute du scan
+        assertThat(jetons.lire(jetons.contenu("ETU-001", m - 30), m - 30).orElseThrow().valide()).isTrue();
+        assertThat(jetons.lire(jetons.contenu("ETU-001", m - 30), m).orElseThrow().valide()).isFalse();
     }
 
     @Test
-    void ancienAlgorithmeEtAutreCleRefuses() {
+    void ancienAlgorithmeAutreCleEtSignatureAltereeRefuses() {
         long m = JetonBadge.minuteCourante();
-        // ancien jeton FNV-1a 32 bits (8 caractères) : refusé
-        assertThat(jetons.valide("ETU-001", m, "1A2B3C4D")).isFalse();
-        // même algorithme, autre clé : refusé
-        assertThat(jetons.valide("ETU-001", m, new JetonBadge("autre", "").jeton("ETU-001", m))).isFalse();
-        // la clé dépend du secret du serveur
-        assertThat(new JetonBadge("", "secret-jwt-de-test-assez-long-0123456789").jeton("ETU-001", m))
-                .isEqualTo(jetons.jeton("ETU-001", m));
+        assertThat(jetons.valide("ETU-001", m, "1A2B3C4D")).isFalse();                                     // ancien FNV-1a
+        assertThat(jetons.valide("ETU-001", m, new JetonBadge("autre", "").jeton("ETU-001", m))).isFalse(); // autre clé
+        String j = jetons.jeton("ETU-001", m);
+        String altere = j.substring(0, 40) + (j.charAt(40) == 'A' ? 'B' : 'A') + j.substring(41);
+        assertThat(jetons.valide("ETU-001", m, altere)).isFalse();
+        assertThat(jetons.valide("ETU-001", m, j + "A")).isFalse();
+    }
+
+    @Test
+    void clePubliqueStableEtSuffisantePourVerifierHorsLigne() throws Exception {
+        // même secret → même clé (redémarrage, plusieurs instances)
+        assertThat(new JetonBadge("", "secret-jwt-de-test-assez-long-0123456789").clePubliqueBase64()).isEqualTo(jetons.clePubliqueBase64());
+        assertThat(JetonBadge.aleatoire().clePubliqueBase64()).isNotEqualTo(jetons.clePubliqueBase64());
+        // le terminal du vigile vérifie avec la seule clé publique (32 octets), comme le fera le navigateur
+        byte[] brute = Base64.getUrlDecoder().decode(jetons.clePubliqueBase64());
+        assertThat(brute).hasSize(32);
+        byte[] spki = new byte[44];
+        System.arraycopy(new byte[] {0x30, 0x2a, 0x30, 0x05, 0x06, 0x03, 0x2b, 0x65, 0x70, 0x03, 0x21, 0x00}, 0, spki, 0, 12);
+        System.arraycopy(brute, 0, spki, 12, 32);
+        var publique = KeyFactory.getInstance("Ed25519").generatePublic(new X509EncodedKeySpec(spki));
+        long m = JetonBadge.minuteCourante();
+        Signature s = Signature.getInstance("Ed25519");
+        s.initVerify(publique);
+        s.update(("ETU-001:" + m).getBytes(java.nio.charset.StandardCharsets.UTF_8));
+        assertThat(s.verify(Base64.getUrlDecoder().decode(jetons.jeton("ETU-001", m)))).isTrue();
     }
 
     @Test
