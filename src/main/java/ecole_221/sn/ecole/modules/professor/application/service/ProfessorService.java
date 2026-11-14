@@ -50,8 +50,13 @@ public class ProfessorService implements ProfessorUseCase {
             .toList();
     }
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.admin.periodes.PeriodesScolairesService periodes;
+
     @Override
     public void saveGrade(String studentId, String courseId, Double cc, Double exam) {
+        // BR-04 (2026-11-14) : l'ancien couple CC / Examen n'est pas daté ; il suit la période du jour.
+        if (periodes != null) periodes.exigerOuverte(java.time.LocalDate.now(), "les notes ne peuvent plus être saisies ni modifiées");
         repositoryPort.saveGrade(studentId, courseId, cc, exam);
     }
 

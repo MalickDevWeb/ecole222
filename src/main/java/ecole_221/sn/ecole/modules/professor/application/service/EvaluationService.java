@@ -63,6 +63,14 @@ public class EvaluationService {
         this.comptesEcole = comptesEcole;
     }
 
+    /** Clôture des trimestres (BR-04, 2026-11-14) ; absent seulement dans certains tests unitaires. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.admin.periodes.PeriodesScolairesService periodes;
+
+    private void exigerPeriodeOuverte(LocalDate date, String quoi) {
+        if (periodes != null) periodes.exigerOuverte(date, quoi);
+    }
+
     // ================================================================ évaluations
 
     @Transactional(readOnly = true)
@@ -83,6 +91,7 @@ public class EvaluationService {
         e.setNoteSur(20);
         e.setSession("NORMALE");
         appliquer(e, corps, true);
+        exigerPeriodeOuverte(e.getDateEvaluation(), "aucune évaluation ne peut y être ajoutée");
         e.setVerrouillee(false);
         Auteur a = auteur();
         e.setCreePar(a.id());
@@ -94,10 +103,12 @@ public class EvaluationService {
     public Map<String, Object> modifier(String courseId, String evaluationId, Map<String, Object> corps) {
         EvaluationJpaEntity e = evaluation(courseId, evaluationId);
         refuserSiVerrouillee(e, "modifiée");
+        exigerPeriodeOuverte(e.getDateEvaluation(), "ses évaluations ne peuvent plus être modifiées");
         if (corps == null || corps.isEmpty()) throw erreur("Aucune modification envoyée.");
         List<NoteEvaluationJpaEntity> existantes = notes.findByEvaluationId(evaluationId);
         String ancienneSession = e.getSession();
         appliquer(e, corps, false);
+        exigerPeriodeOuverte(e.getDateEvaluation(), "aucune évaluation ne peut y être déplacée");
         if (!existantes.isEmpty()) {
             if (!ancienneSession.equals(e.getSession())) {
                 throw new ResponseStatusException(HttpStatus.CONFLICT,
@@ -125,6 +136,7 @@ public class EvaluationService {
     public void supprimer(String courseId, String evaluationId) {
         EvaluationJpaEntity e = evaluation(courseId, evaluationId);
         refuserSiVerrouillee(e, "supprimée");
+        exigerPeriodeOuverte(e.getDateEvaluation(), "ses évaluations ne peuvent plus être supprimées");
         long n = notes.countByEvaluationId(evaluationId);
         if (n > 0) {
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Impossible de supprimer l'évaluation « " + e.getTitre()
@@ -172,6 +184,7 @@ public class EvaluationService {
     public Map<String, Object> enregistrerNotes(String courseId, String evaluationId, Object corps) {
         EvaluationJpaEntity e = evaluation(courseId, evaluationId);
         refuserSiVerrouillee(e, null);
+        exigerPeriodeOuverte(e.getDateEvaluation(), "les notes de ses évaluations ne peuvent plus être modifiées");
         if (e.getDateEvaluation() != null && e.getDateEvaluation().isAfter(LocalDate.now())) {
             throw erreur("L'évaluation est prévue le " + e.getDateEvaluation()
                     + " : les notes ne peuvent pas être saisies avant cette date.");

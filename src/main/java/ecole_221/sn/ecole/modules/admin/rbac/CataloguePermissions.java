@@ -37,8 +37,9 @@ public final class CataloguePermissions {
                     List.of("/admin/terminaux", "/admin/gates", "/audit", "/admin/realtime-logs")),
             new Module("communication", "Communication", "Notifications et e-mails de l'école",
                     List.of("/v1/notifications", "/notifications", "/email")),
-            new Module("ecole", "Établissement", "Tableau de bord, abonnement, coordonnées, identité visuelle, référentiels",
-                    List.of("/admin/abonnement", "/admin/coordonnees", "/admin/identite-visuelle", "/admin/stats", "/dashboard", "/v1/referentiels")),
+            new Module("ecole", "Établissement", "Tableau de bord, abonnement, coordonnées, identité visuelle, référentiels, trimestres et clôture des notes",
+                    List.of("/admin/abonnement", "/admin/coordonnees", "/admin/identite-visuelle", "/admin/stats", "/dashboard", "/v1/referentiels",
+                            "/admin/periodes")),
             new Module("collaboration", "Collaboration", "Groupes de travail, wiki, réunions", List.of("/collaboration", "/wiki", "/meet")),
             new Module("transferts", "Transferts d'élèves", "Demandes de transfert vers une autre école et décisions sur les demandes reçues",
                     List.of("/admin/transferts")));
