@@ -44,7 +44,7 @@ public class MistralAIService implements AIServicePort {
         }
         
         try {
-            logger.info("Génération de réponse avec Mistral pour: {}", message);
+            logger.info("Génération de réponse avec Mistral ({} caractères)", (message == null ? 0 : message.length()));   // APP-SEC-26 : jamais le texte
             
             // Utiliser l'API REST Mistral
             return generateWithMistralAPI(message, model, context);
@@ -123,7 +123,7 @@ public class MistralAIService implements AIServicePort {
     }
     
     private String generateFallbackResponse(String message, Map<String, Object> context) {
-        logger.info("Utilisation de la réponse fallback pour: {}", message);
+        logger.info("Utilisation de la réponse fallback ({} caractères)", (message == null ? 0 : message.length()));
         
         // Réponse fallback simple qui simule une IA
         // Pas de réponse imitant l'IA (avant : « Je suis votre assistant IA… votre message sera traité »)
