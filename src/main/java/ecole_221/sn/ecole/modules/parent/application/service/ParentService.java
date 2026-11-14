@@ -397,6 +397,7 @@ public class ParentService implements ParentUseCase {
     }
 
     @Override
+    @Transactional   // rendez-vous et message au professeur enregistrés ensemble
     public String requestAppointment(String parentId, AppointmentRequestDto request) {
         logger.info("Demande de RDV par le parent: {}, avec professeur: {}, date: {}", 
                    parentId, request.professeurId(), request.dateSouhaitee());
@@ -436,7 +437,24 @@ public class ParentService implements ParentUseCase {
         );
         
         Appointment saved = appointmentRepositoryPort.save(appointment);
+        // 2026-11-14 : la demande arrive RÉELLEMENT chez le professeur (avant : enregistrée sans que personne ne la voie,
+        // affichée « confirmée » au parent avec un lien Meet inventé). Il répond dans « Messages des parents ».
+        if (messagerie != null) {
+            String jour = java.time.LocalDate.parse(request.dateSouhaitee().substring(0, 10))
+                    .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
+            messagerie.envoyerParParent(parentId, request.professeurId(),
+                    "Demande de rendez-vous (date souhaitée : " + jour + ")",
+                    request.motif() + "\n\nDemande envoyée depuis l'espace parent : répondez à ce message pour fixer le rendez-vous.");
+        }
         return saved.getId();
+    }
+
+    /** Messagerie parents ↔ école (2026-11-14) ; facultative pour les tests construits sans Spring. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private MessagerieParentsService messagerie;
+
+    void setMessagerie(MessagerieParentsService m) {
+        this.messagerie = m;
     }
 
     @Override
