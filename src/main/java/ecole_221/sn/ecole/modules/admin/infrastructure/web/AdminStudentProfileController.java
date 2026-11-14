@@ -55,7 +55,7 @@ public class AdminStudentProfileController {
     @GetMapping("/students/{id}/profile360")
     public ResponseEntity<Map<String, Object>> getProfile360(@PathVariable("id") String studentId) {
         comptesEcole.membre(studentId, "ETUDIANT");   // 404 si l'élève n'est pas de cette école
-        return ResponseEntity.ok(profil(profils.findFirstByUserId(studentId).orElse(null)));
+        return ResponseEntity.ok(profil(profils.findFirstByUserId(studentId).orElse(null), studentId));
     }
 
     @Operation(summary = "Compléter le dossier d'un élève", description = "Corps {bloodGroup?, allergies?} : seuls les champs envoyés changent. 404 si l'élève n'est pas de l'école.")
@@ -71,7 +71,7 @@ public class AdminStudentProfileController {
         p.setUpdatedAt(LocalDateTime.now());
         profils.save(p);
         logger.info("POST /admin/students/{}/profile360 - dossier mis à jour", studentId);
-        return ResponseEntity.ok(profil(p));
+        return ResponseEntity.ok(profil(p, studentId));
     }
 
     @Operation(summary = "Documents d'un élève", description = "Pièces déposées pour l'élève, de la plus ancienne à la plus récente.")
@@ -147,11 +147,62 @@ public class AdminStudentProfileController {
         return ResponseEntity.status(HttpStatus.CREATED).body(res);
     }
 
+    /** 2026-11-14 : situation financière réelle (module Finances) ; facultative pour les tests sans contexte Spring. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.finance.application.service.SituationFinanciereEleveService situationsFinancieres;
+
+    void setSituationsFinancieres(ecole_221.sn.ecole.modules.finance.application.service.SituationFinanciereEleveService s) {
+        this.situationsFinancieres = s;
+    }
+
+    /** Versements réels de l'élève pour l'onglet Finances ; « non_disponible » sans dossier financier. */
+    private void paiements(Map<String, Object> profile, String studentId) {
+        var situation = situationsFinancieres == null ? java.util.Optional.<ecole_221.sn.ecole.modules.finance.application.service.SituationFinanciereEleveService.Situation>empty()
+                : situationsFinancieres.situation(studentId);
+        if (situation.isEmpty()) {
+            profile.put("payments", List.of());
+            profile.put("paymentsStatus", "non_disponible");
+            return;
+        }
+        var s = situation.get();
+        java.time.format.DateTimeFormatter jour = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        List<Map<String, Object>> lignes = new java.util.ArrayList<>();
+        for (var v : s.versements()) {
+            Map<String, Object> l = new LinkedHashMap<>();
+            l.put("label", v.description() == null || v.description().isBlank() ? "Versement" : v.description());
+            l.put("status", "Payé");
+            l.put("amount", v.montant());
+            l.put("date", v.date() == null ? "—" : v.date().format(jour));
+            l.put("method", v.moyen() == null || v.moyen().isBlank() ? "Moyen non précisé" : v.moyen());
+            l.put("receiptNumber", v.reference() == null || v.reference().isBlank() ? "—" : v.reference());
+            lignes.add(l);
+        }
+        if (s.versementsSansDetail() > 0) {
+            Map<String, Object> l = new LinkedHashMap<>();
+            l.put("label", "Versements enregistrés sans détail");
+            l.put("status", "Payé");
+            l.put("amount", s.versementsSansDetail());
+            l.put("date", s.dernierVersement() == null ? "—" : s.dernierVersement().format(jour));
+            l.put("method", "Moyen non précisé");
+            l.put("receiptNumber", "—");
+            lignes.add(l);
+        }
+        Map<String, Object> resume = new LinkedHashMap<>();
+        resume.put("classe", s.classe());
+        resume.put("totalDu", s.totalDu());
+        resume.put("paye", s.paye());
+        resume.put("resteDu", s.resteDu());
+        resume.put("statut", s.statut());
+        profile.put("payments", lignes);
+        profile.put("paymentsStatus", "disponible");
+        profile.put("situationFinanciere", resume);
+    }
+
     /**
      * Profil 360 : seules les données réellement saisies sont renvoyées (APP-BE-17) ; les rubriques sans
-     * source (notes, connexions, parcours, paiements) restent vides avec un statut explicite.
+     * source (notes, connexions, parcours) restent vides avec un statut explicite ; les paiements viennent du module Finances (2026-11-14).
      */
-    private Map<String, Object> profil(ProfilEleveJpaEntity p) {
+    private Map<String, Object> profil(ProfilEleveJpaEntity p, String studentId) {
         Map<String, Object> profile = new LinkedHashMap<>();
         profile.put("donneesStatus", p == null ? "non_disponible" : "partiel");
         profile.put("admissionDetails", new LinkedHashMap<String, Object>());
@@ -159,8 +210,7 @@ public class AdminStudentProfileController {
         profile.put("connectionLogs", List.of());
         profile.put("activityTrail", List.of());
         profile.put("timeline", List.of());
-        profile.put("payments", List.of());
-        profile.put("paymentsStatus", "non_disponible");
+        paiements(profile, studentId);
         Map<String, Object> extra = new LinkedHashMap<>();
         extra.put("messages", List.of());
         if (p != null) {

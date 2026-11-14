@@ -263,15 +263,66 @@ public class ParentService implements ParentUseCase {
                 c.etape(), c.commentaire());
     }
 
+    /**
+     * 2026-11-14 : situation financière RÉELLE des enfants (dossier saisi par la comptabilité de l'école et versements
+     * enregistrés). Injectée à part pour ne pas changer les constructeurs utilisés par les tests.
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.finance.application.service.SituationFinanciereEleveService situationsFinancieres;
+
+    void setSituationsFinancieres(ecole_221.sn.ecole.modules.finance.application.service.SituationFinanciereEleveService s) {
+        this.situationsFinancieres = s;
+    }
+
     @Override
     @Transactional(readOnly = true)
     public PaymentDto getParentPayments(String parentId) {
         logger.info("Récupération des paiements pour le parent: {}", parentId);
-        
-        // APP-BE-18 : aucune source réelle de paiements n'est branchée (pas de PaymentRepository).
-        // On ne renvoie JAMAIS de transaction fictive : réponse vide explicitement marquée « non_disponible ».
-        // Quand une source réelle existera, renvoyer ses échéances avec statut PaymentDto.STATUT_DISPONIBLE.
-        return PaymentDto.nonDisponible();
+        // APP-BE-18 : jamais de transaction fictive. 2026-11-14 : avant, toujours « non_disponible » alors que le module
+        // Finances enregistre dossiers et versements ; désormais, pour chaque enfant ayant un dossier financier dans
+        // l'école : un versement = une ligne PAYE ; le payé non détaillé = une ligne PAYE ; le reste dû = une ligne
+        // EN_COURS (échéance non fixée : aucune date inventée). Sans dossier : « non_disponible ».
+        if (situationsFinancieres == null) {
+            return PaymentDto.nonDisponible();
+        }
+        record EnfantSituation(ChildDto enfant,
+                               ecole_221.sn.ecole.modules.finance.application.service.SituationFinanciereEleveService.Situation s) {
+        }
+        List<EnfantSituation> liste = new ArrayList<>();
+        for (ChildDto enfant : getEnfantsByParentId(parentId)) {
+            situationsFinancieres.situation(enfant.id()).ifPresent(s -> liste.add(new EnfantSituation(enfant, s)));
+        }
+        if (liste.isEmpty()) {
+            return PaymentDto.nonDisponible();
+        }
+        boolean plusieurs = liste.size() > 1;
+        long total = 0;
+        List<PaymentDto.PaymentInstallmentDto> lignes = new ArrayList<>();
+        for (EnfantSituation es : liste) {
+            var s = es.s();
+            String nom = ((es.enfant().prenom() == null ? "" : es.enfant().prenom()) + " "
+                    + (es.enfant().nom() == null ? "" : es.enfant().nom())).trim();
+            String pour = plusieurs && !nom.isEmpty() ? " — " + nom : "";
+            total += s.totalDu();
+            for (var v : s.versements()) {
+                String detail = (v.moyen() == null || v.moyen().isBlank() ? "" : " (" + v.moyen() + ")")
+                        + (v.reference() == null || v.reference().isBlank() ? "" : ", réf. " + v.reference());
+                String date = v.date() == null ? null : v.date().toLocalDate().toString();
+                lignes.add(new PaymentDto.PaymentInstallmentDto(v.id(), "Versement" + detail + pour, v.montant(), date, "PAYE", date));
+            }
+            if (s.versementsSansDetail() > 0) {
+                String date = s.dernierVersement() == null ? null : s.dernierVersement().toLocalDate().toString();
+                lignes.add(new PaymentDto.PaymentInstallmentDto("anterieur-" + s.eleveId(),
+                        "Versements enregistrés sans détail" + pour, s.versementsSansDetail(), date, "PAYE", date));
+            }
+            if (s.resteDu() > 0) {
+                boolean retard = s.statut() != null && s.statut().toLowerCase(java.util.Locale.ROOT).contains("retard");
+                lignes.add(new PaymentDto.PaymentInstallmentDto("reste-" + s.eleveId(),
+                        "Reste à payer" + (s.classe() == null || s.classe().isBlank() ? "" : " (" + s.classe() + ")") + pour,
+                        s.resteDu(), null, retard ? "RETARD" : "EN_COURS", null));
+            }
+        }
+        return new PaymentDto(total, lignes, PaymentDto.STATUT_DISPONIBLE);
     }
 
     @Override

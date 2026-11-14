@@ -50,7 +50,8 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     
     @Override
     public StudentFinanceJpaEntity getStudentFinanceByStudentId(String studentId) {
-        return studentFinanceRepository.findByStudentId(studentId).orElse(null);
+        // 2026-11-14 : dossier le plus récent (findByStudentId échouait si l'élève en avait plusieurs)
+        return studentFinanceRepository.findAllByStudentIdOrderByCreatedAtDesc(studentId).stream().findFirst().orElse(null);
     }
     
     @Override
@@ -186,7 +187,9 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
         
         // Mettre à jour la finance étudiante si c'est un paiement (compatibilité)
         if ("PAYMENT".equals(transactionDto.type()) && transactionDto.studentId() != null) {
-            StudentFinanceJpaEntity studentFinance = studentFinanceRepository.findByStudentId(transactionDto.studentId()).orElse(null);
+            // 2026-11-14 : dossier le plus récent (findByStudentId échouait si l'élève en avait plusieurs)
+            StudentFinanceJpaEntity studentFinance = studentFinanceRepository.findAllByStudentIdOrderByCreatedAtDesc(transactionDto.studentId())
+                    .stream().findFirst().orElse(null);
             if (studentFinance != null) {
                 try {
                     long amount = Long.parseLong(transactionDto.amount());
