@@ -85,4 +85,14 @@ class ProfessorControllerTest {
 
         Mockito.verify(professorUseCase, Mockito.times(1)).saveHomework(anyString(), anyString(), anyString(), anyString(), anyString());
     }
+
+    @Test
+    void annulationSansMotifRefusee() throws Exception {
+        // FEAT-003-BR-07 (2026-11-14) : avant, corps libre → annulation sans motif acceptée sur cette route
+        mockMvc.perform(post("/professor/planning/ses-1/cancel").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/professor/planning/ses-1/cancel").contentType(MediaType.APPLICATION_JSON).content("{\"reason\": \"   \"}"))
+                .andExpect(status().isBadRequest());
+        Mockito.verify(professorUseCase, Mockito.never()).cancelScheduleSession(Mockito.any(), Mockito.any());
+    }
 }

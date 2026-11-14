@@ -308,13 +308,16 @@ public class ProfessorController {
     @Operation(summary = "Annuler cours", description = "Annule une session de cours.")
     public ResponseEntity<Map<String, Object>> cancelCourse(
             @Parameter(description = "Identifiant de la session") @PathVariable("sessionId") String sessionId,
-            @RequestBody Map<String, String> body) {
-        logger.info("POST /professor/planning/{}/cancel - reason={}", sessionId, body.get("reason"));
+            @RequestBody(required = false) Map<String, String> body) {
+        // FEAT-003-BR-07 (2026-11-14) : motif obligatoire, comme sur /professor/schedule/{id}/cancel (avant : corps libre,
+        // annulation sans motif acceptée ; les élèves voient ce motif)
+        String motif = ecole_221.sn.ecole.partage.ChampsRequete.texte(body, "reason", "Le motif d'annulation", 500);
+        logger.info("POST /professor/planning/{}/cancel - reason={}", sessionId, motif);
         try {
             ProfExtraController.verifierSeanceDuProfesseur(professorUseCase, sessionId);
-            professorUseCase.cancelScheduleSession(sessionId, body.get("reason"));
+            professorUseCase.cancelScheduleSession(sessionId, motif);
             actionLogger.logProfessorAction("CANCEL_COURSE", auteur(), "Professeur", sessionId, 
-                "Cours annulé: " + body.get("reason"));
+                "Cours annulé: " + motif);
             return ResponseEntity.ok(Map.of("success", true, "sessionId", sessionId));
         } catch (Exception e) {
             logger.error("Error cancelling session {}: {}", sessionId, e.getMessage());
