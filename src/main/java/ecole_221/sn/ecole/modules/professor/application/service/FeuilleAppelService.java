@@ -80,6 +80,8 @@ public class FeuilleAppelService {
         }
         List<Map<String, Object>> res = new ArrayList<>();
         for (ScheduleSessionJpaEntity s : seances.findByCourseId(cours.getId())) {
+            // 2026-11-14 : créneau retiré de l'emploi du temps → séance masquée, sauf si un appel y est enregistré
+            if ("retire".equals(s.getStatus()) && !appels.containsKey(s.getId())) continue;
             Map<String, Object> m = new LinkedHashMap<>();
             m.put("id", s.getId());
             m.put("courseId", s.getCourseId());

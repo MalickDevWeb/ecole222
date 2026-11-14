@@ -25,6 +25,18 @@ public class AdminPlanningController {
         this.planningUseCase = planningUseCase;
     }
 
+    /**
+     * 2026-11-14 : chaque enregistrement de l'emploi du temps crée ou met à jour les séances des professeurs
+     * (avant : l'emploi du temps saisi n'arrivait ni chez le professeur, ni chez l'élève, ni chez le parent).
+     * Facultatif pour les tests construits sans contexte Spring.
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.admin.application.service.SeancesEmploiDuTempsService seancesEmploiDuTemps;
+
+    void setSeancesEmploiDuTemps(ecole_221.sn.ecole.modules.admin.application.service.SeancesEmploiDuTempsService s) {
+        this.seancesEmploiDuTemps = s;
+    }
+
     @GetMapping("/rooms")
     @Operation(summary = "Liste des salles", description = "Retourne toutes les salles disponibles.")
     public ResponseEntity<List<Room>> getRooms() {
@@ -81,8 +93,11 @@ public class AdminPlanningController {
     }
 
     @PutMapping("/slots")
-    @Operation(summary = "Mettre a jour les crenaux", description = "Met a jour la liste complete des crenaux horaires.")
-    public ResponseEntity<Void> updateSlots(@RequestBody List<Map<String, Object>> corps) {
+    @Operation(summary = "Mettre a jour les crenaux", description = "Met a jour la liste complete des crenaux horaires, "
+            + "puis les séances des professeurs (une par créneau rattaché à une classe). Réponse : nombre de séances, "
+            + "séances retirées, créneaux sans cours de même intitulé dans la classe (appel impossible) ou sans professeur.")
+    @org.springframework.transaction.annotation.Transactional   // créneaux et séances enregistrés ensemble ou pas du tout
+    public ResponseEntity<Map<String, Object>> updateSlots(@RequestBody List<Map<String, Object>> corps) {
         List<TimeSlot> slots = PlanningPayloads.creneaux(corps);
         logger.info("PUT /admin/planning/slots - Mise a jour des crenaux: {} crenaux", slots.size());
         // Doubles réservations refusées par le SERVEUR (avant : seul le navigateur les signalait)
@@ -98,6 +113,15 @@ public class AdminPlanningController {
                     "Emploi du temps non enregistré : " + conflits.size() + " conflit" + (conflits.size() > 1 ? "s" : "") + ". " + detail);
         }
         planningUseCase.updateSlots(slots);
-        return ResponseEntity.ok().build();
+        Map<String, Object> rep = new java.util.LinkedHashMap<>();
+        rep.put("creneaux", slots.size());
+        if (seancesEmploiDuTemps != null) {
+            var bilan = seancesEmploiDuTemps.synchroniser(slots);
+            rep.put("seances", bilan.seances());
+            rep.put("seancesRetirees", bilan.retirees());
+            rep.put("sansCours", bilan.sansCours());
+            rep.put("sansProfesseur", bilan.sansProfesseur());
+        }
+        return ResponseEntity.ok(rep);
     }
 }

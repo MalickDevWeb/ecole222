@@ -127,6 +127,8 @@ public class ProfessorService implements ProfessorUseCase {
     public List<Map<String, Object>> getSchedule(String professorId) {
         List<ScheduleSessionJpaEntity> sessions = scheduleRepository.findByProfessorId(professorId);
         return sessions.stream()
+            // 2026-11-14 : séance dont le créneau a été retiré de l'emploi du temps → n'apparaît plus
+            .filter(s -> !"retire".equals(s.getStatus()))
             .map(this::scheduleToMap)
             .toList();
     }

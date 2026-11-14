@@ -151,12 +151,29 @@ public class ParentService implements ParentUseCase {
                 .orElse(null);
     }
 
+    /** Emploi du temps réel de l'élève (2026-11-14) ; injecté à part pour ne pas changer les constructeurs des tests. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.student.application.service.EmploiDuTempsEleveService emploiDuTemps;
+
+    void setEmploiDuTemps(ecole_221.sn.ecole.modules.student.application.service.EmploiDuTempsEleveService e) {
+        this.emploiDuTemps = e;
+    }
+
     @Override
     public List<ScheduleDto> getChildSchedule(String enfantId) {
         logger.info("Récupération du planning pour l'enfant: {}", enfantId);
-        // APP-BE-19 : aucun lien fiable élève → classe → séances n'existe encore ; liste vide plutôt
-        // qu'un emploi du temps inventé (« Dr. Sall », « Prof. Ndiaye »…).
-        return List.of();
+        // APP-BE-19 : jamais d'emploi du temps inventé (« Dr. Sall », « Prof. Ndiaye »…). 2026-11-14 : avant, toujours
+        // vide ; désormais les séances des classes de l'enfant, planifiées par l'administration (élève → classe → séances).
+        if (emploiDuTemps == null) {
+            return List.of();
+        }
+        return emploiDuTemps.seances(enfantId).stream()
+                .map(s -> new ScheduleDto(s.id(),
+                        s.jour(),
+                        s.heureDebut().isEmpty() ? s.horaire() : s.heureDebut() + " - " + s.heureFin(),
+                        "annule".equals(s.statut()) ? s.cours() + " (annulé)" : s.cours(),
+                        s.professeur(), s.salle(), s.type(), false))
+                .toList();
     }
 
 
