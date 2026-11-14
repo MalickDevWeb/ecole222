@@ -43,8 +43,12 @@ public class AuditUseCaseImpl implements AuditUseCase {
     @Override
     public List<AuditLogDto> getAllAuditLogs() {
         logger.info("Récupération de tous les logs d'audit");
-        return auditRepositoryPort.findAllAuditLogs().stream()
-            .map(this::toAuditLogDto)
+        // 2026-11-14 (ENF-07) : lecture directe des entrées, comme /recent et /actor : nom et rôle de l'auteur, plus
+        // récentes d'abord ; les entrées anonymes (candidature sans compte) n'ont pas d'auteur et cassaient la
+        // reconstruction de l'objet métier AuditLog (NullPointerException → 400 sur GET /audit/logs).
+        return auditLogJpaRepository.findAll(org.springframework.data.domain.Sort.by(
+                org.springframework.data.domain.Sort.Direction.DESC, "actionTimestamp")).stream()
+            .map(this::toAuditLogDtoFromEntity)
             .collect(Collectors.toList());
     }
     
