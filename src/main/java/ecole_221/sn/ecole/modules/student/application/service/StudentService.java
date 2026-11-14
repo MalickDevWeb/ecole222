@@ -132,11 +132,17 @@ public class StudentService implements StudentUseCase {
 
     @Override
     public PageResult<Map<String, Object>> getActiveLiveSessions(int page, int size) { 
-        List<Map<String, Object>> sessions = meetJpaRepository.findAll().stream().map(meet -> {
+        // 2026-11-14 : avant, TOUTES les réunions de l'école (y compris celles de l'espace collaboratif) étaient
+        // listées comme séances « ACTIVE » au nom de « Professeur ». Désormais : seulement les séances en direct
+        // lancées par un enseignant (identifiant « session-… ») encore actives, avec leur cours et le vrai nom.
+        List<Map<String, Object>> sessions = meetJpaRepository.findAll().stream()
+                .filter(meet -> meet.getId() != null && meet.getId().startsWith("session-") && meet.isActive())
+                .map(meet -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", meet.getId());
             map.put("courseTitle", meet.getTitle());
-            map.put("professorName", "Professeur");
+            map.put("courseName", meet.getSubjectName() == null ? "" : meet.getSubjectName());
+            map.put("professorName", meet.getTeacherName() == null ? "" : meet.getTeacherName());
             map.put("status", "ACTIVE");
             map.put("activeUsers", 0);
             map.put("link", meet.getLink());

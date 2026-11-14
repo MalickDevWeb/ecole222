@@ -216,7 +216,9 @@ public final class StudentMapper {
             toInt(sessionMap.getOrDefault("activeUsers", 0)),
             String.valueOf(sessionMap.getOrDefault("link", "")),
             String.valueOf(sessionMap.getOrDefault("time", "")),
-            reactions
+            reactions,
+            String.valueOf(sessionMap.getOrDefault("courseName", "")),
+            String.valueOf(sessionMap.getOrDefault("link", ""))
         );
     }
 

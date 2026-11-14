@@ -211,8 +211,11 @@ public class StudentController {
         if (link == null) {
             throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le lien de la séance (meetUrl) est obligatoire.");
         }
-        if (!link.matches("(?i)^https?://\\S+$")) {
-            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le lien de la séance doit commencer par http:// ou https://.");
+        // 2026-11-14 : seul un lien Google Meet est accepté (les élèves y sont envoyés ; avant, n'importe quelle adresse
+        // http(s) passait, alors que l'écran n'en autorise pas d'autre)
+        if (!link.matches("(?i)^https://meet\\.google\\.com/[a-z]{3}-[a-z]{4}-[a-z]{3}(\\?\\S*)?$")) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus(
+                    "Le lien de la séance doit être un lien Google Meet, de la forme https://meet.google.com/abc-defg-hij.");
         }
         String heure = ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(body, "time", "L'heure", 20);
         String time = heure != null ? heure : java.time.LocalTime.now().toString().substring(0, 5);
@@ -222,6 +225,10 @@ public class StudentController {
                 new ecole_221.sn.ecole.modules.collaboration.infrastructure.persistence.MeetJpaEntity(
                     id, title, link, time, true
                 );
+            // 2026-11-14 : cours et VRAI nom de l'enseignant connecté (avant : ignorés, « Professeur » affiché)
+            meet.setSubjectName(cours);
+            var moi = compteConnecte();
+            meet.setTeacherName(((moi.getPrenom() == null ? "" : moi.getPrenom()) + " " + (moi.getNom() == null ? "" : moi.getNom())).trim());
             meetJpaRepository.save(meet);
         }
         logger.info("POST /student/live-sessions - Live session créée: {} (titre: {}, lien: {})", id, title, link);

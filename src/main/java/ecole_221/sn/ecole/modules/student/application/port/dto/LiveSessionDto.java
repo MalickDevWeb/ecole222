@@ -31,7 +31,13 @@ public record LiveSessionDto(
     String time,
     
     @Schema(description = "Réactions des étudiants")
-    Map<String, Integer> reactions
+    Map<String, Integer> reactions,
+
+    @Schema(description = "Cours de la séance (2026-11-14 : le panneau du professeur la retrouve par son cours)")
+    String courseName,
+
+    @Schema(description = "Lien à ouvrir (même valeur que link, nom lu par les écrans de l'élève)")
+    String hlsUrl
 ) {
     public LiveSessionDto {
         // Validation can be added here
