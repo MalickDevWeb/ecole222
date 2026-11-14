@@ -325,7 +325,9 @@ public class AuditUseCaseImpl implements AuditUseCase {
             entity.getActionDescription(),
             entity.getActionTimestamp() != null ? entity.getActionTimestamp().toString() : null,
             entity.getIpAddress(),
-            entity.getUserAgent()
+            entity.getUserAgent(),
+            entity.getActorName(),
+            entity.getActorRole()
         );
     }
     

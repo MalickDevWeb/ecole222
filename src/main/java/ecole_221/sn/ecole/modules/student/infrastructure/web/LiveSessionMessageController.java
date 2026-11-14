@@ -49,12 +49,15 @@ public class LiveSessionMessageController {
     private final LiveChatMessageJpaRepository messageRepository;
     private final SimpMessagingTemplate diffusion;
     private final OrganizationRepositoryPort ecoles;
+    private final ecole_221.sn.ecole.modules.audit.infrastructure.persistence.JournalAudit journal;
 
     public LiveSessionMessageController(LiveChatMessageJpaRepository messageRepository, SimpMessagingTemplate diffusion,
-                                        OrganizationRepositoryPort ecoles) {
+                                        OrganizationRepositoryPort ecoles,
+                                        ecole_221.sn.ecole.modules.audit.infrastructure.persistence.JournalAudit journal) {
         this.messageRepository = messageRepository;
         this.diffusion = diffusion;
         this.ecoles = ecoles;
+        this.journal = journal;
     }
 
     /** Canal de diffusion propre à l'école. */
@@ -82,6 +85,10 @@ public class LiveSessionMessageController {
         LiveChatMessageJpaEntity entite = new LiveChatMessageJpaEntity(UUID.randomUUID().toString(), sessionId, auteur.getId(),
                 nom.isEmpty() ? auteur.getEmail() : nom, role, texte);
         dansLEcole(ecole, () -> messageRepository.save(entite));
+        // 2026-11-14 (ENF-07) : message reçu par WebSocket, hors de l'intercepteur HTTP → inscrit explicitement
+        journal.inscrire(new ecole_221.sn.ecole.modules.audit.infrastructure.persistence.JournalAudit.Entree(
+                ecole, auteur.getId(), entite.getUserName(), role, "CREATE", "live-sessions/chat", sessionId,
+                "Création — message du cours en direct (WebSocket /app/live-sessions/{sessionId}/chat)", null, null, "live-sessions"));
 
         Map<String, Object> diffuse = new LinkedHashMap<>();
         diffuse.put("id", entite.getId());

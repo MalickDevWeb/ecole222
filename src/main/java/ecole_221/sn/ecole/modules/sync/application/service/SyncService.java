@@ -86,12 +86,35 @@ public class SyncService implements SyncUseCase {
         for (SyncAction action : actions) {
             try {
                 processSingleAction(action);
+                journaliser(action);
                 results.add(SyncResultFactory.success(action.getId(), "Synchronisé avec succès"));
             } catch (Exception e) {
                 results.add(SyncResultFactory.failure(action.getId(), e.getMessage()));
             }
         }
         return results;
+    }
+
+    /**
+     * 2026-11-14 (ENF-07) : un lot /sync contient plusieurs écritures ; chacune réussie est inscrite au journal d'audit
+     * (l'intercepteur HTTP n'en voit qu'une : « POST /sync »). Type d'action et identifiant du lot, sans les données.
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.audit.infrastructure.persistence.JournalAudit journal;
+
+    private void journaliser(SyncAction action) {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (journal == null || auth == null || !(auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u)) {
+            return;
+        }
+        String nom = ((u.getPrenom() == null ? "" : u.getPrenom() + " ") + (u.getNom() == null ? "" : u.getNom())).trim();
+        String role = auth.getAuthorities().stream().map(a -> a.getAuthority()).filter(a -> a.startsWith("ROLE_"))
+                .map(a -> a.substring(5)).findFirst().orElse(null);
+        String type = action.getType().name();
+        journal.inscrire(new ecole_221.sn.ecole.modules.audit.infrastructure.persistence.JournalAudit.Entree(
+                ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse(null),
+                u.getId(), nom.isEmpty() ? u.getEmail() : nom, role, "UPDATE", "sync/" + type, action.getId(),
+                "Synchronisation hors ligne — " + type, null, null, "sync"));
     }
 
     private void processSingleAction(SyncAction action) {

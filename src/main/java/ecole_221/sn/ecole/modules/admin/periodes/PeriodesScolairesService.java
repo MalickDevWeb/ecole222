@@ -170,6 +170,11 @@ public class PeriodesScolairesService {
         return auth != null && auth.getPrincipal() instanceof User u ? u.getId() : null;
     }
 
+    /**
+     * Détail lisible dans les traces de l'application. L'entrée du journal d'audit INALTÉRABLE (auteur, rôle, école,
+     * identifiant de la période) est écrite par {@code JournalAuditInterceptor} pour toute écriture réussie
+     * (2026-11-14 ; avant, la « trace au journal d'audit » annoncée n'allait que dans la console).
+     */
     private void tracer(String action, PeriodeScolaireJpaEntity p, String description) {
         if (journal != null) {
             try { journal.logAdminAction(action, "ADMIN", p.getId(), description); } catch (RuntimeException ignore) { /* journal indisponible */ }

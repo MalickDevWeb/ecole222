@@ -12,13 +12,16 @@ public class WebConfig implements WebMvcConfigurer {
     private final TenantMembershipInterceptor tenantMembershipInterceptor;
     private final ecole_221.sn.ecole.modules.professor.infrastructure.web.AccesCoursInterceptor accesCours;
     private final ecole_221.sn.ecole.modules.admin.rbac.PermissionsInterceptor permissions;
+    private final ecole_221.sn.ecole.modules.audit.infrastructure.web.JournalAuditInterceptor journalAudit;
 
     public WebConfig(TenantMembershipInterceptor tenantMembershipInterceptor,
                      ecole_221.sn.ecole.modules.professor.infrastructure.web.AccesCoursInterceptor accesCours,
-                     ecole_221.sn.ecole.modules.admin.rbac.PermissionsInterceptor permissions) {
+                     ecole_221.sn.ecole.modules.admin.rbac.PermissionsInterceptor permissions,
+                     ecole_221.sn.ecole.modules.audit.infrastructure.web.JournalAuditInterceptor journalAudit) {
         this.tenantMembershipInterceptor = tenantMembershipInterceptor;
         this.accesCours = accesCours;
         this.permissions = permissions;
+        this.journalAudit = journalAudit;
     }
 
     @Override
@@ -35,5 +38,7 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(permissions).addPathPatterns("/**");
         // cours, modules et élèves de l'espace professeur : appartenance au professeur et à l'école
         registry.addInterceptor(accesCours).addPathPatterns("/professor/**", "/prof/**");
+        // 2026-11-14 (BR-05, ENF-07) : toute écriture réussie est inscrite au journal d'audit inaltérable
+        registry.addInterceptor(journalAudit).addPathPatterns("/**");
     }
 }
