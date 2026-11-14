@@ -171,6 +171,32 @@ public class ComptesEcoleService {
         return new CompteCree(u, provisoire);
     }
 
+    /**
+     * Rattache un compte EXISTANT à l'école courante avec ce rôle (2026-11-14 : un parent dont les enfants sont dans
+     * deux écoles garde un seul compte). Déjà membre avec ce rôle : rien à faire ; membre avec un autre rôle : 409.
+     */
+    @Transactional
+    public OrganizationUserJpaEntity rattacher(UserJpaEntity u, String role) {
+        String ecole = ecoleCourante();
+        Optional<OrganizationUserJpaEntity> existant = appartenances.findByUserIdAndOrganizationId(u.getId(), ecole);
+        if (existant.isPresent()) {
+            if (!role.equalsIgnoreCase(existant.get().getRole())) {
+                throw new ResponseStatusException(HttpStatus.CONFLICT,
+                        "Ce compte a déjà un autre rôle dans cet établissement.");
+            }
+            return existant.get();
+        }
+        OrganizationUserJpaEntity lien = new OrganizationUserJpaEntity();
+        lien.setId(UUID.randomUUID().toString());
+        lien.setUserId(u.getId());
+        lien.setOrganizationId(ecole);
+        lien.setRole(role);
+        lien.setStatus("ACTIVE");
+        lien.setScopeType("ORGANIZATION");
+        lien.setJoinedAt(LocalDateTime.now());
+        return appartenances.save(lien);
+    }
+
     /** Suspend / réactive l'appartenance à l'école (le compte suspendu ne peut plus accéder à cette école). */
     @Transactional
     public String basculerStatut(String userId, String role) {
