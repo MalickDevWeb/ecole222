@@ -271,7 +271,8 @@ public class ComptesEcoleService {
         throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Impossible d'attribuer un matricule unique.");
     }
 
-    private static String motDePasseProvisoire() {
+    /** Mot de passe provisoire de 12 caractères (alphabet sans caractères ambigus). */
+    static String motDePasseProvisoire() {
         return aleatoire(12);
     }
 
