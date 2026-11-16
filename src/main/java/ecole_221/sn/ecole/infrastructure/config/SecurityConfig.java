@@ -138,6 +138,8 @@ public class SecurityConfig {
                 // APP-SEC-11 : espace parent réservé aux parents (le contrôleur vérifie aussi la filiation)
                 .requestMatchers("/parent/**").hasRole("PARENT")
                 .requestMatchers("/student/**").hasAnyRole("ETUDIANT", "STUDENT", "PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR", "SUPER_ADMIN")
+                // 16/11 : pointage d'arrivée / départ par le QR d'entrée du vigile — élèves et professeurs seulement
+                .requestMatchers("/pointages", "/pointages/**").hasAnyRole("ETUDIANT", "STUDENT", "PROFESSEUR", "TEACHER")
                 // APP-SEC-20 (2026-11-13, refus par défaut) : un rôle sans espace (SECRETAIRE, COMPTABLE, VISITEUR,
                 // SURVEILLANT, DIRECTEUR, RH) n'atteint plus aucune route métier ; seul son compte (/auth/**) reste
                 // accessible. Avant : ces rôles atteignaient toutes les routes simplement « authentifiées ».

@@ -69,4 +69,40 @@ class JetonBadgeTest {
         assertThat(jetons.lire("STU_SECURE:ETU-001").orElseThrow().valide()).isFalse();
         assertThat(jetons.lire("STU_SECURE:ETU-001:abc:XYZ").orElseThrow().valide()).isFalse();
     }
+
+    // ==================== QR d'entrée du vigile (pointage, 16/11) ====================
+
+    @Test
+    void qrEntreeDuServeurValideDansLaMinutePourSonEcole() {
+        long m = JetonBadge.minuteCourante();
+        var lu = jetons.lireEntree(jetons.contenuEntree("org-a", m)).orElseThrow();
+        assertThat(lu.valide()).isTrue();
+        assertThat(lu.ecoleId()).isEqualTo("org-a");
+        assertThat(jetons.lireEntree(jetons.contenuEntree("org-a", m - 1)).orElseThrow().valide()).isTrue();
+    }
+
+    @Test
+    void qrEntreeExpireFalsifieOuEcoleChangeeRefuse() {
+        long m = JetonBadge.minuteCourante();
+        assertThat(jetons.lireEntree(jetons.contenuEntree("org-a", m - 2)).orElseThrow().valide()).isFalse();
+        assertThat(jetons.lireEntree(new JetonBadge("autre", "").contenuEntree("org-a", m)).orElseThrow().valide()).isFalse();
+        // signature d'une école recollée sur une autre
+        String vrai = jetons.contenuEntree("org-a", m);
+        String sig = vrai.substring(vrai.lastIndexOf(':') + 1);
+        assertThat(jetons.lireEntree(JetonBadge.PREFIXE_ENTREE + "org-b:" + m + ":" + sig).orElseThrow().valide()).isFalse();
+        assertThat(jetons.lireEntree("ENTREE_SECURE:org-a").orElseThrow().valide()).isFalse();
+        assertThat(jetons.lireEntree("ENTREE_SECURE:org-a:abc:XYZ").orElseThrow().valide()).isFalse();
+        assertThat(jetons.lireEntree("221-VIGILE-PORTAL-MAIN")).isEmpty();
+    }
+
+    @Test
+    void badgeEleveEtQrEntreeNeSontPasInterchangeables() {
+        long m = JetonBadge.minuteCourante();
+        // la signature d'un badge élève ne vaut pas QR d'entrée, et inversement
+        String sigBadge = jetons.jeton("org-a", m);
+        assertThat(jetons.lireEntree(JetonBadge.PREFIXE_ENTREE + "org-a:" + m + ":" + sigBadge).orElseThrow().valide()).isFalse();
+        String entree = jetons.contenuEntree("org-a", m);
+        assertThat(jetons.valide("org-a", m, entree.substring(entree.lastIndexOf(':') + 1))).isFalse();
+        assertThat(jetons.lire(entree)).isEmpty();
+    }
 }

@@ -167,4 +167,76 @@ public class JetonBadge {
     /** Résultat de la lecture d'un badge dynamique. */
     public record Lecture(String matricule, boolean valide) {
     }
+
+    // ==================== QR D'ENTRÉE AFFICHÉ PAR LE VIGILE (pointage, 16/11) ====================
+
+    /**
+     * Préfixe du QR d'entrée de l'école, affiché par le terminal du vigile et scanné par l'élève ou le professeur pour
+     * pointer son arrivée ou son départ. Avant : QR fixe « 221-VIGILE-PORTAL-MAIN », identique pour toutes les écoles
+     * (une photo suffisait pour pointer de chez soi) et jamais vérifié.
+     */
+    public static final String PREFIXE_ENTREE = "ENTREE_SECURE:";
+
+    /**
+     * Message signé du QR d'entrée. Séparé de celui du badge élève par un octet NUL, absent de tout matricule :
+     * une signature de badge ne peut jamais servir de QR d'entrée, ni l'inverse.
+     */
+    private static byte[] messageEntree(String ecoleId, long minute) {
+        return ("entree\0" + ecoleId + ":" + minute).getBytes(StandardCharsets.UTF_8);
+    }
+
+    /** Contenu du QR d'entrée : ENTREE_SECURE:{école}:{minute}:{signature}, valable pour la minute ± 1. */
+    public String contenuEntree(String ecoleId, long minute) {
+        try {
+            Signature s = Signature.getInstance("Ed25519");
+            s.initSign(privee);
+            s.update(messageEntree(ecoleId, minute));
+            return PREFIXE_ENTREE + ecoleId + ":" + minute + ":" + B64.encodeToString(s.sign());
+        } catch (GeneralSecurityException e) {
+            throw new IllegalStateException("Signature Ed25519 impossible", e);
+        }
+    }
+
+    /**
+     * Lit un QR d'entrée scanné. Vide si ce n'en est pas un ; sinon l'école, la minute et la validité (signature
+     * authentique ET minute à ± 1 de maintenant).
+     */
+    public Optional<LectureEntree> lireEntree(String contenu) {
+        if (contenu == null || !contenu.startsWith(PREFIXE_ENTREE) || contenu.length() > 400) {
+            return Optional.empty();
+        }
+        String reste = contenu.substring(PREFIXE_ENTREE.length());
+        int finSignature = reste.lastIndexOf(':');
+        int finMinute = finSignature > 0 ? reste.lastIndexOf(':', finSignature - 1) : -1;
+        if (finMinute <= 0) {
+            return Optional.of(new LectureEntree(null, 0, false));
+        }
+        String ecole = reste.substring(0, finMinute);
+        String jeton = reste.substring(finSignature + 1);
+        try {
+            long minute = Long.parseLong(reste.substring(finMinute + 1, finSignature));
+            boolean frais = Math.abs(minuteCourante() - minute) <= 1;
+            return Optional.of(new LectureEntree(ecole, minute, frais && signatureEntreeValide(ecole, minute, jeton)));
+        } catch (NumberFormatException e) {
+            return Optional.of(new LectureEntree(ecole, 0, false));
+        }
+    }
+
+    private boolean signatureEntreeValide(String ecoleId, long minute, String jeton) {
+        if (ecoleId.isBlank() || jeton.length() > 200) return false;
+        try {
+            byte[] sig = D64.decode(jeton);
+            if (sig.length != 64 || !B64.encodeToString(sig).equals(jeton)) return false;
+            Signature s = Signature.getInstance("Ed25519");
+            s.initVerify(publique);
+            s.update(messageEntree(ecoleId, minute));
+            return s.verify(sig);
+        } catch (IllegalArgumentException | GeneralSecurityException e) {
+            return false;
+        }
+    }
+
+    /** Résultat de la lecture d'un QR d'entrée. */
+    public record LectureEntree(String ecoleId, long minute, boolean valide) {
+    }
 }
