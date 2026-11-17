@@ -19,9 +19,23 @@ import java.util.Map;
 public class JustificatifsAbsenceAdminController {
 
     private final JustificatifAbsenceService service;
+    /** Relecture des fichiers confidentiels (17/11). */
+    private ecole_221.sn.ecole.modules.media.domain.port.MediaStoragePort stockage;
 
     public JustificatifsAbsenceAdminController(JustificatifAbsenceService service) {
         this.service = service;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setStockage(ecole_221.sn.ecole.modules.media.domain.port.MediaStoragePort stockage) {
+        this.stockage = stockage;
+    }
+
+    @GetMapping("/admin/justificatifs-absence/{id}/fichier")
+    @Operation(summary = "Fichier d'un justificatif", description = "Relu par le serveur (fichier confidentiel : aucun lien public).")
+    public ResponseEntity<byte[]> fichier(@PathVariable String id) {
+        if (stockage == null) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Stockage des fichiers indisponible.");
+        return ecole_221.sn.ecole.modules.media.infrastructure.web.RemiseFichier.remettre(stockage, service.lienFichier(id), "justificatif");
     }
 
     @GetMapping("/admin/justificatifs-absence")

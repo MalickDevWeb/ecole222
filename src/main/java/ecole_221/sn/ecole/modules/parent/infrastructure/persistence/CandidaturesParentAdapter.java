@@ -30,6 +30,22 @@ public class CandidaturesParentAdapter implements CandidaturesParentPort {
         if (parametres != null) parametres.exigerOuverture();   // même règle que le portail candidat public
     }
 
+    /** Règles d'admission de l'école (16/11), les mêmes que pour le portail public. */
+    private ecole_221.sn.ecole.modules.admissions.application.service.ReglesAdmissionService regles;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setRegles(ecole_221.sn.ecole.modules.admissions.application.service.ReglesAdmissionService regles) {
+        this.regles = regles;
+    }
+
+    @Override
+    public Map<String, String> appliquerRegles(Map<String, String> reponses, Map<String, String> piecesSupplementaires) {
+        if (regles == null) return Map.of();
+        return regles.appliquerAuDepot(
+                ecole_221.sn.ecole.modules.admissions.application.service.ReglesAdmissionService.Dossier.depuis(reponses, true),
+                piecesSupplementaires);
+    }
+
     public CandidaturesParentAdapter(CandidateJpaRepository candidats) {
         this(candidats, null);
     }

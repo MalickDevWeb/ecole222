@@ -84,6 +84,8 @@ public class SecurityConfig {
         // campagnes publiées (liste blanche de champs, aucune donnée de candidat)
         "/candidatures/campagnes",
         "/admissions/settings", "/v1/admissions/settings",
+        // 17/11 : espace du candidat (jeton de suivi exigé par chaque route : SON dossier seulement)
+        "/candidatures/suivi/dossier", "/candidatures/suivi/messages", "/candidatures/suivi/piece",
         // APP-SEC-15 : indicateur hors ligne appelé sans compte (OfflineSyncToast)
         "/sync/check"
     };
@@ -93,6 +95,10 @@ public class SecurityConfig {
         "/candidatures/submit",
         // APP-BE-12 : suivi de SON dossier (email + mot de passe de suivi ; échecs freinés)
         "/candidatures/suivi",
+        // 16/11 : pièces exigées par les règles d'admission de l'école, demandées avant le dépôt (aucune donnée de candidat)
+        "/candidatures/regles/evaluer",
+        // 17/11 : espace du candidat — écrire à l'école, ajouter une pièce (jeton de suivi exigé)
+        "/candidatures/suivi/messages", "/candidatures/suivi/pieces",
         // APP-SEC-15 : pièces du dossier de candidature envoyées sans compte (cloudinaryUpload.ts)
         "/media/upload"
     };

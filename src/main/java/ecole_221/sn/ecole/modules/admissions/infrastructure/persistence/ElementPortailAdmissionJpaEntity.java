@@ -20,6 +20,8 @@ public class ElementPortailAdmissionJpaEntity {
     public static final String CAMPAGNE = "CAMPAGNE";
     public static final String MESSAGE = "MESSAGE";
     public static final String AUDIT = "AUDIT";
+    /** Règle d'admission de l'école (16/11, ReglesAdmissionService) : jamais touchée par POST /admissions/db. */
+    public static final String REGLE = "REGLE";
 
     @org.hibernate.annotations.TenantId
     @Column(name = "organization_id")

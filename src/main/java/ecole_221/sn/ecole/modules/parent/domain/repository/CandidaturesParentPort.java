@@ -11,6 +11,14 @@ public interface CandidaturesParentPort {
     /** Lève une erreur (403) si l'école n'accepte pas de candidatures aujourd'hui (APP-BE-15). */
     default void exigerOuverture() { }
 
+    /**
+     * Règles d'admission de l'école (16/11) : erreur 400 si une règle bloque le dépôt ou si une pièce exigée manque.
+     * Renvoie les informations à ajouter au dossier (pièces exigées par les règles, avertissements).
+     */
+    default Map<String, String> appliquerRegles(Map<String, String> reponses, Map<String, String> piecesSupplementaires) {
+        return Map.of();
+    }
+
     /** Une candidature existe-t-elle déjà avec cet e-mail dans l'école courante ? */
     boolean emailDejaCandidat(String email);
 

@@ -230,6 +230,8 @@ public class ParentService implements ParentUseCase {
         complement.put("relevesNotesUrl", releves);
         complement.put("diplomeUrl", diplome);
         complement.put("deposePar", "parent");
+        // Règles d'admission de l'école (16/11) : 400 si une règle bloque ou si une pièce exigée manque
+        complement.putAll(candidaturesPort.appliquerRegles(complement, payload.piecesSupplementaires()));
         String dossierId = candidaturesPort.deposer(parentId, prenom, nom, email, vide(payload.telephone()),
                 filiere + " — " + niveau, complement);
         logger.info("Candidature {} déposée par le parent {}", dossierId, parentId);

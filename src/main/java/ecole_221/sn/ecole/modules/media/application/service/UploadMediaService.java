@@ -34,11 +34,18 @@ public class UploadMediaService implements UploadMediaUseCase {
 
     @Override
     public UploadedFile upload(byte[] fileBytes, String fileName, String contentType, String userId) throws IOException {
+        return upload(fileBytes, fileName, contentType, userId, false);
+    }
+
+    @Override
+    public UploadedFile upload(byte[] fileBytes, String fileName, String contentType, String userId, boolean confidentiel) throws IOException {
         if (fileBytes == null || fileBytes.length == 0) {
             throw new InvalidFileException("Le fichier ne peut pas être vide");
         }
-        
-        UploadedFile uploadedFile = mediaStoragePort.upload(fileBytes, fileName, contentType);
+        // Un fichier confidentiel ne devient jamais une photo de profil (son lien n'est pas lisible)
+        if (confidentiel) userId = null;
+
+        UploadedFile uploadedFile = mediaStoragePort.upload(fileBytes, fileName, contentType, confidentiel);
         
         // Sauvegarder les métadonnées du fichier
         mediaRepositoryPort.save(uploadedFile);

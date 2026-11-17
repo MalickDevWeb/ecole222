@@ -25,6 +25,12 @@ public class AdmissionController {
     private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
     private final AdmissionUseCase admissionUseCase;
     private final ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository;
+    private ecole_221.sn.ecole.modules.admissions.application.service.EspaceCandidatService espace;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setEspace(ecole_221.sn.ecole.modules.admissions.application.service.EspaceCandidatService espace) {
+        this.espace = espace;
+    }
     
     private final ElementPortailAdmissionJpaRepository elementsPortail;
     /** Source UNIQUE des réglages de candidature (table parametres_candidatures) — APP-BE-15. */
@@ -299,6 +305,8 @@ public class AdmissionController {
     @Operation(summary = "Base admissions globale", description = "Retourne les campagnes, candidats, messages et audits synchronisés avec PostgreSQL")
     public ResponseEntity<Map<String, Object>> getAdmissionsDb() {
         java.util.List<Map<String, Object>> candidatesList = new java.util.ArrayList<>();
+        // 17/11 : messages des candidats pas encore lus par l'école (badge sur le dossier)
+        Map<String, Long> nonLus = espace == null ? Map.of() : espace.nonLusParEcole();
         java.util.List<ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity> entities = 
             candidateJpaRepository != null ? candidateJpaRepository.findAll() : List.of();
 
@@ -308,6 +316,7 @@ public class AdmissionController {
                 c.put("id", e.getId());
                 c.put("name", e.getFullName() != null ? e.getFullName() : (e.getFirstName() + " " + e.getLastName()).trim());
                 c.put("email", e.getEmail() != null ? e.getEmail() : "");
+                c.put("phone", blankToNull(e.getPhone()));   // 17/11 : « Prévenir par WhatsApp » depuis le dossier
                 // plus de formation « Licence Informatique » par défaut : null si le candidat n'en a pas choisi
                 c.put("course", blankToNull(e.getCourseChoice()));
                 c.put("type", e.getCourseChoice() == null || e.getCourseChoice().isBlank() ? null
@@ -337,6 +346,12 @@ public class AdmissionController {
                 details.put("diplomaUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "diplomeUrl")));
                 // Informations saisies au dépôt (identité, garant, cursus) : avant, collectées puis jamais transmises
                 details.put("dossier", lireDossier(e.getAdditionalInfo()));
+                // 16/11 : règles d'admission appliquées au dépôt (avertissements, pièces exigées en plus, session)
+                details.put("alertesRegles", List.copyOf(lirePrefixe(e.getAdditionalInfo(), "alerteRegle.").values()));
+                details.put("piecesSupplementaires", lirePrefixe(e.getAdditionalInfo(), "pieceSuppLibelle.").entrySet().stream()
+                        .map(p -> Map.of("code", p.getKey(), "libelle", p.getValue())).toList());
+                details.put("campagneId", lireInfo(e.getAdditionalInfo(), "campagneId"));
+                c.put("messagesNonLus", nonLus.getOrDefault(e.getId(), 0L));
                 details.put("paymentTransactionRef", blankToNull(e.getRegistrationFeeReference()));
                 details.put("paymentStatus", Boolean.TRUE.equals(e.getRegistrationFeePaid()) ? "approved" : "pending");
                 c.put("details", details);
@@ -381,6 +396,25 @@ public class AdmissionController {
     }
 
     /** Lit une clé texte du JSON additionalInfo ; null si absente, vide ou JSON illisible. */
+    /** Champs texte dont le nom commence par {@code prefixe} (« alerteRegle.1 »…), dans l'ordre : suffixe → valeur. */
+    static Map<String, String> lirePrefixe(String additionalInfo, String prefixe) {
+        Map<String, String> res = new java.util.LinkedHashMap<>();
+        if (additionalInfo == null || additionalInfo.isBlank()) {
+            return res;
+        }
+        try {
+            JSON.readTree(additionalInfo).properties().forEach(champ -> {
+                if (champ.getKey().startsWith(prefixe) && champ.getValue().isValueNode() && !champ.getValue().isNull()) {
+                    String v = blankToNull(champ.getValue().asText());
+                    if (v != null) res.put(champ.getKey().substring(prefixe.length()), v);
+                }
+            });
+        } catch (Exception ex) {
+            logger.warn("additionalInfo illisible pour la lecture des champs « {}* »", prefixe);
+        }
+        return res;
+    }
+
     static String lireInfo(String additionalInfo, String cle) {
         if (additionalInfo == null || additionalInfo.isBlank()) {
             return null;

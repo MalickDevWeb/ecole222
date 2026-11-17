@@ -82,6 +82,25 @@ public class AdminStudentProfileController {
         return ResponseEntity.ok(documents.findByUserIdOrderByCreatedAtAsc(studentId).stream().map(this::document).toList());
     }
 
+    /** Relecture des fichiers confidentiels (17/11). */
+    private ecole_221.sn.ecole.modules.media.domain.port.MediaStoragePort stockage;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setStockage(ecole_221.sn.ecole.modules.media.domain.port.MediaStoragePort stockage) {
+        this.stockage = stockage;
+    }
+
+    @Operation(summary = "Fichier d'un document de l'élève", description = "Relu par le serveur (fichier confidentiel : aucun lien public).")
+    @GetMapping("/students/{id}/documents/{docId}/fichier")
+    public ResponseEntity<byte[]> fichierDocument(@PathVariable("id") String studentId, @PathVariable("docId") String docId) {
+        comptesEcole.membre(studentId, "ETUDIANT");
+        DocumentEleveJpaEntity doc = documents.findById(docId == null ? "" : docId)
+                .filter(d -> studentId.equals(d.getUserId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document introuvable."));
+        if (stockage == null) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Stockage des fichiers indisponible.");
+        return ecole_221.sn.ecole.modules.media.infrastructure.web.RemiseFichier.remettre(stockage, doc.getUrl(), "document");
+    }
+
     @Operation(summary = "Ajouter un document à un élève", description = "Corps {name, url, size?} : le fichier est d'abord envoyé via /media/upload, puis son adresse est enregistrée ici. 201 avec la liste à jour.")
     @PostMapping("/students/{id}/documents")
     public ResponseEntity<Map<String, Object>> addDocument(

@@ -124,6 +124,13 @@ public class JustificatifAbsenceService {
         return l.stream().map(j -> vue(j, ctx)).toList();
     }
 
+    /** Lien du fichier d'un justificatif de l'école courante (@TenantId) : 404 si le justificatif n'existe pas ici. */
+    public String lienFichier(String id) {
+        return justificatifs.findById(id == null ? "" : id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Justificatif introuvable."))
+                .getFichierUrl();
+    }
+
     /** Accepté : une absence devient « excusée » dans l'appel ; un retard reste un retard (déjà compté comme assidu). */
     @Transactional
     public Map<String, Object> accepter(String adminId, String id) {

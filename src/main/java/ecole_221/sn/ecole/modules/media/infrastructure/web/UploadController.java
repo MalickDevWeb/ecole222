@@ -42,6 +42,8 @@ public class UploadController {
     public ResponseEntity<UploadedFile> uploadFile(
             @Parameter(description = "Fichier à uploader") @RequestParam("file") MultipartFile file,
             @Parameter(description = "Identifiant de l'utilisateur (optionnel)") @RequestParam(value = "userId", required = false) String userId,
+            @Parameter(description = "Document confidentiel (pièce d'identité, relevé, justificatif…) : lisible seulement par le serveur")
+            @RequestParam(value = "confidentiel", required = false, defaultValue = "false") boolean confidentiel,
             jakarta.servlet.http.HttpServletRequest request)
             throws IOException {
         // APP-SEC-15 (revue Agent 06) : quota vérifié AVANT toute lecture du fichier ;
@@ -78,7 +80,8 @@ public class UploadController {
                 contenu,
                 fileName,
                 contentType,
-                userId
+                userId,
+                confidentiel
         );
 
         actionLogger.logMediaAction("UPLOAD_FILE", userId != null ? userId : "anonymous", fileName,

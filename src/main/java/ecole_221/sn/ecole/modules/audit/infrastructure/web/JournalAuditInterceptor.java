@@ -37,7 +37,8 @@ public class JournalAuditInterceptor implements HandlerInterceptor {
     private static final Logger log = LoggerFactory.getLogger(JournalAuditInterceptor.class);
     static final Set<String> ECRITURES = Set.of("POST", "PUT", "PATCH", "DELETE");
     /** Jamais inscrites ici : identifiants de connexion, et entrées déjà écrites explicitement. */
-    static final Set<String> EXCLUES = Set.of("/auth/login", "/auth/login-token", "/audit/logs");
+    static final Set<String> EXCLUES = Set.of("/auth/login", "/auth/login-token", "/audit/logs",
+            "/candidatures/regles/evaluer");   // 16/11 : lecture (pièces exigées), aucune écriture
     static final Set<String> ANONYMES_JOURNALISEES = Set.of("/candidatures/submit", "/register-school",
             "/auth/reinitialiser-mot-de-passe");
 

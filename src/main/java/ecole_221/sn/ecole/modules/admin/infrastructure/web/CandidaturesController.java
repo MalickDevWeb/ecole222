@@ -43,6 +43,22 @@ public class CandidaturesController {
         this.suivi = suivi;
     }
 
+    /** Règles d'admission de l'école (16/11) ; absentes dans les anciens tests unitaires (aucune règle appliquée). */
+    private ecole_221.sn.ecole.modules.admissions.application.service.ReglesAdmissionService regles;
+
+    @Autowired(required = false)
+    void setRegles(ecole_221.sn.ecole.modules.admissions.application.service.ReglesAdmissionService regles) {
+        this.regles = regles;
+    }
+
+    /** Espace du candidat (17/11) : jeton de suivi, pièces, échanges avec l'école. */
+    private ecole_221.sn.ecole.modules.admissions.application.service.EspaceCandidatService espace;
+
+    @Autowired(required = false)
+    void setEspace(ecole_221.sn.ecole.modules.admissions.application.service.EspaceCandidatService espace) {
+        this.espace = espace;
+    }
+
     /** Compatibilité (tests) : sans vérification du dépôt ni suivi. */
     public CandidaturesController(CandidateJpaRepository candidateJpaRepository, ParametresCandidaturesService parametres) {
         this(candidateJpaRepository, parametres, null);
@@ -83,6 +99,11 @@ public class CandidaturesController {
         if (depot == null) {
             ecole_221.sn.ecole.modules.admissions.application.service.SuiviCandidatureService.lirePieces(body.get("pieces"), false);
         }
+        // Règles de l'école (16/11) : blocage, ou pièce exigée absente / au mauvais format → 400 AVANT toute écriture.
+        // Ajoute au dossier : session (campagneId), pièces exigées par les règles, avertissements pour l'administration.
+        Map<String, String> ajoutsRegles = regles == null ? Map.of()
+                : regles.appliquerAuDepot(ecole_221.sn.ecole.modules.admissions.application.service.ReglesAdmissionService.Dossier.depuis(body, false),
+                        body.get("piecesSupplementaires") instanceof Map<?, ?> m ? castPieces(m) : Map.of());
         {
             try {
                 String nom = String.valueOf(body.getOrDefault("nom", ""));
@@ -113,6 +134,7 @@ public class CandidaturesController {
                 entity.setDiplomaUploaded(pieces.containsKey("diplomeUrl"));
                 Map<String, String> informations = lireInformations(body);
                 informations.putAll(pieces);
+                informations.putAll(ajoutsRegles);
                 entity.setAdditionalInfo(buildAdditionalInfo(modePaiement, informations));
                 entity.setSubmittedAt(LocalDateTime.now());
                 entity.setCurrentStep("new");
@@ -147,7 +169,14 @@ public class CandidaturesController {
         }
         Map<String, Object> c = corps == null ? Map.of() : corps;
         Object mdp = c.get("motDePasse");
-        return ResponseEntity.ok(suivi.suivre(textOrNull(c.get("email")), mdp == null ? null : String.valueOf(mdp)));
+        List<Map<String, Object>> dossiers = suivi.suivre(textOrNull(c.get("email")), mdp == null ? null : String.valueOf(mdp));
+        // 17/11 : jeton de suivi (2 h), pièces et messages non lus — espace du candidat
+        return ResponseEntity.ok(espace == null ? dossiers : dossiers.stream().map(d -> espace.enrichir(new LinkedHashMap<>(d))).toList());
+    }
+
+    @SuppressWarnings("unchecked")
+    private static Map<String, ?> castPieces(Map<?, ?> m) {
+        return (Map<String, ?>) m;
     }
 
     /** Valeur texte non vide, sinon null (évite aussi la chaîne « null » produite par String.valueOf(null)). */
