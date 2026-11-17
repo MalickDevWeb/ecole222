@@ -129,7 +129,7 @@ public class AuthController {
             // Ignore si pas d'utilisateur authentifié
         }
         
-        // Révocation du jeton présenté (cookie ou en-tête) : avant, il restait valable 24 h après la déconnexion.
+        // Révocation du jeton présenté (cookie ou en-tête)
         String jeton = null;
         if (request.getCookies() != null) {
             for (Cookie c : request.getCookies()) {

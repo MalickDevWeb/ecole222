@@ -16,7 +16,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 /**
- * 2026-11-14 : une demande de rendez-vous n'est plus « confirmée » d'office avec un lien Meet inventé ; elle reste en
+ * Une demande de rendez-vous n'est pas « confirmée » d'office avec un lien Meet inventé ; elle reste en
  * attente et arrive réellement chez le professeur, par la messagerie parents ↔ école.
  */
 class RendezVousTransmisTest {

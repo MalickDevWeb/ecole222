@@ -35,8 +35,8 @@ public record RoleUtilisateur(String value) {
                role.equals("VIGIL") || 
                role.equals("VISITEUR") ||
                role.equals("PARENT") ||
-               // 2026-11-13 : rôles du personnel proposés par l'administration (AdminStaffService) mais refusés ici
-               // jusqu'alors → comptes Directeur / Surveillant / RH inutilisables. Leurs droits : matrice RBAC de l'école.
+               // Rôles du personnel proposés par l'administration (AdminStaffService).
+               // Leurs droits : matrice RBAC de l'école.
                role.equals("DIRECTEUR") ||
                role.equals("SURVEILLANT") ||
                role.equals("RH");

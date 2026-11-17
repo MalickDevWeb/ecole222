@@ -17,7 +17,7 @@ import java.util.Map;
 
 /**
  * Copie figée du dossier d'un élève, construite DANS L'ÉCOLE D'ORIGINE au moment où l'école d'accueil accepte le
- * transfert (2026-11-13). L'appelant place le contexte sur l'école d'origine ; la transaction séparée garantit que les
+ * transfert. L'appelant place le contexte sur l'école d'origine ; la transaction séparée garantit que les
  * lectures se font dans cette école (le filtre @TenantId est fixé à l'ouverture de la session).
  */
 @Service

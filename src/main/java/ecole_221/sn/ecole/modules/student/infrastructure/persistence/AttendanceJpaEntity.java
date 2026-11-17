@@ -38,7 +38,7 @@ public class AttendanceJpaEntity {
     public String getCourseId() { return courseId; }
     public void setCourseId(String courseId) { this.courseId = courseId; }
 
-    // --- Appel par séance (lot A, 2026-11-10) : colonnes nullables, les présences existantes restent valides ---
+    // --- Appel par séance (lot A) : colonnes nullables, les présences existantes restent valides ---
     /** Séance (schedule_sessions.id) à laquelle l'appel est rattaché ; null = appel « au jour » (ancien chemin). */
     @jakarta.persistence.Column(name = "session_id")
     private String sessionId;

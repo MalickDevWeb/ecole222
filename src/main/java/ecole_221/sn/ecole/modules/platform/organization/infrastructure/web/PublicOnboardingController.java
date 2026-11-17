@@ -110,8 +110,7 @@ public class PublicOnboardingController {
 
     /**
      * Fiche publique de l'école : identité, couleurs et COORDONNÉES RÉELLES (téléphone, e-mail, ville saisis à
-     * l'inscription). Avant : le portail candidat affichait « +221 33 800 00 00 » pour toutes les écoles.
-     * Valeur absente = null (jamais de coordonnée inventée).
+     * l'inscription). Valeur absente = null (jamais de coordonnée inventée).
      */
     private static Map<String, Object> publique(String id, String nom, String slug, Map<String, Object> branding,
                                                 String telephone, String email, String ville) {

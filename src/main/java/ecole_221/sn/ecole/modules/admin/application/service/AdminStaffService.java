@@ -20,10 +20,9 @@ import java.util.Map;
 /**
  * Personnel (tout compte non élève) de l'école courante.
  *
- * <p>Révision 2026-11-09 : la liste ne s'appuie plus que sur les appartenances de l'école (avant : repli sur
- * le domaine de l'e-mail, « @gmail.com » compris, et sur une école « default-tenant-id ») ; la création ne
- * reprend plus un compte existant par son e-mail (reprise de compte d'une autre école) et fixe un mot de
- * passe ; le statut affiché est le vrai statut d'appartenance (avant : « Actif » en dur).</p>
+ * <p>La liste ne s'appuie que sur les appartenances de l'école ; la création ne reprend pas un compte existant
+ * par son e-mail (reprise de compte d'une autre école) et fixe un mot de passe ; le statut affiché est le vrai
+ * statut d'appartenance.</p>
  */
 @Service
 public class AdminStaffService {
@@ -81,7 +80,7 @@ public class AdminStaffService {
         return m;
     }
 
-    /** Comptes que seule l'administration de l'école peut créer, modifier, suspendre ou retirer (2026-11-13). */
+    /** Comptes que seule l'administration de l'école peut créer, modifier, suspendre ou retirer. */
     private static final java.util.Set<String> ROLES_SENSIBLES = java.util.Set.of("ADMIN", "ADMINISTRATOR", "DIRECTEUR");
 
     /**
@@ -127,7 +126,6 @@ public class AdminStaffService {
         UserJpaEntity u = comptesEcole.membre(id, null);   // 404 si le collaborateur n'est pas de cette école
         OrganizationUserJpaEntity lien = comptesEcole.appartenance(id, null).orElseThrow();
         verifierGestionAutorisee(lien.getRole());
-        // Avant : un prénom ou un nom vide effaçait le nom du compte, et l'email n'était pas vérifié.
         if (updates.containsKey("firstName")) u.setPrenom(obligatoire(updates.get("firstName"), "Le prénom est obligatoire."));
         if (updates.containsKey("lastName")) u.setNom(obligatoire(updates.get("lastName"), "Le nom est obligatoire."));
         if (updates.containsKey("email")) {

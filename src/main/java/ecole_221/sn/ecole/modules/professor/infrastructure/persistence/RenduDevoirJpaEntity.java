@@ -12,10 +12,8 @@ import java.time.LocalDateTime;
 /**
  * Rendu d'un élève pour un devoir de classe (table {@code homeworks}) et sa correction par le professeur.
  *
- * <p>Avant (lot B, 2026-11-10) : le dépôt élève ne conservait que le NOM du fichier, sur une ligne
- * {@code student_homeworks} que rien ne créait pour les devoirs du professeur ; le professeur ne voyait aucun rendu
- * et ne pouvait rien corriger. Une ligne par (école, devoir, élève) ; la correction (note /20 + commentaire)
- * est portée par la même ligne (elle peut exister sans fichier : devoir rendu sur papier ou noté non rendu).</p>
+ * <p>Une ligne par (école, devoir, élève) ; la correction (note /20 + commentaire) est portée par la même ligne
+ * (elle peut exister sans fichier : devoir rendu sur papier ou noté non rendu).</p>
  */
 @Entity
 @Table(name = "rendus_devoirs",

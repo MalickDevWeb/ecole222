@@ -17,7 +17,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 
 /**
  * Une école demandée explicitement mais inconnue ne doit JAMAIS être servie comme ecole-221
- * (constat du 09/11 : derrière le proxy Vite, X-Tenant-Slug « 192 » tombait sur ecole-221).
+ * (par exemple X-Tenant-Slug « 192 » derrière le proxy Vite).
  */
 class TenantResolutionFallbackTest {
 

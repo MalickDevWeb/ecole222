@@ -25,16 +25,11 @@ import java.util.Set;
  * (X-Tenant-Slug, X-Tenant-ID, Referer, host) ; on vérifie ici que l'utilisateur connecté
  * en est MEMBRE avant d'atteindre le contrôleur. Sinon : 403.
  *
- * <p><b>Phase de transition</b> (décision du 2026-11-07) : organization_users est encore
- * incomplète (élèves, professeurs… créés sans appartenance). Un utilisateur SANS AUCUNE
- * appartenance garde temporairement l'ancien comportement, journalisé « SEC-003 TRANSITION ».
- * Après la reprise des données ({@code ./orchestrator.sh backfill-memberships --apply}), activer
- * {@code ecole.security.tenant-membership.strict=true} : l'exception est alors supprimée (403).</p>
- *
- * <p><b>2026-11-13 — strict par défaut</b> (sécurité maximale) : un compte sans appartenance est refusé partout.
+ * <p><b>Strict par défaut</b> (sécurité maximale) : un compte sans appartenance est refusé partout.
  * Le mode permissif ne reste possible qu'en le demandant explicitement
- * ({@code ECOLE_SECURITY_TENANT_MEMBERSHIP_STRICT=false}) ; avant toute mise en production sur une base existante,
- * lancer {@code ./orchestrator.sh backfill-memberships --apply}.</p>
+ * ({@code ECOLE_SECURITY_TENANT_MEMBERSHIP_STRICT=false}) : un utilisateur SANS AUCUNE appartenance passe alors,
+ * journalisé « SEC-003 TRANSITION ». Avant toute mise en production sur une base existante (comptes créés sans
+ * appartenance), lancer {@code ./orchestrator.sh backfill-memberships --apply}.</p>
  */
 @Component
 public class TenantMembershipInterceptor implements HandlerInterceptor {

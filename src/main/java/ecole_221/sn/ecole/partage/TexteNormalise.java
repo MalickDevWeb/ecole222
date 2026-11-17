@@ -4,11 +4,11 @@ import java.text.Normalizer;
 import java.util.Locale;
 
 /**
- * Normalisation des textes saisis (2026-11-13, campagne « erreurs humaines et paranormales »).
+ * Normalisation des textes saisis (campagne « erreurs humaines et paranormales »).
  *
- * <p>Avant : « Entree Sud » et « Entree​Sud » (espace de largeur nulle, invisible), ou « Préau » écrit avec un
- * accent composé ou décomposé (Unicode NFC / NFD), étaient acceptés comme deux noms DIFFÉRENTS : la règle d'unicité
- * (terminaux, groupes, classes) était contournée par un simple copier-coller.</p>
+ * <p>Sans elle, « Entree Sud » et « Entree​Sud » (espace de largeur nulle, invisible), ou « Préau » écrit avec un
+ * accent composé ou décomposé (Unicode NFC / NFD), seraient deux noms DIFFÉRENTS : la règle d'unicité
+ * (terminaux, groupes, classes) serait contournée par un simple copier-coller.</p>
  *
  * <p>Règles : forme composée NFC ; caractères de mise en forme invisibles retirés (U+200B…U+200F, U+2060, U+FEFF,
  * marques de direction U+202A…U+202E, trait d'union conditionnel) ; espaces spéciales (insécable, fine insécable…)

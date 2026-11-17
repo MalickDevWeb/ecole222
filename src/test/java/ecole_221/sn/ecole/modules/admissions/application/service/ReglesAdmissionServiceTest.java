@@ -11,7 +11,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-/** 16/11 : règles d'admission créées par l'école, appliquées par le serveur au dépôt. */
+/** Règles d'admission créées par l'école, appliquées par le serveur au dépôt. */
 class ReglesAdmissionServiceTest {
 
     private static final LocalDate AUJOURDHUI = LocalDate.of(2026, 11, 16);

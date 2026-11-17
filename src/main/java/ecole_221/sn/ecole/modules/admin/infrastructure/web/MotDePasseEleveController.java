@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 import java.util.Map;
 
 /**
- * Mot de passe provisoire remis à un élève par l'école (APP-TL-23, 2026-11-14) : indispensable pour un élève inscrit
+ * Mot de passe provisoire remis à un élève par l'école (APP-TL-23) : indispensable pour un élève inscrit
  * sans e-mail, qui ne peut pas recevoir de lien « Mot de passe oublié ». Droits : module « Élèves », écriture.
  */
 @RestController

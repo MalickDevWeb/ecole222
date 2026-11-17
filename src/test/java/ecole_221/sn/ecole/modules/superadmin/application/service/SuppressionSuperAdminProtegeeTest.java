@@ -17,7 +17,6 @@ import java.util.Optional;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
-/** Test des routes super-admin du 2026-11-10 : le super-admin a pu supprimer SON PROPRE compte. */
 class SuppressionSuperAdminProtegeeTest {
 
     private final UserRepositoryPort comptes = Mockito.mock(UserRepositoryPort.class);

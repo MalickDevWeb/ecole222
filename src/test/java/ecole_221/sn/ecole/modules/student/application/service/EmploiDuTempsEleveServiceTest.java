@@ -16,7 +16,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyCollection;
 import static org.mockito.Mockito.*;
 
-/** Emploi du temps réel de l'élève (2026-11-14) : séances de SES classes, triées, jamais inventées. */
+/** Emploi du temps réel de l'élève : séances de SES classes, triées, jamais inventées. */
 class EmploiDuTempsEleveServiceTest {
 
     private final InscriptionClasseJpaRepository inscriptions = mock(InscriptionClasseJpaRepository.class);

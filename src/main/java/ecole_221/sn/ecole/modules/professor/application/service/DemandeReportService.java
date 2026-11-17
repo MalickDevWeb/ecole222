@@ -20,7 +20,7 @@ import java.util.UUID;
 
 /**
  * Report de séance : le professeur DEMANDE, l'administration ACCEPTE (le créneau de la séance est alors
- * modifié) ou REFUSE avec un motif (lot E, 2026-11-10). Toutes les lectures sont filtrées par école (@TenantId).
+ * modifié) ou REFUSE avec un motif (lot E). Toutes les lectures sont filtrées par école (@TenantId).
  */
 @Service
 public class DemandeReportService {

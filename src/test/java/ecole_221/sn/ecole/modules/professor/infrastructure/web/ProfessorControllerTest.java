@@ -40,7 +40,7 @@ class ProfessorControllerTest {
 
     @Test
     void testGetCourseStudents() throws Exception {
-        // sans professeur authentifié : refusé (avant : tous les étudiants de toutes les écoles)
+        // sans professeur authentifié : refusé
         mockMvc.perform(get("/professor/courses/course-001/students")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isUnauthorized());
@@ -88,7 +88,7 @@ class ProfessorControllerTest {
 
     @Test
     void annulationSansMotifRefusee() throws Exception {
-        // FEAT-003-BR-07 (2026-11-14) : avant, corps libre → annulation sans motif acceptée sur cette route
+        // FEAT-003-BR-07 : annulation sans motif refusée sur cette route
         mockMvc.perform(post("/professor/planning/ses-1/cancel").contentType(MediaType.APPLICATION_JSON).content("{}"))
                 .andExpect(status().isBadRequest());
         mockMvc.perform(post("/professor/planning/ses-1/cancel").contentType(MediaType.APPLICATION_JSON).content("{\"reason\": \"   \"}"))

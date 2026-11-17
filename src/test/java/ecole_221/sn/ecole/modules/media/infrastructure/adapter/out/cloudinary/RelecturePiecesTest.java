@@ -9,7 +9,7 @@ import java.nio.file.Path;
 import static org.junit.jupiter.api.Assertions.*;
 
 /**
- * 16/11 : relecture des pièces par le serveur. Seuls les liens du compte Cloudinary de l'application (ou du stockage
+ * Relecture des pièces par le serveur. Seuls les liens du compte Cloudinary de l'application (ou du stockage
  * local) sont relus : jamais une adresse quelconque (pas de requête vers un autre serveur à partir d'un dossier).
  */
 class RelecturePiecesTest {
@@ -81,7 +81,7 @@ class RelecturePiecesTest {
         assertTrue(adapter.relire("/api/public/media/..%2F..%2Fetc%2Fpasswd").isEmpty());
     }
 
-    /** 17/11 : le lien gardé d'un fichier confidentiel n'a plus de signature (ouvert hors de l'application : refusé). */
+    /** Le lien gardé d'un fichier confidentiel n'a plus de signature (ouvert hors de l'application : refusé). */
     @Test
     void lienConfidentielSansSignature() {
         assertEquals("https://res.cloudinary.com/c/image/authenticated/v17/file-1.pdf",
@@ -94,7 +94,7 @@ class RelecturePiecesTest {
         assertEquals("file-1", lien.publicId());
     }
 
-    /** 17/11 : en simulation, un fichier confidentiel n'est jamais servi par /public/media, mais le serveur le relit. */
+    /** En simulation, un fichier confidentiel n'est jamais servi par /public/media, mais le serveur le relit. */
     @Test
     void fichierLocalConfidentielJamaisPublic(@TempDir Path dossier) throws Exception {
         var local = new StockageLocalFichiers(dossier.toString());

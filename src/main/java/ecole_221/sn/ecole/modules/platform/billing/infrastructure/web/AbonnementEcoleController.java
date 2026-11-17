@@ -20,7 +20,6 @@ import java.util.Optional;
 
 /**
  * Abonnement de l'école courante, vu par son administration (APP-FE-11).
- * Avant : l'écran « Mon abonnement » affichait une offre inventée (« Avancé », 420/500 élèves…).
  * Réponse : offre et quotas réels (table subscriptions / plans) et consommation réelle
  * (appartenances actives de l'école). Sans abonnement enregistré : disponible = false.
  * Sécurité : /admin/** réservé aux administrateurs (SecurityConfig), école = contexte de la requête.

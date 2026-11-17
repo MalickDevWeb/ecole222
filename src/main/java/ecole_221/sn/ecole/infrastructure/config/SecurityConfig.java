@@ -72,7 +72,7 @@ public class SecurityConfig {
         "/ws/**",
         // Admissions : seules les routes du portail candidat sont publiques, voir PORTAIL_CANDIDAT_* (APP-SEC-12)
         // Calendrier de l'école affiché sur la page de connexion (onglet « Calendrier »)
-        // (/meet/active retiré le 2026-11-13 : aucun écran ne l'appelle, il répondait sans compte ni jeton valide)
+        // (/meet/active retiré : aucun écran ne l'appelle, il répondait sans compte ni jeton valide)
         "/schedule",
         // APP-SEC-15 : /collaboration, /wiki, /notifications, /sync, /media ne sont plus publics
         // (seules exceptions, par méthode : GET /sync/check et POST /media/upload, voir PORTAIL_CANDIDAT_*)
@@ -84,7 +84,7 @@ public class SecurityConfig {
         // campagnes publiées (liste blanche de champs, aucune donnée de candidat)
         "/candidatures/campagnes",
         "/admissions/settings", "/v1/admissions/settings",
-        // 17/11 : espace du candidat (jeton de suivi exigé par chaque route : SON dossier seulement)
+        // Espace du candidat (jeton de suivi exigé par chaque route : SON dossier seulement)
         "/candidatures/suivi/dossier", "/candidatures/suivi/messages", "/candidatures/suivi/piece",
         // APP-SEC-15 : indicateur hors ligne appelé sans compte (OfflineSyncToast)
         "/sync/check"
@@ -95,9 +95,9 @@ public class SecurityConfig {
         "/candidatures/submit",
         // APP-BE-12 : suivi de SON dossier (email + mot de passe de suivi ; échecs freinés)
         "/candidatures/suivi",
-        // 16/11 : pièces exigées par les règles d'admission de l'école, demandées avant le dépôt (aucune donnée de candidat)
+        // Pièces exigées par les règles d'admission de l'école, demandées avant le dépôt (aucune donnée de candidat)
         "/candidatures/regles/evaluer",
-        // 17/11 : espace du candidat — écrire à l'école, ajouter une pièce (jeton de suivi exigé)
+        // Espace du candidat — écrire à l'école, ajouter une pièce (jeton de suivi exigé)
         "/candidatures/suivi/messages", "/candidatures/suivi/pieces",
         // APP-SEC-15 : pièces du dossier de candidature envoyées sans compte (cloudinaryUpload.ts)
         "/media/upload"
@@ -122,7 +122,6 @@ public class SecurityConfig {
                         "/api/v1/super-admin/**", "/api/v1/platform/**")  // contrôleurs mappés sous /api/v1 (défense en profondeur)
                     .hasAnyRole("SUPER_ADMIN", "PLATFORM_ADMIN")
                 // Envoi d'e-mails libres (destinataire, sujet, contenu au choix) : réservé à l'administration.
-                // Avant : tout compte connecté, élève compris, pouvait écrire à n'importe qui au nom de l'école.
                 .requestMatchers("/email/**", "/v1/email/**").hasAnyRole(ROLES_ESPACE_ADMIN)
                 // Centre de notifications de l'école (liste complète, envoi à n'importe quel destinataire, boîte d'un
                 // autre compte) : administration uniquement — seul l'espace administration l'utilise. Avant : un élève
@@ -132,28 +131,28 @@ public class SecurityConfig {
                 .requestMatchers("/admin/**", "/finance/**", "/dashboard/**", "/audit/**")
                     .hasAnyRole(ROLES_ESPACE_ADMIN)
                 // Planning : lecture pour tout compte connecté ; écriture (salles, classes, filières, créneaux) réservée à
-                // l'administration. Avant (balayage du 2026-11-13) : un élève créait, modifiait ou supprimait le planning.
+                // l'administration.
                 .requestMatchers(HttpMethod.GET, "/planning/**").hasAnyRole(ROLES_AVEC_ESPACE)
                 .requestMatchers("/planning/**").hasAnyRole(ROLES_ESPACE_ADMIN)
                 .requestMatchers("/vigil/check-ins").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "PROFESSEUR", "TEACHER", "SUPER_ADMIN")
                 .requestMatchers("/security/**", "/vigil/**").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "SUPER_ADMIN")
-                // 2026-11-13 : validation d'un badge QR réservée aux vigiles et à l'administration (avant : publique →
+                // Validation d'un badge QR réservée aux vigiles et à l'administration (évite un
                 // oracle permettant de tester des jetons sans compte)
                 .requestMatchers("/student/qr-validate").hasAnyRole("ADMIN", "ADMINISTRATOR", "VIGIL", "SUPER_ADMIN")
                 .requestMatchers("/professor/**", "/prof/**").hasAnyRole("PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR", "SUPER_ADMIN")
                 // APP-SEC-11 : espace parent réservé aux parents (le contrôleur vérifie aussi la filiation)
                 .requestMatchers("/parent/**").hasRole("PARENT")
                 .requestMatchers("/student/**").hasAnyRole("ETUDIANT", "STUDENT", "PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR", "SUPER_ADMIN")
-                // 16/11 : pointage d'arrivée / départ par le QR d'entrée du vigile — élèves et professeurs seulement
+                // Pointage d'arrivée / départ par le QR d'entrée du vigile — élèves et professeurs seulement
                 .requestMatchers("/pointages", "/pointages/**").hasAnyRole("ETUDIANT", "STUDENT", "PROFESSEUR", "TEACHER")
                 // APP-SEC-20 (2026-11-13, refus par défaut) : un rôle sans espace (SECRETAIRE, COMPTABLE, VISITEUR,
                 // SURVEILLANT, DIRECTEUR, RH) n'atteint plus aucune route métier ; seul son compte (/auth/**) reste
-                // accessible. Avant : ces rôles atteignaient toutes les routes simplement « authentifiées ».
+                // accessible.
                 .requestMatchers("/auth/**").authenticated()
                 .anyRequest().hasAnyRole(ROLES_AVEC_ESPACE)
             )
             .exceptionHandling(exception -> exception
-                // réponses JSON en français (avant : « Unauthorized » / « Forbidden » bruts de Spring)
+                // réponses JSON en français
                 .authenticationEntryPoint((request, response, authException) ->
                         reponseJson(response, 401, "AUTH_INVALID_CREDENTIALS", "Veuillez vous connecter pour accéder à cette page."))
                 .accessDeniedHandler((request, response, deniedException) ->
@@ -193,7 +192,7 @@ public class SecurityConfig {
     }
 
     /**
-     * Coût BCrypt exigé par BR-03 (2026-11-13, décision APP-TL-18 : sécurité maximale). Avant : coût par défaut 10.
+     * Coût BCrypt exigé par BR-03 (décision APP-TL-18 : sécurité maximale).
      * Les empreintes existantes (coût 10) restent vérifiables et sont recalculées au coût 12 à la connexion suivante
      * (LoginService).
      */

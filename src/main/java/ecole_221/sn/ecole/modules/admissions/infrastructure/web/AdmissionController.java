@@ -133,8 +133,7 @@ public class AdmissionController {
     // ==================== ENDPOINTS PARAMÈTRES ====================
     
     // APP-BE-15 : ces trois routes lisent et écrivent la MÊME source que /candidatures/settings (table
-    // parametres_candidatures). Avant : une seconde table (admission_settings), qu'aucun écran n'utilisait, pouvait
-    // annoncer publiquement « ouvert » alors que l'école avait fermé ses candidatures.
+    // parametres_candidatures).
 
     @GetMapping("/settings")
     @Operation(summary = "Paramètres admissions", description = "Mêmes réglages que GET /candidatures/settings (source unique)")
@@ -151,7 +150,7 @@ public class AdmissionController {
     @PatchMapping("/settings/toggle")
     @Operation(summary = "Ouvrir/Fermer candidatures", description = "Corps {isOpen} ; même source que /candidatures/settings")
     public ResponseEntity<Map<String, Object>> toggleAdmissions(@RequestBody(required = false) Map<String, Object> body) {
-        // APP-QA-04 : isOpen obligatoire (true / false). Avant : absent ou absurde → les candidatures étaient FERMÉES en silence.
+        // APP-QA-04 : isOpen obligatoire (true / false).
         Boolean choix = ecole_221.sn.ecole.partage.ChampsRequete.booleenOptionnel(body, "isOpen", "« isOpen »");
         if (choix == null) {
             throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Indiquez isOpen : true pour ouvrir les candidatures, false pour les fermer.");
@@ -206,7 +205,6 @@ public class AdmissionController {
     @Operation(summary = "Envoyer invitations entretien", description = "Envoie les invitations d'entretien")
     public ResponseEntity<Map<String, Object>> sendInterviewInvitations() {
         logger.info("POST /admissions/automation/interviews - Envoi invitations entretien");
-        // Avant : « Invitations d'entretien envoyées avec succès » alors qu'aucune invitation n'est envoyée.
         int passes = admissionUseCase.sendInterviewInvitations();
         return ResponseEntity.ok(Map.of("success", true, "dossiersPassesEnEntretien", passes,
                 "message", passes + " dossier(s) passé(s) à l'étape « entretien ». Aucune invitation n'est envoyée automatiquement : prévenez les candidats."));
@@ -242,9 +240,8 @@ public class AdmissionController {
     }
 
     // ==================== ENDPOINT CANDIDATURE PORTAL DB ====================
-    // Avant : quatre listes statiques en mémoire, communes à toutes les écoles (dont deux campagnes inventées
-    // avec images Unsplash) et perdues au redémarrage. Désormais : candidats = table candidates, campagnes /
-    // messages / journal = table admissions_portail_elements ; tout est cloisonné par école (@TenantId).
+    // Candidats = table candidates, campagnes / messages / journal = table admissions_portail_elements ; tout est
+    // cloisonné par école (@TenantId).
 
     private void exigerStockage() {
         if (candidateJpaRepository == null || elementsPortail == null) {
@@ -305,7 +302,7 @@ public class AdmissionController {
     @Operation(summary = "Base admissions globale", description = "Retourne les campagnes, candidats, messages et audits synchronisés avec PostgreSQL")
     public ResponseEntity<Map<String, Object>> getAdmissionsDb() {
         java.util.List<Map<String, Object>> candidatesList = new java.util.ArrayList<>();
-        // 17/11 : messages des candidats pas encore lus par l'école (badge sur le dossier)
+        // Messages des candidats pas encore lus par l'école (badge sur le dossier)
         Map<String, Long> nonLus = espace == null ? Map.of() : espace.nonLusParEcole();
         java.util.List<ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity> entities = 
             candidateJpaRepository != null ? candidateJpaRepository.findAll() : List.of();
@@ -316,7 +313,7 @@ public class AdmissionController {
                 c.put("id", e.getId());
                 c.put("name", e.getFullName() != null ? e.getFullName() : (e.getFirstName() + " " + e.getLastName()).trim());
                 c.put("email", e.getEmail() != null ? e.getEmail() : "");
-                c.put("phone", blankToNull(e.getPhone()));   // 17/11 : « Prévenir par WhatsApp » depuis le dossier
+                c.put("phone", blankToNull(e.getPhone()));   // « Prévenir par WhatsApp » depuis le dossier
                 // plus de formation « Licence Informatique » par défaut : null si le candidat n'en a pas choisi
                 c.put("course", blankToNull(e.getCourseChoice()));
                 c.put("type", e.getCourseChoice() == null || e.getCourseChoice().isBlank() ? null
@@ -344,9 +341,9 @@ public class AdmissionController {
                 details.put("photoUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "photoIdentiteUrl")));
                 details.put("transcriptsUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "relevesNotesUrl")));
                 details.put("diplomaUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "diplomeUrl")));
-                // Informations saisies au dépôt (identité, garant, cursus) : avant, collectées puis jamais transmises
+                // Informations saisies au dépôt (identité, garant, cursus)
                 details.put("dossier", lireDossier(e.getAdditionalInfo()));
-                // 16/11 : règles d'admission appliquées au dépôt (avertissements, pièces exigées en plus, session)
+                // Règles d'admission appliquées au dépôt (avertissements, pièces exigées en plus, session)
                 details.put("alertesRegles", List.copyOf(lirePrefixe(e.getAdditionalInfo(), "alerteRegle.").values()));
                 details.put("piecesSupplementaires", lirePrefixe(e.getAdditionalInfo(), "pieceSuppLibelle.").entrySet().stream()
                         .map(p -> Map.of("code", p.getKey(), "libelle", p.getValue())).toList());
@@ -448,7 +445,7 @@ public class AdmissionController {
         List<?> campagnes = listeDeMaps(body, "campaigns");
         List<?> journal = listeDeMaps(body, "auditLogs");
         List<?> messages = listeDeMaps(body, "messages");
-        // APP-QA-04 : rien à enregistrer → refus (avant : « success » sans rien écrire)
+        // APP-QA-04 : rien à enregistrer → refus
         if (candidats == null && campagnes == null && journal == null && messages == null) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
                     "Aucune donnée à enregistrer (candidates, campaigns, auditLogs ou messages attendu).");

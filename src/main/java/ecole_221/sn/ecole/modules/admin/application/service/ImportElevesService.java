@@ -17,7 +17,6 @@ import java.util.regex.Pattern;
 /**
  * Import groupé d'élèves (APP-BE-11). Chaque ligne est vérifiée (nom, email, doublons dans le fichier
  * et dans l'école, classe existante). Import « tout ou rien » : une seule ligne en erreur et rien n'est créé.
- * Avant : l'écran ajoutait les élèves uniquement à l'affichage, avec moyenne, téléphone et classe inventés.
  */
 @Service
 public class ImportElevesService {

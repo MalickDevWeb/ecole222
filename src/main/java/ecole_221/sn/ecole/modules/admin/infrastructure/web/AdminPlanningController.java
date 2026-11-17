@@ -26,8 +26,7 @@ public class AdminPlanningController {
     }
 
     /**
-     * 2026-11-14 : chaque enregistrement de l'emploi du temps crée ou met à jour les séances des professeurs
-     * (avant : l'emploi du temps saisi n'arrivait ni chez le professeur, ni chez l'élève, ni chez le parent).
+     * Chaque enregistrement de l'emploi du temps crée ou met à jour les séances des professeurs.
      * Facultatif pour les tests construits sans contexte Spring.
      */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -100,7 +99,7 @@ public class AdminPlanningController {
     public ResponseEntity<Map<String, Object>> updateSlots(@RequestBody List<Map<String, Object>> corps) {
         List<TimeSlot> slots = PlanningPayloads.creneaux(corps);
         logger.info("PUT /admin/planning/slots - Mise a jour des crenaux: {} crenaux", slots.size());
-        // Doubles réservations refusées par le SERVEUR (avant : seul le navigateur les signalait)
+        // Doubles réservations refusées par le SERVEUR
         Map<String, String> nomsClasses = new java.util.HashMap<>();
         for (Classe c : planningUseCase.getClasses()) {
             if (c.getId() != null && c.getName() != null) nomsClasses.put(c.getId(), c.getName());

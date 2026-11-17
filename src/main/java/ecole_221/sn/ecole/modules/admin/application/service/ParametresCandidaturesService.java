@@ -40,8 +40,8 @@ public class ParametresCandidaturesService {
 
     /**
      * Refuse un dépôt de candidature quand l'école n'accepte pas de candidatures aujourd'hui (APP-BE-15) :
-     * non configurée, fermée, pas encore ouverte ou déjà close. Avant : seul le portail masquait le formulaire ;
-     * un appel direct (ou un onglet resté ouvert après la clôture) déposait quand même un dossier.
+     * non configurée, fermée, pas encore ouverte ou déjà close, y compris par un appel direct ou un onglet resté
+     * ouvert après la clôture.
      */
     @Transactional(readOnly = true)
     public void exigerOuverture() {
@@ -81,7 +81,7 @@ public class ParametresCandidaturesService {
     @Transactional
     public Map<String, Object> enregistrer(Map<String, Object> corps) {
         if (corps == null) throw mauvais("Corps de requête manquant.");
-        // APP-QA-04 : aucun réglage reconnu → refus (avant : « enregistré » sans rien changer)
+        // APP-QA-04 : aucun réglage reconnu → refus
         if (java.util.stream.Stream.of("ouvert", "enabled", "dateOuverture", "dateFermeture", "messageAvis", "showRegisterButton", "docsRequis")
                 .noneMatch(corps::containsKey)) {
             throw mauvais("Aucun réglage reconnu (ouvert, dateOuverture, dateFermeture, messageAvis, showRegisterButton, docsRequis).");

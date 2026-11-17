@@ -16,8 +16,6 @@ import java.util.*;
 
 /**
  * Campagnes d'admission visibles par le public (portail candidat, sans compte).
- * Avant : le portail les lisait dans GET /admissions/db (toute la base, fermé par APP-TL-10) ; depuis cette
- * fermeture, aucune campagne ne s'affichait et plus personne ne pouvait postuler.
  * Seules les campagnes publiées (ni brouillon ni archivée) sont renvoyées, avec une liste blanche de champs.
  */
 @RestController

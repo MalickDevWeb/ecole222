@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
  * APP-SEC-12 : aucun contrôleur ne déclare @CrossOrigin("*") ; le CORS passe uniquement par
- * AllowedOrigins (SecurityConfig). AdminController est en cours de modification par le Tech Lead
+ * AllowedOrigins (SecurityConfig). AdminController est en cours de modification
  * et reste toléré tant que ce chantier n'est pas livré.
  */
 class NoCrossOriginWildcardTest {

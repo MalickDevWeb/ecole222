@@ -20,10 +20,9 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Transfert d'un élève entre deux écoles, comme dans la vraie vie (2026-11-13) : l'école d'origine fait la demande,
+ * Transfert d'un élève entre deux écoles, comme dans la vraie vie : l'école d'origine fait la demande,
  * l'école d'accueil l'accepte ou la refuse ; à l'acceptation, l'élève change d'école et l'école d'accueil reçoit une
- * copie figée de son dossier. Avant : seul le super-administrateur pouvait transférer, sans accord de l'école d'accueil
- * ni dossier.
+ * copie figée de son dossier.
  */
 @Service
 public class TransfertsElevesService {

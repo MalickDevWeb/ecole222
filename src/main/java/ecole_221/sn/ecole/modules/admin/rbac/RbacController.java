@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
 
-/** Droits d'accès du personnel, par école (2026-11-13). Avant : matrice enregistrée dans le seul navigateur. */
+/** Droits d'accès du personnel, par école. */
 @RestController
 @RequestMapping("/admin/rbac")
 public class RbacController {

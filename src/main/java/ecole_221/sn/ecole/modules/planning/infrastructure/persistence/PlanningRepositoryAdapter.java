@@ -275,8 +275,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     }
     
     /**
-     * Le niveau est facultatif pour les filières enregistrées par l'administration (PUT /admin/planning/filieres) :
-     * avant, une seule filière sans niveau faisait échouer en 500 toute la liste GET /planning/filieres.
+     * Le niveau est facultatif pour les filières enregistrées par l'administration (PUT /admin/planning/filieres).
      * Niveau inconnu → vide (jamais inventé).
      */
     static Filiere toFiliere(FiliereJpaEntity entity) {
@@ -327,8 +326,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
 
     /**
      * Lecture d'une ligne pour une LISTE : une ligne invalide en base (ex. salle de capacité 0 enregistrée avant le
-     * contrôle d'écriture) est signalée et ignorée, au lieu de faire échouer toute la liste pour toute l'école
-     * (balayage du 2026-11-13 : une seule salle sans capacité rendait GET /planning/rooms inutilisable).
+     * contrôle d'écriture) est signalée et ignorée, au lieu de faire échouer toute la liste pour toute l'école.
      */
     private <E, D> java.util.stream.Stream<D> lisible(E ligne, java.util.function.Function<E, D> conversion) {
         try {

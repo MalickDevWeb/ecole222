@@ -25,7 +25,7 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-/** Test du parcours professeur du 2026-11-10 : notes et devoirs posés dans le cours d'un collègue / d'une autre école. */
+/** Test du parcours professeur : notes et devoirs posés dans le cours d'un collègue / d'une autre école. */
 class AccesCoursInterceptorTest {
 
     private final CourseJpaRepository cours = Mockito.mock(CourseJpaRepository.class);
@@ -85,7 +85,7 @@ class AccesCoursInterceptorTest {
         assertTrue(intercepteur.preHandle(requete(Map.of("courseId", "c-a", "studentId", "e1")), new MockHttpServletResponse(), null));
     }
 
-    // APP-TL-05 (2026-11-14) : liste des élèves d'une classe côté professeur
+    // APP-TL-05 : liste des élèves d'une classe côté professeur
     private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository classesAvec(String... ids) {
         var repo = Mockito.mock(ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository.class);
         for (String id : ids) {

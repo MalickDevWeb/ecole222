@@ -74,7 +74,7 @@ public class DashboardUseCaseImpl implements DashboardUseCase {
     @Override
     public DashboardKpiDto updateKpi(String id, DashboardKpiDto kpi) {
         logger.info("Mise à jour du KPI: {}", id);
-        // APP-QA-04 : KPI inexistant → 404 (avant : créé avec les valeurs reçues, même absurdes)
+        // APP-QA-04 : KPI inexistant → 404
         if (id == null || !kpiRepository.existsById(id)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Indicateur introuvable.");
         }
@@ -133,7 +133,7 @@ public class DashboardUseCaseImpl implements DashboardUseCase {
     
     @Override
     public DashboardAlertJpaEntity updateAlert(String id, DashboardAlertJpaEntity alert) {
-        // APP-QA-04 : alerte inexistante → 404 (avant : créée, champs nuls compris) ; seuls les champs éditables sont copiés
+        // APP-QA-04 : alerte inexistante → 404 ; seuls les champs éditables sont copiés
         DashboardAlertJpaEntity existante = alertRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Alerte introuvable."));
         copierAlerte(alert, existante);
@@ -148,7 +148,7 @@ public class DashboardUseCaseImpl implements DashboardUseCase {
     
     @Override
     public void deactivateAlert(String id) {
-        // APP-QA-04 : alerte inexistante → 404 (avant : « succès »)
+        // APP-QA-04 : alerte inexistante → 404
         DashboardAlertJpaEntity alert = alertRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Alerte introuvable."));
         alert.setIsActive(false);
@@ -188,7 +188,7 @@ public class DashboardUseCaseImpl implements DashboardUseCase {
     
     @Override
     public RegionalStatsJpaEntity updateRegionalStats(String id, RegionalStatsJpaEntity stats) {
-        // APP-QA-04 : statistique inexistante → 404 (avant : créée) ; valeurs bornées
+        // APP-QA-04 : statistique inexistante → 404 ; valeurs bornées
         RegionalStatsJpaEntity existante = regionalStatsRepository.findById(id)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Statistique régionale introuvable."));
         if (stats == null) {
@@ -289,7 +289,7 @@ public class DashboardUseCaseImpl implements DashboardUseCase {
     
     @Override
     public void updateKpiValue(String kpiKey, String value) {
-        // APP-QA-04 : indicateur inconnu → 404, valeur vide ou démesurée → 400 (avant : « succès » sans rien faire)
+        // APP-QA-04 : indicateur inconnu → 404, valeur vide ou démesurée → 400
         String v = texteBorne(value, "La valeur", 50, true);
         DashboardKpiJpaEntity kpi = kpiRepository.findByKpiKey(kpiKey)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Indicateur introuvable."));
@@ -301,7 +301,7 @@ public class DashboardUseCaseImpl implements DashboardUseCase {
     
     @Override
     public void createSystemAlert(String alertType, String title, String message, String severity) {
-        // APP-QA-04 : titre et message obligatoires, gravité dans la liste connue (avant : alerte vide créée)
+        // APP-QA-04 : titre et message obligatoires, gravité dans la liste connue
         alertType = texteBorne(alertType, "Le type d'alerte", 50, false);
         title = texteBorne(title, "Le titre", 200, true);
         message = texteBorne(message, "Le message", 2_000, true);
@@ -342,7 +342,7 @@ public class DashboardUseCaseImpl implements DashboardUseCase {
         );
     }
 
-    // ==================== CONTRÔLES DES CHAMPS (APP-QA-04, 2026-11-13) ====================
+    // ==================== CONTRÔLES DES CHAMPS (APP-QA-04) ====================
 
     private static final java.util.List<String> GRAVITES = java.util.List.of("info", "warning", "urgent", "critical");
 

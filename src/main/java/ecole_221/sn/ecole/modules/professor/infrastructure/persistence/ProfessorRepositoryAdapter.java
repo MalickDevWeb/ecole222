@@ -90,9 +90,7 @@ public class ProfessorRepositoryAdapter implements ProfessorRepositoryPort {
 
     /**
      * Étudiants ACTIFS de l'école courante inscrits dans la classe {@code classe} (identifiant de classe).
-     * Avant : tous les étudiants de toutes les écoles, puis (2026-11) tous ceux de l'école, la classe étant ignorée.
-     * 2026-11-14 : filtrés par les inscriptions élève ↔ classe ; sans inscriptions disponibles, liste vide (jamais
-     * toute l'école).
+     * Filtrés par les inscriptions élève ↔ classe ; sans inscriptions disponibles, liste vide (jamais toute l'école).
      */
     @Override
     public List<User> getStudentsByClass(String classe) {

@@ -7,12 +7,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Catalogue des permissions de l'espace administration (2026-11-13), calqué sur les VRAIES routes du serveur.
+ * Catalogue des permissions de l'espace administration, calqué sur les VRAIES routes du serveur.
  *
- * <p>Avant : la matrice affichée dans l'onglet « Droits d'accès » listait une soixantaine de permissions décrivant
- * des routes souvent inexistantes, et n'était enregistrée que dans le navigateur. Désormais chaque module de l'espace
- * administration a une permission de lecture et une d'écriture, rattachées aux préfixes de routes qu'il utilise ;
- * le serveur les applique (PermissionsInterceptor) aux rôles du personnel.</p>
+ * <p>Chaque module de l'espace administration a une permission de lecture et une d'écriture, rattachées aux
+ * préfixes de routes qu'il utilise ; le serveur les applique (PermissionsInterceptor) aux rôles du personnel.</p>
  */
 public final class CataloguePermissions {
 

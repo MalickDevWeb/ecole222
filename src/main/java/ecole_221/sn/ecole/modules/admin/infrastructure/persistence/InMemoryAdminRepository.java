@@ -12,11 +12,10 @@ import java.util.concurrent.CopyOnWriteArrayList;
 /**
  * Données d'administration d'une école.
  * <ul>
- *   <li>statut des frais : SUPPRIMÉ (APP-TL-22, 2026-11-14). L'état financier d'un élève vient uniquement de son
+ *   <li>statut des frais : SUPPRIMÉ (APP-TL-22). L'état financier d'un élève vient uniquement de son
  *       dossier (Finances › Écolages) ; la table {@code statuts_frais_eleves} n'est plus ni lue ni écrite ;</li>
- *   <li>affectation du portail : persistée par école (avant : partagée entre écoles, « Porte Principale » par défaut) ;</li>
- *   <li>journal temps réel : en mémoire mais PAR ÉCOLE (avant : un seul journal visible par toutes les écoles),
- *       limité aux 200 dernières lignes.</li>
+ *   <li>affectation du portail : persistée par école ;</li>
+ *   <li>journal temps réel : en mémoire mais PAR ÉCOLE, limité aux 200 dernières lignes.</li>
  * </ul>
  */
 @Repository

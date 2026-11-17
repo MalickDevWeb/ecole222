@@ -76,7 +76,7 @@ class WebSocketAuthInterceptorTest {
         assertThatThrownBy(() -> intercepteur.preSend(trame(StompCommand.SUBSCRIBE, null, null), canal))
                 .isInstanceOf(MessageDeliveryException.class);
         Principal p = () -> "eleve@exemple.sn";
-        // 2026-11-13 : l'ancien canal non cloisonné est refusé même authentifié
+        // L'ancien canal non cloisonné est refusé même authentifié
         assertThatThrownBy(() -> intercepteur.preSend(trame(StompCommand.SUBSCRIBE, null, p), canal))
                 .isInstanceOf(MessageDeliveryException.class).hasMessageContaining("non cloisonné");
     }
@@ -89,7 +89,7 @@ class WebSocketAuthInterceptorTest {
                 .isInstanceOf(MessageDeliveryException.class).hasMessageContaining("autre école");
         assertThatThrownBy(() -> intercepteur.preSend(abonnement("/topic/ecole/org-a/live-sessions/s1/chat", p, null), canal))
                 .isInstanceOf(MessageDeliveryException.class);
-        // 2026-11-13 : liste blanche — les canaux partagés entre écoles sont refusés
+        // Liste blanche — les canaux partagés entre écoles sont refusés
         assertThatThrownBy(() -> intercepteur.preSend(abonnement("/topic/collaboration", p, "org-a"), canal))
                 .isInstanceOf(MessageDeliveryException.class).hasMessageContaining("non cloisonné");
         assertThatThrownBy(() -> intercepteur.preSend(abonnement("/topic/voice/s1/signal", p, "org-a"), canal))

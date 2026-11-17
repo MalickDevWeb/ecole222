@@ -20,8 +20,7 @@ public class QuizJpaEntity {
     private String courseId;
     private String title;
     private int duration;
-    // Quiz QCM complet (avant : seuls titre et durée étaient gardés ; questions perdues ; l'identifiant du
-    // module était enregistré à la place de celui du cours)
+    // Quiz QCM complet
     @jakarta.persistence.Column(name = "module_id")
     private String moduleId;
     @jakarta.persistence.Column(length = 2000)

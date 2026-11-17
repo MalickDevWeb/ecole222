@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-/** Emploi du temps de l'administration → séances des professeurs (2026-11-14). */
+/** Emploi du temps de l'administration → séances des professeurs. */
 class SeancesEmploiDuTempsServiceTest {
 
     private final ComptesEcoleService comptes = mock(ComptesEcoleService.class);

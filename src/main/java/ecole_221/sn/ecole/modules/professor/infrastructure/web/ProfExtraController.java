@@ -76,9 +76,8 @@ public class ProfExtraController {
             @Parameter(description = "Identifiant de la classe") @PathVariable("classId") String classId) {
         
         logger.info("GET /prof/classes/{}/students", classId);
-        // APP-TL-05 (2026-11-14) : avant, getStudents("M1 GL") écrit en dur → TOUS les élèves actifs de l'école (avec
-        // leur e-mail), quelle que soit la classe, pour n'importe quel professeur. Désormais : classe de l'école
-        // (404 sinon), professeur qui y enseigne (403 sinon), élèves inscrits dans CETTE classe seulement.
+        // APP-TL-05 : classe de l'école (404 sinon), professeur qui y enseigne (403 sinon), élèves inscrits dans
+        // CETTE classe seulement.
         if (accesCours == null) {
             throw new org.springframework.web.server.ResponseStatusException(
                     org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Contrôle d'accès indisponible.");
@@ -111,8 +110,7 @@ public class ProfExtraController {
             }
             
             logger.debug("Processing {} attendance records", records.size());
-            // Validation de TOUTE la feuille avant écriture. Avant : date « 2026-07-20 » et cours « course-1 »
-            // inventés quand ils manquaient → présences rattachées à un faux jour / un faux cours.
+            // Validation de TOUTE la feuille avant écriture.
             for (int i = 0; i < records.size(); i++) {
                 Map<String, Object> r = records.get(i);
                 String ligne = records.size() > 1 ? " (ligne " + (i + 1) + ")" : "";
@@ -137,7 +135,7 @@ public class ProfExtraController {
                         org.springframework.http.HttpStatus.BAD_REQUEST,
                         "Date invalide (format attendu AAAA-MM-JJ)" + ligne + " : " + r.get("date"));
                 }
-                // test du 2026-11-10 : statut inventé, date future, élève inexistant et cours d'un collègue acceptés
+                // Statut inconnu, date future, élève inexistant et cours d'un collègue : refusés
                 if (jour.isAfter(java.time.LocalDate.now())) {
                     throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, "On ne peut pas faire l'appel pour une date future" + ligne + ".");
                 }
@@ -185,7 +183,7 @@ public class ProfExtraController {
             List<Map<String, Object>> schedule = professorUseCase.getSchedule(profId);
             logger.debug("Retrieved {} schedule sessions", schedule.size());
             var seances = ProfessorMapper.toScheduleDtoList(schedule);
-            // nom RÉEL de la classe (avant : absent → « L3-GL » / « M1 GL » inventés à l'écran)
+            // nom RÉEL de la classe
             if (classesEcole != null) {
                 seances = seances.stream().map(s -> s.classe() == null ? s : s.avecClasse(
                         classesEcole.findById(s.classe()).map(c -> c.getName() != null ? c.getName() : c.getNom()).orElse(s.classe())))
@@ -254,7 +252,7 @@ public class ProfExtraController {
             java.util.Set.of("ROLE_ADMIN", "ROLE_ADMINISTRATOR", "ROLE_SUPER_ADMIN", "ROLE_PLATFORM_ADMIN");
 
     /**
-     * Lot E (2026-11-10) : le report DIRECT d'une séance est réservé à l'administration ; le professeur passe
+     * Lot E : le report DIRECT d'une séance est réservé à l'administration ; le professeur passe
      * par POST /professor/schedule/{sessionId}/demandes-report (validation par l'administration).
      */
     static void reportDirectReserveAdministration() {

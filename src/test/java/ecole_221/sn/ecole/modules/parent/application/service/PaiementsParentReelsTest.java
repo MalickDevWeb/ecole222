@@ -20,7 +20,7 @@ import java.util.Optional;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
-/** GET /parent/paiements (2026-11-14) : situation réelle des enfants, jamais de donnée inventée. */
+/** GET /parent/paiements : situation réelle des enfants, jamais de donnée inventée. */
 class PaiementsParentReelsTest {
 
     private final ParentRepositoryPort parents = mock(ParentRepositoryPort.class);

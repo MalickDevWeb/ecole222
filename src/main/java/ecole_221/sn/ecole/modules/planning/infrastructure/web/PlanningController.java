@@ -21,8 +21,7 @@ import java.util.Map;
 @RequestMapping("/planning")
 @Tag(name = "Planning", description = "Gestion du planning - salles, créneaux, filières, classes")
 public class PlanningController {
-    // Balayage du 2026-11-13 : les PUT /planning/{rooms,slots,filieres,classes} « en lot » répondaient 200 sans rien
-    // enregistrer (aucun écran ne les appelait) : retirés. Les écrans utilisent PUT /admin/planning/… (validé et enregistré).
+    // Pas de PUT « en lot » ici : les écrans utilisent PUT /admin/planning/… (validé et enregistré).
 
     
     private static final Logger logger = LoggerFactory.getLogger(PlanningController.class);
@@ -158,7 +157,7 @@ public class PlanningController {
     public ResponseEntity<ClasseDto> getClasseById(
             @Parameter(description = "Identifiant de la classe") @PathVariable("classeId") String classeId) {
         logger.info("GET /planning/classes/{} - Détails classe", classeId);
-        // APP-TL-05 (2026-11-14) : avant, 200 avec un corps vide pour une classe inconnue ou d'une autre école
+        // APP-TL-05 : classe inconnue ou d'une autre école → 404
         ClasseDto c = planningUseCase.getClasseById(classeId);
         if (c == null) {
             throw new org.springframework.web.server.ResponseStatusException(

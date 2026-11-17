@@ -357,7 +357,6 @@ public class GroupChatService implements GroupChatUseCase {
                 throw new IllegalArgumentException("Message trop long (4 000 caractères au maximum).");
             }
             Message message = MessageFactory.createTextMessage(chatId, senderId, content.strip());
-            // Avant : enregistrement commenté → « envoyé » renvoyé alors que rien n'était conservé (2026-11-13)
             Message saved = messageRepository.save(message);
 
             // Mettre à jour le lastMessageTime du chat
@@ -488,7 +487,7 @@ public class GroupChatService implements GroupChatUseCase {
         }
     }
     
-    /** Messages d'une discussion, du plus ancien au plus récent (avant : la route renvoyait toujours une liste vide). */
+    /** Messages d'une discussion, du plus ancien au plus récent. */
     public List<MessageDto> getMessages(String chatId) {
         return messageRepository.findByGroupId(chatId).stream()
                 .sorted(java.util.Comparator.comparing(Message::getTimestamp, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
@@ -595,8 +594,7 @@ public class GroupChatService implements GroupChatUseCase {
     }
     
     /**
-     * Suppression d'un message par son auteur ou par un administrateur de la discussion (2026-11-13).
-     * Avant : n'importe quel compte supprimait n'importe quel message, et un échec était annoncé comme réussi.
+     * Suppression d'un message par son auteur ou par un administrateur de la discussion.
      */
     public void supprimerMessage(String messageId, String demandeurId) {
         ecole_221.sn.ecole.modules.collaboration.domain.model.Message m = messageRepository.findById(messageId)

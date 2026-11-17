@@ -20,7 +20,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Périodes scolaires et clôture des notes (BR-04, 2026-11-14).
+ * Périodes scolaires et clôture des notes (BR-04).
  *
  * <p>Une évaluation appartient à la période qui contient sa date. Quand l'administration clôture une période, plus
  * aucune évaluation n'y est créée, modifiée, supprimée ni notée (vérifié par {@link #exigerOuverte}). La réouverture
@@ -172,8 +172,7 @@ public class PeriodesScolairesService {
 
     /**
      * Détail lisible dans les traces de l'application. L'entrée du journal d'audit INALTÉRABLE (auteur, rôle, école,
-     * identifiant de la période) est écrite par {@code JournalAuditInterceptor} pour toute écriture réussie
-     * (2026-11-14 ; avant, la « trace au journal d'audit » annoncée n'allait que dans la console).
+     * identifiant de la période) est écrite par {@code JournalAuditInterceptor} pour toute écriture réussie.
      */
     private void tracer(String action, PeriodeScolaireJpaEntity p, String description) {
         if (journal != null) {

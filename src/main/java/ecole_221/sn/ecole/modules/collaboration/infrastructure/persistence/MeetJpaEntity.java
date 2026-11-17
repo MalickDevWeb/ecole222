@@ -21,7 +21,7 @@ public class MeetJpaEntity {
     private String link;
     private String time;
     private Boolean active;
-    // APP-BE-14 : champs de la classe virtuelle envoyés par le frontend (auparavant perdus)
+    // APP-BE-14 : champs de la classe virtuelle envoyés par le frontend
     @jakarta.persistence.Column(name = "subject_name")
     private String subjectName;
     @jakarta.persistence.Column(name = "teacher_name")

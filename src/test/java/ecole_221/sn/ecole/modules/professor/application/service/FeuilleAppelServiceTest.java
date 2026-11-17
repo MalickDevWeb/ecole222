@@ -23,7 +23,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyIterable;
 
-/** Règles de la feuille d'appel par séance (lot A, 2026-11-10). */
+/** Règles de la feuille d'appel par séance (lot A). */
 class FeuilleAppelServiceTest {
 
     private static final LocalDate AUJOURDHUI = LocalDate.of(2026, 11, 10);

@@ -20,12 +20,11 @@ import java.util.Objects;
 import java.util.Set;
 
 /**
- * Emploi du temps de l'administration → séances des professeurs (2026-11-14).
+ * Emploi du temps de l'administration → séances des professeurs.
  *
- * <p>Avant : l'administration construisait l'emploi du temps (créneaux de Gestion École › Planning), mais l'emploi du
+ * <p>L'administration construit l'emploi du temps (créneaux de Gestion École › Planning), mais l'emploi du
  * temps du professeur, sa feuille d'appel, le cahier de textes, les absences de l'élève et le planning du parent
- * lisent les SÉANCES ({@code schedule_sessions}), qu'aucun écran ne créait (seuls les tests les créaient par l'API).
- * L'emploi du temps saisi n'arrivait donc chez personne.</p>
+ * lisent les SÉANCES ({@code schedule_sessions}).</p>
  *
  * <p>Ici, à chaque enregistrement de l'emploi du temps : un créneau rattaché à une classe = une séance
  * « cre-&lt;créneau&gt; », reliée au cours de la même classe et de même intitulé (appel possible) et au professeur

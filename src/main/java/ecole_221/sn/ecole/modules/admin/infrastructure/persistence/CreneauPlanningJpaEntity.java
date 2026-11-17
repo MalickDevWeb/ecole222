@@ -7,8 +7,7 @@ import jakarta.persistence.Table;
 
 /**
  * Créneau de l'emploi du temps saisi par l'administration d'une école (matière, enseignant, salle, classe).
- * Avant : liste en mémoire pré-remplie de créneaux inventés et partagée par toutes les écoles.
- * Désormais persisté et cloisonné par école (@TenantId). La table « slots » du module planning ne
+ * Persisté et cloisonné par école (@TenantId). La table « slots » du module planning ne
  * convient pas : elle n'a ni classe, ni enseignant, ni salle, et n'accepte que les types CM/TD/TP/EXAM/PROJECT.
  */
 @Entity

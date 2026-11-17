@@ -25,7 +25,7 @@ public class AIService implements AIUseCase {
     
     @Override
     public String generateTutorResponse(String message) {
-        // APP-SEC-26 (2026-11-14) : jamais le texte de la question (données d'élèves mineurs, loi n° 2008-12), seulement sa longueur
+        // APP-SEC-26 : jamais le texte de la question (données d'élèves mineurs, loi n° 2008-12), seulement sa longueur
         logger.info("Génération de réponse tuteur ({} caractères)", (message == null ? 0 : message.length()));
         
         // Ajouter le contexte du tuteur IA

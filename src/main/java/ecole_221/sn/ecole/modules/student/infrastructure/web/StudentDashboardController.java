@@ -64,7 +64,6 @@ public class StudentDashboardController {
 
     /**
      * Notifications du compte connecté (cloche de l'élève), plus récentes d'abord.
-     * Avant (2026-11-13) : liste toujours vide.
      */
     @GetMapping("/notifications")
     @Operation(summary = "Mes notifications",
@@ -76,7 +75,6 @@ public class StudentDashboardController {
 
     /**
      * Prévient les élèves d'une classe (cours modifié ou annulé). Réservé à l'administration et aux professeurs.
-     * Avant (2026-11-13) : ne faisait rien, renvoyait un identifiant inventé, et était ouvert à tout compte.
      */
     @PostMapping("/notifications")
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('ADMIN','ADMINISTRATOR','SUPER_ADMIN','PLATFORM_ADMIN','PROFESSEUR','PROFESSOR','TEACHER')")
@@ -117,8 +115,7 @@ public class StudentDashboardController {
                description = "Retourne les sessions de cours de la semaine pour l'étudiant.")
     public ResponseEntity<List<Map<String, Object>>> getStudentSchedule() {
         logger.debug("GET /schedule");
-        // 2026-11-14 : avant, cours d'un élève nommé « current » (liste toujours vide) et erreurs avalées.
-        // Désormais : séances des classes de l'élève CONNECTÉ, planifiées par l'administration.
+        // Séances des classes de l'élève CONNECTÉ, planifiées par l'administration.
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !(auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u)) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Connexion requise.");
@@ -147,7 +144,7 @@ public class StudentDashboardController {
         return ResponseEntity.ok(res);
     }
 
-    /** Emploi du temps réel de l'élève (2026-11-14) ; facultatif pour les tests sans contexte Spring. */
+    /** Emploi du temps réel de l'élève ; facultatif pour les tests sans contexte Spring. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.modules.student.application.service.EmploiDuTempsEleveService emploiDuTemps;
 }

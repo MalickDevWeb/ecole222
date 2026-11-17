@@ -10,7 +10,7 @@ import java.time.LocalDateTime;
 import java.util.UUID;
 
 /**
- * Écriture d'une entrée dans le journal d'audit inaltérable {@code audit_logs} (BR-05, ENF-07, 2026-11-14).
+ * Écriture d'une entrée dans le journal d'audit inaltérable {@code audit_logs} (BR-05, ENF-07).
  *
  * <p>Utilisé par {@code JournalAuditInterceptor} (toute écriture HTTP réussie) et par les écritures faites hors HTTP
  * (messages du cours en direct, reçus par WebSocket). Insertion directe en SQL : l'école est fixée explicitement, y

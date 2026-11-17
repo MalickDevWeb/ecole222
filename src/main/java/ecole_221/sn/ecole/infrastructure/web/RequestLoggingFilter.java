@@ -42,7 +42,7 @@ public class RequestLoggingFilter implements Filter {
         // Wrapper la requête pour permettre plusieurs lectures du corps
         HttpServletRequest wrappedRequest = httpRequest;
         if (shouldLogBody(httpRequest)) {
-            // Corps démesuré refusé sans être lu en entier (avant : chargé en mémoire quelle que soit sa taille)
+            // Corps démesuré refusé sans être lu en entier
             if (httpRequest.getContentLengthLong() > CachedBodyHttpServletRequest.LIMITE_OCTETS) {
                 refuserTropVolumineux(httpResponse);
                 return;

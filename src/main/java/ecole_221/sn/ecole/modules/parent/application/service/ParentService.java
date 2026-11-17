@@ -62,11 +62,8 @@ public class ParentService implements ParentUseCase {
     @Override
     public List<ChildDto> getEnfantsByParentId(String parentId) {
         logger.info("Récupération des enfants du parent: {}", parentId);
-        // APP-BE-19 (sécurité) : uniquement les liens parent ↔ enfant enregistrés.
-        // Avant : tout parent sans enfant recevait l'élève « usr-001 » par défaut, et comme ce
-        // résultat sert au contrôle de filiation du contrôleur, n'importe quel parent pouvait
-        // consulter les notes, présences et statistiques de cet élève. Les enfants réels
-        // étaient en outre tous renvoyés sous le nom fictif « Aminata Diallo ».
+        // APP-BE-19 (sécurité) : uniquement les liens parent ↔ enfant enregistrés, car ce
+        // résultat sert au contrôle de filiation du contrôleur.
         List<ChildDto> enfants = new ArrayList<>();
         for (ParentEnfant pe : parentRepositoryPort.findParentEnfantsByParentId(parentId)) {
             var compte = userRepositoryPort == null ? Optional.<ecole_221.sn.ecole.modules.auth.domain.model.User>empty()
@@ -86,7 +83,6 @@ public class ParentService implements ParentUseCase {
     public ChildStatsDto getChildStats(String enfantId) {
         logger.info("Récupération des stats pour l'enfant: {}", enfantId);
         // APP-BE-19 : calculées UNIQUEMENT à partir des présences et notes réellement saisies.
-        // Avant : 87 % de présence, 14,5 de moyenne, examens et cours « Dr. Sall » inventés.
         // Sans donnée : null (rien d'inventé). Crédits, devoirs, examens, cours du jour : pas de source → null / vide.
         // Même règle que la feuille d'appel : taux = (présences + retards) / séances notées (excusées comprises)
         var presences = parentRepositoryPort.findPresencesByEnfantId(enfantId).stream()
@@ -113,7 +109,7 @@ public class ParentService implements ParentUseCase {
         logger.info("Récupération des présences pour l'enfant: {}, mois: {}", enfantId, mois);
         // APP-BE-19 : présences réellement saisies par les professeurs (table attendances), filtrées par mois si fourni
         // Statuts normalisés comme la feuille d'appel (LATE → RETARD, EXCUSED → EXCUSE) ; les auto-pointages
-        // et statuts inconnus sont écartés (avant : « LATE » brut faisait planter la page Présences du parent).
+        // et statuts inconnus sont écartés.
         return parentRepositoryPort.findPresencesByEnfantId(enfantId).stream()
                 .filter(p -> mois == null || mois.isBlank() || (p.date() != null && p.date().startsWith(mois)))
                 .filter(p -> p.coursNom() != null && FeuilleAppelService.statutAffiche(p.statut()) != null)
@@ -151,7 +147,7 @@ public class ParentService implements ParentUseCase {
                 .orElse(null);
     }
 
-    /** Emploi du temps réel de l'élève (2026-11-14) ; injecté à part pour ne pas changer les constructeurs des tests. */
+    /** Emploi du temps réel de l'élève ; injecté à part pour ne pas changer les constructeurs des tests. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.modules.student.application.service.EmploiDuTempsEleveService emploiDuTemps;
 
@@ -162,8 +158,8 @@ public class ParentService implements ParentUseCase {
     @Override
     public List<ScheduleDto> getChildSchedule(String enfantId) {
         logger.info("Récupération du planning pour l'enfant: {}", enfantId);
-        // APP-BE-19 : jamais d'emploi du temps inventé (« Dr. Sall », « Prof. Ndiaye »…). 2026-11-14 : avant, toujours
-        // vide ; désormais les séances des classes de l'enfant, planifiées par l'administration (élève → classe → séances).
+        // APP-BE-19 : jamais d'emploi du temps inventé (« Dr. Sall », « Prof. Ndiaye »…). Les séances des classes
+        // de l'enfant, planifiées par l'administration (élève → classe → séances).
         if (emploiDuTemps == null) {
             return List.of();
         }
@@ -185,7 +181,7 @@ public class ParentService implements ParentUseCase {
         if (candidaturesPort == null) {
             return List.of();
         }
-        // Vrais dossiers déposés par CE parent dans l'école courante (avant : liste vide ou dossier inventé)
+        // Vrais dossiers déposés par CE parent dans l'école courante
         return candidaturesPort.listerParParent(parentId).stream().map(ParentService::versDto).toList();
     }
 
@@ -207,7 +203,6 @@ public class ParentService implements ParentUseCase {
         candidaturesPort.exigerOuverture();   // l'école doit accepter des candidatures aujourd'hui (403 sinon)
         String filiere = obligatoire(payload.filiere(), "La filière demandée est obligatoire.");
         String niveau = obligatoire(payload.niveau(), "Le niveau demandé est obligatoire.");
-        // Pièces : avant, seul le NOM du fichier restait dans le navigateur, rien n'était envoyé ni rattaché au dossier.
         String photo = piece(payload.photoIdentiteUrl(), "la photo d'identité");
         String releves = piece(payload.relevesNotesUrl(), "les relevés de notes");
         String diplome = piece(payload.diplomeUrl(), "le diplôme ou l'attestation");
@@ -230,7 +225,7 @@ public class ParentService implements ParentUseCase {
         complement.put("relevesNotesUrl", releves);
         complement.put("diplomeUrl", diplome);
         complement.put("deposePar", "parent");
-        // Règles d'admission de l'école (16/11) : 400 si une règle bloque ou si une pièce exigée manque
+        // Règles d'admission de l'école : 400 si une règle bloque ou si une pièce exigée manque
         complement.putAll(candidaturesPort.appliquerRegles(complement, payload.piecesSupplementaires()));
         String dossierId = candidaturesPort.deposer(parentId, prenom, nom, email, vide(payload.telephone()),
                 filiere + " — " + niveau, complement);
@@ -283,7 +278,7 @@ public class ParentService implements ParentUseCase {
     }
 
     /**
-     * 2026-11-14 : situation financière RÉELLE des enfants (dossier saisi par la comptabilité de l'école et versements
+     * Situation financière RÉELLE des enfants (dossier saisi par la comptabilité de l'école et versements
      * enregistrés). Injectée à part pour ne pas changer les constructeurs utilisés par les tests.
      */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -297,8 +292,7 @@ public class ParentService implements ParentUseCase {
     @Transactional(readOnly = true)
     public PaymentDto getParentPayments(String parentId) {
         logger.info("Récupération des paiements pour le parent: {}", parentId);
-        // APP-BE-18 : jamais de transaction fictive. 2026-11-14 : avant, toujours « non_disponible » alors que le module
-        // Finances enregistre dossiers et versements ; désormais, pour chaque enfant ayant un dossier financier dans
+        // APP-BE-18 : jamais de transaction fictive. Pour chaque enfant ayant un dossier financier dans
         // l'école : un versement = une ligne PAYE ; le payé non détaillé = une ligne PAYE ; le reste dû = une ligne
         // EN_COURS (échéance non fixée : aucune date inventée). Sans dossier : « non_disponible ».
         if (situationsFinancieres == null) {
@@ -359,7 +353,7 @@ public class ParentService implements ParentUseCase {
     @Transactional
     public ParentProfileDto updateParentProfile(String parentId, ParentProfileDto profileDto) {
         logger.info("Mise à jour du profil du parent: {}", parentId);
-        // Avant : renvoyait le profil reçu sans rien enregistrer (faux succès, APP-TL-13).
+        // APP-TL-13 : profil réellement enregistré (pas de faux succès).
         if (profileDto == null) {
             throw new IllegalArgumentException("Aucune information de profil reçue.");
         }
@@ -406,7 +400,6 @@ public class ParentService implements ParentUseCase {
                    parentId, request.professeurId(), request.dateSouhaitee());
         
         // APP-QA-04 : professeur, date et motif obligatoires ; professeur réel ; date valide et non passée
-        // (avant : rendez-vous enregistré sans professeur, sans date ni motif)
         if (request == null) {
             throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Aucune donnée reçue.");
         }
@@ -425,7 +418,7 @@ public class ParentService implements ParentUseCase {
         String motif = ecole_221.sn.ecole.partage.ChampsRequete.texte(champs, "motif", "Le motif", 1_000);
         request = new AppointmentRequestDto(professeurId, date, motif);
 
-        // APP-BE-19 : nom réel du professeur choisi (avant : « Dr. Sall » pour tout identifiant)
+        // APP-BE-19 : nom réel du professeur choisi
         String profNom = nomProfesseur(request.professeurId());
         if (profNom == null && userRepositoryPort != null) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Professeur introuvable.");
@@ -440,8 +433,7 @@ public class ParentService implements ParentUseCase {
         );
         
         Appointment saved = appointmentRepositoryPort.save(appointment);
-        // 2026-11-14 : la demande arrive RÉELLEMENT chez le professeur (avant : enregistrée sans que personne ne la voie,
-        // affichée « confirmée » au parent avec un lien Meet inventé). Il répond dans « Messages des parents ».
+        // La demande arrive RÉELLEMENT chez le professeur. Il répond dans « Messages des parents ».
         if (messagerie != null) {
             String jour = java.time.LocalDate.parse(request.dateSouhaitee().substring(0, 10))
                     .format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
@@ -452,7 +444,7 @@ public class ParentService implements ParentUseCase {
         return saved.getId();
     }
 
-    /** Messagerie parents ↔ école (2026-11-14) ; facultative pour les tests construits sans Spring. */
+    /** Messagerie parents ↔ école ; facultative pour les tests construits sans Spring. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private MessagerieParentsService messagerie;
 
@@ -463,8 +455,6 @@ public class ParentService implements ParentUseCase {
     @Override
     public List<Map<String, Object>> getParentAppointments(String parentId) {
         // APP-SEC-14 : uniquement les rendez-vous du parent connecté.
-        // Avant : liste vide → findAll() (rendez-vous de TOUTES les familles), puis création
-        // en base d'un faux rendez-vous « Dr. Sall » si la table était vide.
         List<Appointment> list = appointmentRepositoryPort.findByParentId(parentId);
 
         return list.stream().map(a -> {

@@ -20,11 +20,7 @@ import java.util.Optional;
 import java.util.UUID;
 
 /**
- * Parents d'un élève, gérés par l'administration de l'école (APP-BE-27, 2026-11-14).
- *
- * <p>Avant : aucun écran ni aucune route ne créait de compte parent ni de lien parent ↔ enfant ; seules les données de
- * test en contenaient. En usage réel, l'espace parent (notes, présences, paiements, emploi du temps, bulletin) restait
- * donc vide.</p>
+ * Parents d'un élève, gérés par l'administration de l'école (APP-BE-27).
  *
  * <p>Ici, depuis la fiche de l'élève : lier un parent par son adresse e-mail. Compte inexistant : il est créé avec un
  * mot de passe provisoire (à changer à la première connexion), affiché une seule fois à l'administration. Compte

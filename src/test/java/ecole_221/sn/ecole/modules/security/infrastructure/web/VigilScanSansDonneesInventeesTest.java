@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * /vigil/scan : un badge n'est plus accepté sur son seul préfixe (SN-, badge-), aucune assiduité « 95% » ni
- * statut « À Jour » inventés, et le dernier scan est propre à chaque école (révision du 2026-11-09).
+ * statut « À Jour » inventés, et le dernier scan est propre à chaque école.
  */
 class VigilScanSansDonneesInventeesTest {
 
@@ -97,7 +97,7 @@ class VigilScanSansDonneesInventeesTest {
 
     @Test
     void badgeDynamiqueTransmisTelQuelAuControleCommun() throws Exception {
-        // 2026-11-13 : le jeton est vérifié par processBadgeScan (commun à toutes les routes de scan)
+        // Le jeton est vérifié par processBadgeScan (commun à toutes les routes de scan)
         TenantContext.setCurrentOrganization(ecoleA);
         Mockito.when(securite.processBadgeScan("STU_SECURE:ETU-1:123:faux")).thenReturn(
                 resultat(false, "Inconnu", "Accès refusé : QR expiré ou invalide. Faites actualiser le badge dans l'application."));

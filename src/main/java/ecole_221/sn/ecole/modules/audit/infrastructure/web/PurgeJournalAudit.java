@@ -8,7 +8,7 @@ import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
 /**
- * Purge de conservation du journal d'audit (2026-11-14) : toutes les minutes par défaut
+ * Purge de conservation du journal d'audit : toutes les minutes par défaut
  * ({@code ecole.audit.purge.intervalle}), désactivable ({@code ecole.audit.purge.active=false}).
  * Une panne est signalée dans les traces sans arrêter les purges suivantes.
  */

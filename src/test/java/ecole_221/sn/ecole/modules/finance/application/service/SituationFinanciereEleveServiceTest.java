@@ -12,7 +12,7 @@ import java.util.List;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
-/** Situation financière réelle d'un élève (2026-11-14) : dossier de la comptabilité + versements enregistrés. */
+/** Situation financière réelle d'un élève : dossier de la comptabilité + versements enregistrés. */
 class SituationFinanciereEleveServiceTest {
 
     private final StudentFinanceJpaRepository dossiers = mock(StudentFinanceJpaRepository.class);

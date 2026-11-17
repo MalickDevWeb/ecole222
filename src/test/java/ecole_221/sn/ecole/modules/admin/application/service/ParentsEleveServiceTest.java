@@ -22,7 +22,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.*;
 
-/** APP-BE-27 (2026-11-14) : l'administration crée ou rattache le compte d'un parent et le lie à l'élève. */
+/** APP-BE-27 : l'administration crée ou rattache le compte d'un parent et le lie à l'élève. */
 class ParentsEleveServiceTest {
 
     private final ComptesEcoleService comptes = mock(ComptesEcoleService.class);

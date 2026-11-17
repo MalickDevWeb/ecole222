@@ -6,7 +6,7 @@ import org.springframework.web.server.ResponseStatusException;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Erreurs dues à la requête : refus 4xx explicite au lieu d'une erreur 500 (balayage de robustesse du 2026-11-13). */
+/** Erreurs dues à la requête : refus 4xx explicite au lieu d'une erreur 500. */
 class RefusExpliqueTest {
 
     static class SalleNotFoundException extends RuntimeException {

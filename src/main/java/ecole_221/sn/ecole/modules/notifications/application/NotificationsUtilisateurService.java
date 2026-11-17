@@ -19,11 +19,10 @@ import java.util.Objects;
 import java.util.UUID;
 
 /**
- * Notifications affichées dans la cloche de l'élève (route courte {@code /notifications}) — 2026-11-13.
+ * Notifications affichées dans la cloche de l'élève (route courte {@code /notifications}).
  *
- * <p>Avant : l'envoi ne faisait rien et renvoyait un identifiant inventé, la lecture renvoyait toujours une liste vide,
- * et n'importe quel compte (élève, parent) pouvait « envoyer ». Désormais l'administration ou un professeur notifie
- * les élèves inscrits dans une classe (modification ou annulation d'un cours), et chacun relit seulement les siennes.</p>
+ * <p>L'administration ou un professeur notifie les élèves inscrits dans une classe (modification ou annulation d'un
+ * cours), et chacun relit seulement les siennes.</p>
  */
 @Service
 public class NotificationsUtilisateurService {
@@ -76,7 +75,6 @@ public class NotificationsUtilisateurService {
 
     /**
      * Demande de révision d'une note : transmise à l'administration de l'école (centre de notifications).
-     * Avant (2026-11-13) : « PENDING_REVIEW » répondu sans rien enregistrer ; personne n'était prévenu.
      */
     @Transactional
     public void demanderRevisionNote(String eleveId, String eleveNom, String noteId, String module, String raison) {

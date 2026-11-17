@@ -9,8 +9,6 @@ import java.time.LocalDateTime;
 
 /**
  * Affectation d'un élève à une classe de SON école (une classe par élève et par école).
- * Avant : l'identifiant de classe envoyé à la création de l'élève était ignoré ; la page d'une classe
- * n'affichait donc jamais ses élèves après rechargement.
  */
 @Entity
 @Table(name = "inscriptions_classes")

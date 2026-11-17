@@ -32,11 +32,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Membres, chef et classe des groupes de travail (Collaboration) — V10, 2026-11-13.
- *
- * <p>Avant : seul un compteur existait. Les membres, le chef et la classe choisis par l'enseignant étaient ignorés par
- * le serveur (« Chef : » vide, « 0 membres ») ; le chef n'étant jamais reconnu, aucun élève ne pouvait rendre le devoir
- * de son groupe ; « changer de chef » recréait le groupe en double.</p>
+ * Membres, chef et classe des groupes de travail (Collaboration) — V10.
  *
  * <p>Règles : un enseignant ou l'administration compose le groupe avec des élèves actifs de l'école (inscrits dans la
  * classe choisie, s'il y en a une) ; un élève qui crée un groupe en devient le seul membre et le chef ; le chef est
@@ -74,8 +70,8 @@ public class MembresGroupeService {
     private ecole_221.sn.ecole.partage.VerrouCreation verrouCreation;
 
     /**
-     * Création complète d'un groupe dans UNE transaction, sous verrou du nom (2026-11-13) : avant, 10 envois
-     * simultanés du même nom créaient 7 groupes, la vérification « nom déjà pris » passant pour tous.
+     * Création complète d'un groupe dans UNE transaction, sous verrou du nom : sans verrou, des envois simultanés du
+     * même nom passeraient tous la vérification « nom déjà pris ».
      */
     @Transactional
     public <T> T creerSousVerrou(String nom, java.util.function.Supplier<T> creation) {

@@ -55,7 +55,7 @@ public class ProfessorService implements ProfessorUseCase {
 
     @Override
     public void saveGrade(String studentId, String courseId, Double cc, Double exam) {
-        // BR-04 (2026-11-14) : l'ancien couple CC / Examen n'est pas daté ; il suit la période du jour.
+        // BR-04 : l'ancien couple CC / Examen n'est pas daté ; il suit la période du jour.
         if (periodes != null) periodes.exigerOuverte(java.time.LocalDate.now(), "les notes ne peuvent plus être saisies ni modifiées");
         repositoryPort.saveGrade(studentId, courseId, cc, exam);
     }
@@ -127,7 +127,7 @@ public class ProfessorService implements ProfessorUseCase {
     public List<Map<String, Object>> getSchedule(String professorId) {
         List<ScheduleSessionJpaEntity> sessions = scheduleRepository.findByProfessorId(professorId);
         return sessions.stream()
-            // 2026-11-14 : séance dont le créneau a été retiré de l'emploi du temps → n'apparaît plus
+            // Séance dont le créneau a été retiré de l'emploi du temps → n'apparaît plus
             .filter(s -> !"retire".equals(s.getStatus()))
             .map(this::scheduleToMap)
             .toList();

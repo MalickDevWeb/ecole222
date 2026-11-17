@@ -15,7 +15,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 
-/** Déconnexion réelle et invalidation au changement de mot de passe (2026-11-13). */
+/** Déconnexion réelle et invalidation au changement de mot de passe. */
 class RevocationJetonsTest {
 
     private final Map<String, JetonRevoqueJpaEntity> revoques = new HashMap<>();

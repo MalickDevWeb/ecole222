@@ -11,11 +11,10 @@ import java.util.Collection;
 import java.util.Map;
 
 /**
- * Lecture contrôlée des champs d'un corps JSON libre ({@code Map<String, Object>}) — APP-QA-04, 2026-11-13.
+ * Lecture contrôlée des champs d'un corps JSON libre ({@code Map<String, Object>}) — APP-QA-04.
  *
- * <p>Avant : chaque contrôleur faisait {@code (String) body.get("x")} : un nombre à la place d'un texte faisait planter
- * la requête (500), et un champ absent, vide, négatif ou absurde était enregistré tel quel. Chaque méthode refuse ici
- * la valeur par une erreur 400 dont le message nomme le champ en français (« Le titre est obligatoire. »).</p>
+ * <p>Chaque méthode refuse une valeur invalide par une erreur 400 dont le message nomme le champ en français
+ * (« Le titre est obligatoire. »).</p>
  */
 public final class ChampsRequete {
 
@@ -39,7 +38,7 @@ public final class ChampsRequete {
         if (!(v instanceof String s)) {
             throw refus(libelle + " doit être un texte.");
         }
-        String t = TexteNormalise.normaliser(s);   // invisibles retirés, NFC (2026-11-13)
+        String t = TexteNormalise.normaliser(s);   // invisibles retirés, NFC
         if (t.isEmpty()) {
             return null;
         }

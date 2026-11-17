@@ -11,7 +11,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Parents d'un élève (APP-BE-27, 2026-11-14) : l'administration crée ou rattache le compte du parent et le lie à
+ * Parents d'un élève (APP-BE-27) : l'administration crée ou rattache le compte du parent et le lie à
  * l'élève. Droits : module « Élèves » de la matrice de l'école (lecture pour la liste, écriture pour lier / délier).
  */
 @RestController

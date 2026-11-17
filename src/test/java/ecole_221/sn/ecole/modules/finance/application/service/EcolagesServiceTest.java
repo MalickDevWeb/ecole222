@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-/** Écolages (2026-11-14) : ouverture de dossier et encaissement contrôlés ; payé, reste et statut recalculés. */
+/** Écolages : ouverture de dossier et encaissement contrôlés ; payé, reste et statut recalculés. */
 class EcolagesServiceTest {
 
     private final ComptesEcoleService comptes = mock(ComptesEcoleService.class);

@@ -19,11 +19,9 @@ import java.util.*;
 /**
  * Contenus pédagogiques d'un cours : modules, supports de cours (« leçons ») et quiz QCM.
  *
- * <p>Test du parcours professeur du 2026-11-10 : l'écran envoyait {title, description} pour un module,
- * {title, description, pièce jointe, module} pour un support et {title, description, questions} pour un quiz,
- * alors que le serveur exigeait {name}, {title, duration, date} et {title, duration} → chaque création était
- * REFUSÉE (400) ; et la salle de classe plantait car les listes revenaient en page au lieu d'un tableau.
- * Ce service enregistre réellement ce que l'écran saisit, avec des validations lisibles.</p>
+ * <p>L'écran envoie {title, description} pour un module, {title, description, pièce jointe, module} pour un support
+ * et {title, description, questions} pour un quiz ; les listes sont renvoyées en tableau, comme l'attend la salle de
+ * classe. Ce service enregistre réellement ce que l'écran saisit, avec des validations lisibles.</p>
  *
  * <p>Le contrôle « cours du professeur / école » est fait en amont par AccesCoursInterceptor.</p>
  */
@@ -137,7 +135,7 @@ public class ContenuPedagogiqueService {
         }
         QuizJpaEntity q = new QuizJpaEntity();
         q.setId("quiz-" + UUID.randomUUID());
-        q.setCourseId(module.getCourseId());   // avant : l'identifiant du MODULE était rangé ici
+        q.setCourseId(module.getCourseId());
         q.setModuleId(moduleId);
         q.setTitle(titre);
         q.setDescription(facultatif(premier(corps, "description"), 2000));

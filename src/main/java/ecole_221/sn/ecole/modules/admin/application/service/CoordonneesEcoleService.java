@@ -16,11 +16,9 @@ import java.util.Set;
 import java.util.regex.Pattern;
 
 /**
- * Coordonnées officielles de l'école courante (Personnalisation → Identité & coordonnées) — 2026-11-13.
+ * Coordonnées officielles de l'école courante (Personnalisation → Identité & coordonnées).
  *
- * <p>Avant : l'écran de l'administrateur lisait et enregistrait via {@code /v1/super-admin/tenants/{id}}, route réservée
- * au super-administrateur : « Coordonnées indisponibles » pour l'école, rien n'était modifiable. L'école ne touche ici
- * qu'à sa propre fiche (l'identifiant vient de la session, jamais du client).</p>
+ * <p>L'école ne touche ici qu'à sa propre fiche (l'identifiant vient de la session, jamais du client).</p>
  *
  * <p>Seuls les champs envoyés changent ; « » efface un champ facultatif ; le nom ne peut pas être effacé.</p>
  */

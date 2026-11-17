@@ -28,8 +28,7 @@ public class CandidaturesController {
 
     private final CandidateJpaRepository candidateJpaRepository;
     /**
-     * Paramètres persistés par école (table parametres_candidatures). Avant : map statique commune à toutes
-     * les écoles, pré-remplie d'une campagne « ouverte du 2026-06-01 au 2026-08-31 » inventée.
+     * Paramètres persistés par école (table parametres_candidatures).
      */
     private final ParametresCandidaturesService parametres;
     /** Vérification du dépôt et suivi en ligne par le candidat (APP-BE-12). */
@@ -43,7 +42,7 @@ public class CandidaturesController {
         this.suivi = suivi;
     }
 
-    /** Règles d'admission de l'école (16/11) ; absentes dans les anciens tests unitaires (aucune règle appliquée). */
+    /** Règles d'admission de l'école ; absentes dans les anciens tests unitaires (aucune règle appliquée). */
     private ecole_221.sn.ecole.modules.admissions.application.service.ReglesAdmissionService regles;
 
     @Autowired(required = false)
@@ -51,7 +50,7 @@ public class CandidaturesController {
         this.regles = regles;
     }
 
-    /** Espace du candidat (17/11) : jeton de suivi, pièces, échanges avec l'école. */
+    /** Espace du candidat : jeton de suivi, pièces, échanges avec l'école. */
     private ecole_221.sn.ecole.modules.admissions.application.service.EspaceCandidatService espace;
 
     @Autowired(required = false)
@@ -84,8 +83,8 @@ public class CandidaturesController {
     @PostMapping("/submit")
     @Operation(summary = "Soumettre une candidature", description = "Soumet une nouvelle candidature d'admission avec persistance PostgreSQL.")
     public ResponseEntity<Map<String, Object>> submitCandidature(@RequestBody Map<String, Object> body) {
-        // L'identifiant est TOUJOURS attribué par le serveur. Avant : un « id » fourni par le client était
-        // repris tel quel, et ce dépôt public (sans compte) écrasait le dossier existant portant cet identifiant.
+        // L'identifiant est TOUJOURS attribué par le serveur : ce dépôt public (sans compte) ne doit jamais
+        // écraser un dossier existant avec un « id » fourni par le client.
         String candidatureId = "CAND-" + java.time.Year.now() + "-" + UUID.randomUUID().toString().substring(0, 8);
         // L'école doit accepter des candidatures aujourd'hui (403 sinon) — APP-BE-15
         if (parametres != null) {
@@ -99,7 +98,7 @@ public class CandidaturesController {
         if (depot == null) {
             ecole_221.sn.ecole.modules.admissions.application.service.SuiviCandidatureService.lirePieces(body.get("pieces"), false);
         }
-        // Règles de l'école (16/11) : blocage, ou pièce exigée absente / au mauvais format → 400 AVANT toute écriture.
+        // Règles de l'école : blocage, ou pièce exigée absente / au mauvais format → 400 AVANT toute écriture.
         // Ajoute au dossier : session (campagneId), pièces exigées par les règles, avertissements pour l'administration.
         Map<String, String> ajoutsRegles = regles == null ? Map.of()
                 : regles.appliquerAuDepot(ecole_221.sn.ecole.modules.admissions.application.service.ReglesAdmissionService.Dossier.depuis(body, false),
@@ -112,7 +111,7 @@ public class CandidaturesController {
                 String telephone = String.valueOf(body.getOrDefault("telephone", ""));
                 String filiere = String.valueOf(body.getOrDefault("filiere", ""));
                 // APP-TL-23 : les frais de dossier sont confirmés par l'école (guichet, Wave, Orange Money), jamais par
-                // la déclaration du candidat. Avant : « fraisPayes: true » envoyé par le portail public était enregistré.
+                // la déclaration du candidat.
                 boolean fraisPayes = false;
                 // APP-BE-04 : aucun moyen de paiement par défaut (plus de « WAVE ») ; absent ou vide → null
                 String modePaiement = textOrNull(body.get("modePaiement"));
@@ -126,8 +125,7 @@ public class CandidaturesController {
                 }
                 entity.setRegistrationFeePaid(fraisPayes);
                 entity.setRegistrationFeeReference(refPaiement);
-                // Pièces : reçues seulement avec le lien du fichier réellement envoyé (avant : simple « oui / non »
-                // déclaré par le portail, sans aucun fichier joint au dossier).
+                // Pièces : reçues seulement avec le lien du fichier réellement envoyé.
                 Map<String, String> pieces = depot != null ? depot.pieces()
                         : ecole_221.sn.ecole.modules.admissions.application.service.SuiviCandidatureService.lirePieces(body.get("pieces"), false);
                 entity.setIdCardUploaded(pieces.containsKey("pieceIdentiteUrl"));
@@ -143,7 +141,6 @@ public class CandidaturesController {
                 candidateJpaRepository.save(entity);
                 logger.info("Candidature {} persistée avec succès en PostgreSQL", candidatureId);
             } catch (Exception e) {
-                // Avant : l'erreur était avalée et le candidat recevait « Candidature soumise avec succès ».
                 logger.error("Erreur lors de la sauvegarde PostgreSQL de la candidature {}", candidatureId, e);
                 throw new ResponseStatusException(HttpStatus.INTERNAL_SERVER_ERROR,
                         "La candidature n'a pas pu être enregistrée. Veuillez réessayer.");
@@ -170,7 +167,7 @@ public class CandidaturesController {
         Map<String, Object> c = corps == null ? Map.of() : corps;
         Object mdp = c.get("motDePasse");
         List<Map<String, Object>> dossiers = suivi.suivre(textOrNull(c.get("email")), mdp == null ? null : String.valueOf(mdp));
-        // 17/11 : jeton de suivi (2 h), pièces et messages non lus — espace du candidat
+        // Jeton de suivi (2 h), pièces et messages non lus — espace du candidat
         return ResponseEntity.ok(espace == null ? dossiers : dossiers.stream().map(d -> espace.enrichir(new LinkedHashMap<>(d))).toList());
     }
 
@@ -215,7 +212,7 @@ public class CandidaturesController {
     private static final int LONGUEUR_MAX = 200;
 
     /**
-     * Informations saisies dans le portail (identité, garant, cursus) — avant : collectées puis jamais envoyées.
+     * Informations saisies dans le portail (identité, garant, cursus).
      * Valeurs vides ignorées ; 400 si une valeur est trop longue, un sexe inconnu ou un email de garant invalide.
      */
     static Map<String, String> lireInformations(Map<String, Object> body) {

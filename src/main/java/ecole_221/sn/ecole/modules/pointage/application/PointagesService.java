@@ -31,7 +31,7 @@ import java.util.UUID;
 import static ecole_221.sn.ecole.partage.ChampsRequete.refus;
 
 /**
- * Pointage d'arrivée et de départ par le QR d'entrée du vigile (16/11, décision du Tech Lead : option « a »).
+ * Pointage d'arrivée et de départ par le QR d'entrée du vigile.
  *
  * <ul>
  *   <li>Le terminal du vigile affiche le QR d'entrée de SON école, signé par le serveur et valable une minute

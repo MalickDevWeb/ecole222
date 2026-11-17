@@ -35,7 +35,7 @@ public final class StudentMapper {
             return null;
         }
         
-        // Valeur absente → null (avant : String.valueOf(null) affichait « null » à l'élève)
+        // Valeur absente → null
         return new StudentProfileDto(
             texte(profileMap, "id"),
             texte(profileMap, "nom"),

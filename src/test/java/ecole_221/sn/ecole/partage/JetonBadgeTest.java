@@ -9,7 +9,7 @@ import java.util.Base64;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
-/** Badge QR dynamique signé par le serveur (Ed25519, 2026-11-14). */
+/** Badge QR dynamique signé par le serveur (Ed25519). */
 class JetonBadgeTest {
 
     private final JetonBadge jetons = new JetonBadge("", "secret-jwt-de-test-assez-long-0123456789");
@@ -70,7 +70,7 @@ class JetonBadgeTest {
         assertThat(jetons.lire("STU_SECURE:ETU-001:abc:XYZ").orElseThrow().valide()).isFalse();
     }
 
-    // ==================== QR d'entrée du vigile (pointage, 16/11) ====================
+    // ==================== QR d'entrée du vigile (pointage) ====================
 
     @Test
     void qrEntreeDuServeurValideDansLaMinutePourSonEcole() {

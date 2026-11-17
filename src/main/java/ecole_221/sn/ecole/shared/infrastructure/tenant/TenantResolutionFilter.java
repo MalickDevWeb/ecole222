@@ -165,8 +165,8 @@ public class TenantResolutionFilter implements Filter {
         }
 
         // Fallback développement local : UNIQUEMENT quand aucune école n'a été demandée explicitement
-        // (l'identifiant est l'hôte lui-même). Avant : derrière le proxy Vite (hôte 127.0.0.1), toute école
-        // inconnue demandée par X-Tenant-Slug (ex. « 192 ») était servie comme ecole-221.
+        // (l'identifiant est l'hôte lui-même). Sinon, derrière le proxy Vite (hôte 127.0.0.1), toute école
+        // inconnue demandée par X-Tenant-Slug (ex. « 192 ») serait servie comme ecole-221.
         boolean identifiantEstLHote = identifier.equalsIgnoreCase(host);
         if (identifiantEstLHote && ("localhost".equalsIgnoreCase(host) || "127.0.0.1".equalsIgnoreCase(host))) {
             logger.info("Local development detected for tenant '{}': defaulting to ecole-221", identifier);

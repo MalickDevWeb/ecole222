@@ -30,7 +30,7 @@ public class CandidaturesParentAdapter implements CandidaturesParentPort {
         if (parametres != null) parametres.exigerOuverture();   // même règle que le portail candidat public
     }
 
-    /** Règles d'admission de l'école (16/11), les mêmes que pour le portail public. */
+    /** Règles d'admission de l'école, les mêmes que pour le portail public. */
     private ecole_221.sn.ecole.modules.admissions.application.service.ReglesAdmissionService regles;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)

@@ -9,9 +9,7 @@ import java.time.LocalDateTime;
 
 /**
  * Élément du portail candidat d'une école : campagne d'admission, message ou entrée du journal d'audit.
- * Avant : trois listes statiques en mémoire, communes à toutes les écoles, perdues au redémarrage
- * (et deux campagnes « Licence Informatique » / « Master Cloud » inventées avec images Unsplash).
- * Désormais persisté et cloisonné par école (@TenantId) ; le contenu est conservé tel que saisi (JSON).
+ * Persisté et cloisonné par école (@TenantId) ; le contenu est conservé tel que saisi (JSON).
  */
 @Entity
 @Table(name = "admissions_portail_elements")
@@ -20,7 +18,7 @@ public class ElementPortailAdmissionJpaEntity {
     public static final String CAMPAGNE = "CAMPAGNE";
     public static final String MESSAGE = "MESSAGE";
     public static final String AUDIT = "AUDIT";
-    /** Règle d'admission de l'école (16/11, ReglesAdmissionService) : jamais touchée par POST /admissions/db. */
+    /** Règle d'admission de l'école (ReglesAdmissionService) : jamais touchée par POST /admissions/db. */
     public static final String REGLE = "REGLE";
 
     @org.hibernate.annotations.TenantId

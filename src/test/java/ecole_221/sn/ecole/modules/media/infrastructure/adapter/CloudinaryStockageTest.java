@@ -22,7 +22,7 @@ class CloudinaryStockageTest {
         assertNotNull(fichier);
     }
 
-    /** 16/11 : en simulation, le VRAI fichier est conservé et servi (avant : image de démonstration de Cloudinary). */
+    /** En simulation, le VRAI fichier est conservé et servi. */
     @Test
     void simulationConserveLeVraiFichier(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dossier) throws Exception {
         var local = new ecole_221.sn.ecole.modules.media.infrastructure.adapter.out.local.StockageLocalFichiers(dossier.toString());
@@ -41,8 +41,8 @@ class CloudinaryStockageTest {
     }
 
     /**
-     * 17/11 : en simulation, lien COMPLET sur l'adresse du site (app.url-frontend). Avant, le lien relatif était refusé
-     * par les contrôles « http(s) » des dépôts : sur un backend de test, aucune candidature ne pouvait être déposée.
+     * En simulation, lien COMPLET sur l'adresse du site (app.url-frontend). Un lien relatif serait refusé
+     * par les contrôles « http(s) » des dépôts.
      */
     @Test
     void simulationLienCompletAccepteAuDepot(@org.junit.jupiter.api.io.TempDir java.nio.file.Path dossier) throws Exception {

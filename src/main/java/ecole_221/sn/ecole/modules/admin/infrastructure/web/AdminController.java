@@ -38,7 +38,7 @@ import java.util.UUID;
 /**
  * Administration d'UNE école (celle de la requête).
  *
- * <p>Révision 2026-11-09 (« plus aucune donnée fictive ») : toutes les listes et statistiques sont
+ * <p>Aucune donnée fictive : toutes les listes et statistiques sont
  * cloisonnées à l'école courante (appartenances organization_users ou entités @TenantId) ; plus aucune
  * moyenne, présence, filière, classe, statut de frais ou téléphone inventé ; les comptes créés ont un
  * mot de passe (sinon connexion impossible) ; les écritures persistent réellement ou échouent avec un
@@ -88,7 +88,7 @@ public class AdminController {
     @Operation(summary = "Assigner un portail", description = "Assigne un gardien/vigil a un portail d'acces. Accepte: gate + guard (ou vigilId).")
     public ResponseEntity<Map<String, Object>> assignGate(@RequestBody Map<String, String> body) {
         logger.info("POST /admin/gates/assign - Assignation portail");
-        // APP-QA-04 : portail et vigile obligatoires (avant : « assigné » avec des valeurs nulles)
+        // APP-QA-04 : portail et vigile obligatoires
         String gate = body == null ? null : body.get("gate");
         String guard = body == null ? null : body.getOrDefault("guard", body.getOrDefault("vigilId", null));
         if (gate == null || gate.isBlank() || gate.length() > 100) {
@@ -111,7 +111,7 @@ public class AdminController {
         return ResponseEntity.ok(response);
     }
 
-    // APP-TL-22 (2026-11-14) : PATCH /admin/students/{id}/status (statut de frais « En Règle / En Retard » saisi à la
+    // APP-TL-22 : PATCH /admin/students/{id}/status (statut de frais « En Règle / En Retard » saisi à la
     // main, qui faisait refuser l'élève au portique) est SUPPRIMÉ. L'état financier d'un élève vient uniquement de son
     // dossier (Finances › Écolages, permission finances.lire) et ne pénalise jamais l'enfant.
 
@@ -135,7 +135,7 @@ public class AdminController {
     @Operation(summary = "Mettre a jour parametres candidature", description = "Active ou desactive le systeme de candidature.")
     public ResponseEntity<Map<String, Object>> updateCandidaturesSettings(@RequestBody Map<String, Object> body) {
         logger.info("POST /admin/candidatures/settings - Mise a jour parametres: {}", body);
-        // APP-QA-04 : enabled (ou ouvert) obligatoire, true ou false. Avant : absent ou absurde → candidatures FERMÉES en silence.
+        // APP-QA-04 : enabled (ou ouvert) obligatoire, true ou false.
         Boolean choix = ecole_221.sn.ecole.partage.ChampsRequete.booleenOptionnel(body, "enabled", "« enabled »");
         if (choix == null) {
             choix = ecole_221.sn.ecole.partage.ChampsRequete.booleenOptionnel(body, "ouvert", "« ouvert »");
@@ -363,7 +363,7 @@ public class AdminController {
     @PatchMapping("/staff/{id}/toggle-status")
     @Operation(summary = "Suspendre/Réactiver un membre du personnel", description = "Bascule l'appartenance du collaborateur à l'école (ACTIVE ⇄ SUSPENDED).")
     public ResponseEntity<Map<String, Object>> toggleStaffStatus(@PathVariable("id") String id) {
-        staff().verifierCibleGerable(id);   // anti-escalade (2026-11-13)
+        staff().verifierCibleGerable(id);   // anti-escalade
         String statut = comptesEcole.basculerStatut(id, null);
         actionLogger.logAdminAction("TOGGLE_STAFF_STATUS", "ADMIN", id, "Statut collaborateur : " + statut);
         return ResponseEntity.ok(Map.of("id", id, "status", ComptesEcoleService.libelleStatut(statut)));
@@ -373,7 +373,7 @@ public class AdminController {
     @Operation(summary = "Retirer un membre du personnel", description = "Retire le collaborateur de l'école courante.")
     public ResponseEntity<Map<String, Object>> deleteStaffMember(@PathVariable("id") String id) {
         logger.info("DELETE /admin/staff/{} - Retrait collaborateur", id);
-        staff().verifierCibleGerable(id);   // anti-escalade (2026-11-13)
+        staff().verifierCibleGerable(id);   // anti-escalade
         comptesEcole.retirer(id, null);
         actionLogger.logAdminAction("DELETE_STAFF", "ADMIN", id, "Collaborateur retiré de l'école : " + id);
         return ResponseEntity.ok(Map.of("success", true, "id", id));
@@ -418,7 +418,6 @@ public class AdminController {
         int capacite = entier(premier(texte(body.get("capacity")), texte(body.get("capaciteMax"))));
         if (capacite <= 0) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La capacité de la promotion doit être un nombre positif.");
         // Requêtes simultanées : un seul « vérifier puis enregistrer » à la fois pour ce nom dans cette école
-        // (avant, test du 2026-11-13 : 10 envois au même instant → 3 classes du même nom)
         String cleNom = ecole_221.sn.ecole.partage.TexteNormalise.cle(name);
         if (verrouCreation != null) {
             verrouCreation.verrouiller("classe:" + ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext

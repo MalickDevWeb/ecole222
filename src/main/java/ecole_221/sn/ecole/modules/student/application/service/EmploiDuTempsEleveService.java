@@ -23,12 +23,11 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 /**
- * Emploi du temps RÉEL d'un élève (2026-11-14) : séances des classes où il est inscrit, telles que planifiées par
+ * Emploi du temps RÉEL d'un élève : séances des classes où il est inscrit, telles que planifiées par
  * l'administration (Gestion École › Planning) et éventuellement annulées ou reportées par le professeur.
  *
- * <p>Avant : GET /schedule cherchait les cours d'un élève nommé littéralement « current » (toujours vide) et le planning
- * de l'enfant dans l'espace parent renvoyait toujours une liste vide. Lecture cloisonnée par école (@TenantId sur les
- * séances et les inscriptions). Aucune séance inventée : sans classe ou sans séance, la liste est vide.</p>
+ * <p>Lecture cloisonnée par école (@TenantId sur les séances et les inscriptions). Aucune séance inventée : sans
+ * classe ou sans séance, la liste est vide.</p>
  */
 @Service
 public class EmploiDuTempsEleveService {
@@ -101,7 +100,7 @@ public class EmploiDuTempsEleveService {
         Map<String, String> profs = new HashMap<>();
         comptes.findAllById(liste.stream().map(ScheduleSessionJpaEntity::getProfessorId).filter(Objects::nonNull).distinct().toList())
                 .forEach(u -> profs.put(u.getId(), ComptesEcoleService.nomComplet(u)));
-        Map<String, String> nomsClasses = new HashMap<>();   // nom affiché de la classe (avant : « L3-GL » écrit en dur)
+        Map<String, String> nomsClasses = new HashMap<>();   // nom affiché de la classe
         classes.findAllById(classesIds).forEach(c -> nomsClasses.put(c.getId(), c.getName() != null ? c.getName() : c.getNom()));
         return liste.stream().map(s -> {
                     int j = jour(s.getDay());

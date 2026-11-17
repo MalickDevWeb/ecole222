@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 
-/** Matrice des droits du personnel appliquée par le serveur (2026-11-13). */
+/** Matrice des droits du personnel appliquée par le serveur. */
 class PermissionsPersonnelTest {
 
     @AfterEach

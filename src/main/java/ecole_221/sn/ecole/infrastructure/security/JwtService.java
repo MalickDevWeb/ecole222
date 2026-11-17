@@ -88,8 +88,8 @@ public class JwtService {
         return Jwts.builder()
                 .claims(extraClaims)
                 .subject(userDetails.getUsername())
-                // Identifiant unique (2026-11-13) : deux connexions dans la même seconde donnaient le même jeton, si
-                // bien que la déconnexion d'un appareil (révocation) déconnectait aussi l'autre.
+                // Identifiant unique : sans lui, deux connexions dans la même seconde donneraient le même jeton, et la
+                // déconnexion d'un appareil (révocation) déconnecterait aussi l'autre.
                 .id(java.util.UUID.randomUUID().toString())
                 .issuedAt(new Date(System.currentTimeMillis()))
                 .expiration(new Date(System.currentTimeMillis() + 1000 * 60 * 60 * 24)) // 24 hours

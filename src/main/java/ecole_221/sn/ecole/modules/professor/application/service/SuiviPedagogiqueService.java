@@ -40,7 +40,7 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
 /**
- * Suivi pédagogique d'un cours (lot E, 2026-11-10) : cahier de textes, tableau de bord de la classe et fiche élève.
+ * Suivi pédagogique d'un cours (lot E) : cahier de textes, tableau de bord de la classe et fiche élève.
  *
  * <p>Tout est calculé à partir des données réellement saisies (notes, présences, séances, cahier de textes) ;
  * un indicateur sans source est renvoyé à {@code null} (affiché « — »). Le contrôle « cours du professeur / école »

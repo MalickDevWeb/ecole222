@@ -44,7 +44,7 @@ public class SecurityService implements SecurityUseCase {
         // APP-SEC-18 : plus de passage « Mamadou Sall » inventé au démarrage
     }
 
-    /** Vérification des badges QR dynamiques (2026-11-13). Clé aléatoire si le composant n'est pas injecté (tests). */
+    /** Vérification des badges QR dynamiques. Clé aléatoire si le composant n'est pas injecté (tests). */
     private ecole_221.sn.ecole.partage.JetonBadge jetonBadge = ecole_221.sn.ecole.partage.JetonBadge.aleatoire();
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -52,7 +52,7 @@ public class SecurityService implements SecurityUseCase {
         if (jetonBadge != null) this.jetonBadge = jetonBadge;
     }
 
-    /** Journal des passages de l'école courante (APP-SEC-18 : avant, une seule liste pour toutes les écoles). */
+    /** Journal des passages de l'école courante (APP-SEC-18). */
     private List<Map<String, Object>> journalEcole() {
         String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse("sans-ecole");
         return passagesParEcole.computeIfAbsent(ecole, k -> new CopyOnWriteArrayList<>());
@@ -103,7 +103,7 @@ public class SecurityService implements SecurityUseCase {
     @Override
     public VigilProfileDto updateVigilProfile(String id, VigilProfileDto vigilProfileDto) {
         logger.info("Mise à jour du profil de vigilance: {}", id);
-        // APP-QA-04 : profil inexistant → 404 (avant : créé, nommé « Inconnu ») ; nom obligatoire, champs bornés
+        // APP-QA-04 : profil inexistant → 404 ; nom obligatoire, champs bornés
         VigilProfile actuel = securityRepositoryPort.findVigilProfileById(id)
                 .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Profil de vigile introuvable."));
         if (vigilProfileDto == null || vigilProfileDto.name() == null || vigilProfileDto.name().isBlank()) {
@@ -157,11 +157,10 @@ public class SecurityService implements SecurityUseCase {
     /** Décision d'accès pour un contenu scanné ; fraîcheur du QR jugée à la minute {@code minuteDuScan} (null = maintenant). */
     Decision decider(String badgeId, Long minuteDuScan) {
         // APP-SEC-18 : le badge est rattaché à un compte RÉEL (identifiant ou matricule), membre ACTIF de
-        // l'école courante. Avant : tout badge était attribué à l'élève fictif « Mamadou Sall » (ou
-        // « Awa Diop ») et l'accès décidé d'après sa situation — un badge inconnu pouvait être accepté.
+        // l'école courante.
         String lu = badgeId == null ? "" : badgeId.trim();
-        // 2026-11-13 : badge QR dynamique (STU_SECURE:…) vérifié ICI pour toutes les routes de scan ; un élève n'entre
-        // plus avec son seul matricule (tapé, photocopié ou deviné) : seul le QR signé par le serveur, valable
+        // Badge QR dynamique (STU_SECURE:…) vérifié ICI pour toutes les routes de scan ; un élève n'entre
+        // pas avec son seul matricule (tapé, photocopié ou deviné) : seul le QR signé par le serveur, valable
         // ± 1 minute, est accepté pour lui. Les badges du personnel restent des identifiants simples.
         var dynamique = jetonBadge.lire(lu, minuteDuScan);
         boolean jetonVerifie = dynamique.map(ecole_221.sn.ecole.partage.JetonBadge.Lecture::valide).orElse(false);
@@ -214,7 +213,7 @@ public class SecurityService implements SecurityUseCase {
     }
 
     /**
-     * Liste d'accès pour la décision HORS LIGNE du terminal du vigile (EF-10, 2026-11-14) : clé publique des badges
+     * Liste d'accès pour la décision HORS LIGNE du terminal du vigile (EF-10) : clé publique des badges
      * (vérification de la signature sans pouvoir en fabriquer), élèves actifs de l'école (matricule et nom seulement :
      * aucune donnée financière, APP-TL-22) et membres du personnel. Valable 24 h ; le terminal la retélécharge dès que le réseau revient.
      */
@@ -307,7 +306,7 @@ public class SecurityService implements SecurityUseCase {
             return map;
         }
         
-        // Profil non configuré : réponse explicite (avant : vigile « Mamadou Diallo » inventé)
+        // Profil non configuré : réponse explicite
         Map<String, Object> nonConfigure = new HashMap<>();
         nonConfigure.put("id", vigilId);
         nonConfigure.put("statut", "non_configuré");

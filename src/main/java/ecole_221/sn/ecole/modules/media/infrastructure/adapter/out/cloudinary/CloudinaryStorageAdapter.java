@@ -55,9 +55,9 @@ public class CloudinaryStorageAdapter implements MediaStoragePort {
     private final boolean simulation;
 
     /**
-     * Simulation : adresse du site (app.url-frontend, jamais déduite de la requête), base des liens locaux. 17/11 : un
-     * lien relatif était refusé par les contrôles « http(s) » des dépôts (candidature, inscription par un parent, logo,
-     * contenus de cours…) : sur un backend de test, aucun dossier ne pouvait être déposé avec ses pièces.
+     * Simulation : adresse du site (app.url-frontend, jamais déduite de la requête), base des liens locaux. Un lien
+     * relatif serait refusé par les contrôles « http(s) » des dépôts (candidature, inscription par un parent, logo,
+     * contenus de cours…).
      */
     private final String urlSite;
 
@@ -85,7 +85,7 @@ public class CloudinaryStorageAdapter implements MediaStoragePort {
     }
 
     /**
-     * 17/11 — fichier confidentiel : rangé chez Cloudinary en type « authenticated » (jamais livré sans signature) ; le
+     * Fichier confidentiel : rangé chez Cloudinary en type « authenticated » (jamais livré sans signature) ; le
      * lien gardé par l'application est SANS signature : copié et ouvert hors de l'application, il est refusé (401).
      * Seul le serveur le relit (téléchargement signé, {@link #relire}) pour une personne autorisée.
      */
@@ -96,7 +96,6 @@ public class CloudinaryStorageAdapter implements MediaStoragePort {
         Cloudinary client = getCloudinary();
 
         if (simulation) {
-            // 16/11 : avant, l'image de démonstration de Cloudinary (« sample.jpg ») était renvoyée à la place du fichier
             String nom = stockageLocal.enregistrer(fileBytes, fileName, contentType, confidentiel);
             return UploadedFileFactory.create(fileName, urlSite + "/api/public/media/" + nom, "local-" + nom, fileBytes.length, contentType);
         }
@@ -132,10 +131,10 @@ public class CloudinaryStorageAdapter implements MediaStoragePort {
         return url == null ? null : url.replaceFirst("/s--[^/]+--/", "/");
     }
 
-    // ───────────────────────── Relecture par le serveur (16/11) ─────────────────────────
-    // Les comptes Cloudinary gratuits refusent de DIFFUSER les PDF (401 « deny or ACL failure ») : l'administration
-    // ne pouvait pas ouvrir les relevés ni les diplômes. Le serveur récupère le fichier par l'API authentifiée de
-    // Cloudinary (téléchargement signé), indépendante de ce réglage, et ne le remet qu'à un utilisateur autorisé.
+    // ───────────────────────── Relecture par le serveur ─────────────────────────
+    // Les comptes Cloudinary gratuits refusent de DIFFUSER les PDF (401 « deny or ACL failure »). Le serveur récupère
+    // le fichier par l'API authentifiée de Cloudinary (téléchargement signé), indépendante de ce réglage, et ne le
+    // remet qu'à un utilisateur autorisé.
 
     /** …/res.cloudinary.com/{compte}/{image|raw|video}/{upload|authenticated|private}/[transformations/]v{n}/{public_id}[.{format}] */
     private static final java.util.regex.Pattern LIEN_CLOUDINARY = java.util.regex.Pattern.compile(

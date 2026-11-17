@@ -16,7 +16,7 @@ import java.util.Map;
 import java.util.Optional;
 
 /**
- * Remise d'un fichier relu par le serveur (16-17/11) : pièces de candidature, justificatifs d'absence, coffre de l'élève.
+ * Remise d'un fichier relu par le serveur : pièces de candidature, justificatifs d'absence, coffre de l'élève.
  * L'appelant a déjà vérifié QUI demande et QUEL dossier ; ici : relecture par le stockage (fichier confidentiel compris),
  * type affichable ou téléchargement, aucun cache, pas d'interprétation du contenu par le navigateur.
  */

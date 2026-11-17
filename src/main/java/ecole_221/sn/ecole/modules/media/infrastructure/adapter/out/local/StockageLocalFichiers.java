@@ -15,8 +15,7 @@ import java.util.regex.Pattern;
 
 /**
  * Fichiers envoyés, rangés sur le disque du serveur quand Cloudinary n'est pas utilisé (CLOUDINARY_SIMULATION=true :
- * poste de développement, QA). 16/11 : avant, la simulation renvoyait toujours l'image de démonstration de Cloudinary
- * (« sample.jpg », des fleurs) : le logo de l'école, les documents des élèves… étaient remplacés par cette image.
+ * poste de développement, QA).
  *
  * <p>Nom de fichier aléatoire (non devinable), seul accès possible : {@link #lire(String)} refuse tout nom qui ne suit
  * pas ce format (aucune remontée de dossier).</p>

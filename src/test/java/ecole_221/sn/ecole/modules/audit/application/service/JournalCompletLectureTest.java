@@ -16,8 +16,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * GET /audit/logs (2026-11-14) : une entrée anonyme (candidature déposée sans compte) n'a pas d'auteur ; la lecture
- * complète du journal la passait par l'objet métier AuditLog, qui l'exige → NullPointerException, réponse 400.
+ * GET /audit/logs : une entrée anonyme (candidature déposée sans compte) n'a pas d'auteur ; la lecture complète du
+ * journal la renvoie sans passer par l'objet métier AuditLog, qui exige un auteur.
  */
 class JournalCompletLectureTest {
 

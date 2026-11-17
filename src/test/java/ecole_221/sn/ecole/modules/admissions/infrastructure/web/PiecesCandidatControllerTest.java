@@ -17,7 +17,7 @@ import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-/** 16/11 : pièces d'un dossier remises par le serveur (les PDF refusés par Cloudinary s'ouvrent enfin). */
+/** Pièces d'un dossier remises par le serveur (les PDF refusés par Cloudinary s'ouvrent). */
 class PiecesCandidatControllerTest {
 
     private static final String LIEN_PDF = "https://res.cloudinary.com/moncompte/image/upload/v1/file-releves.pdf";

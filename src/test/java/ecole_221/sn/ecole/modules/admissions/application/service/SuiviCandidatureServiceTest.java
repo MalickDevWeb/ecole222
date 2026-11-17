@@ -111,7 +111,6 @@ class SuiviCandidatureServiceTest {
         refus(() -> service.verifierDepot(mauvaisEmail), HttpStatus.BAD_REQUEST, "« fatou » n'est pas valide");
         Map<String, Object> sansFiliere = new HashMap<>(ok); sansFiliere.remove("filiere");
         refus(() -> service.verifierDepot(sansFiliere), HttpStatus.BAD_REQUEST, "formation");
-        // Pièces : avant, seul « fournie : oui / non » était déclaré, sans aucun fichier
         Map<String, Object> sansPieces = new HashMap<>(ok); sansPieces.remove("pieces");
         refus(() -> service.verifierDepot(sansPieces), HttpStatus.BAD_REQUEST, "pièce d'identité");
         Map<String, Object> sansReleves = new HashMap<>(ok);

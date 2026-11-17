@@ -124,8 +124,7 @@ public class EmailController {
         return ResponseEntity.ok(status);
     }
 
-    // Balayage de robustesse (2026-11-13) : un champ absent ou d'un autre type (nombre, liste…) provoquait une
-    // ClassCastException ou une NullPointerException, donc une erreur 500. Refus 400 précis à la place.
+    // Champ absent ou d'un autre type (nombre, liste…) : refus 400 précis.
     private static String destinataire(Map<String, Object> body) {
         String to = texte(body, "to");
         if (!to.matches("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$") || to.length() > 254) {

@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.TreeSet;
 import java.util.stream.Collectors;
 
-/** Matrice des droits du personnel, propre à chaque école et appliquée par le serveur (2026-11-13). */
+/** Matrice des droits du personnel, propre à chaque école et appliquée par le serveur. */
 @Service
 public class PermissionsEcoleService {
 

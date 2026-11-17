@@ -63,7 +63,7 @@ public class EvaluationService {
         this.comptesEcole = comptesEcole;
     }
 
-    /** Clôture des trimestres (BR-04, 2026-11-14) ; absent seulement dans certains tests unitaires. */
+    /** Clôture des trimestres (BR-04) ; absent seulement dans certains tests unitaires. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.modules.admin.periodes.PeriodesScolairesService periodes;
 

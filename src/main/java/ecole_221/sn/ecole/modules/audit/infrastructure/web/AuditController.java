@@ -67,8 +67,7 @@ public class AuditController {
     public ResponseEntity<AuditLogDto> logAction(@RequestBody AuditLogDto auditLog,
                                                  jakarta.servlet.http.HttpServletRequest requete) {
         logger.info("POST /audit/logs - Log action");
-        // APP-QA-04 : auteur, adresse IP et date fixés par le serveur (avant : fournis par le client → une entrée du
-        // journal d'audit pouvait être écrite au nom de n'importe qui) ; action obligatoire, textes bornés
+        // APP-QA-04 : auteur, adresse IP et date fixés par le serveur ; action obligatoire, textes bornés
         if (auditLog == null) {
             throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Aucune donnée reçue.");
         }

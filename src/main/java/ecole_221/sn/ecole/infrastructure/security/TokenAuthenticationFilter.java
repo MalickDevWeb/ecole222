@@ -20,7 +20,7 @@ public class TokenAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserRepositoryPort userRepositoryPort;
-    /** Révocation (déconnexion, changement de mot de passe), 2026-11-13 — même contrôle que JwtAuthenticationFilter. */
+    /** Révocation (déconnexion, changement de mot de passe) — même contrôle que JwtAuthenticationFilter. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.infrastructure.security.revocation.RevocationJetons revocation;
 

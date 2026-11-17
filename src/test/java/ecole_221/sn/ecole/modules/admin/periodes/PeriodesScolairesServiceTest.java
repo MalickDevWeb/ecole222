@@ -21,7 +21,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 
-/** Trimestres et clôture des notes (BR-04, 2026-11-14). */
+/** Trimestres et clôture des notes (BR-04). */
 class PeriodesScolairesServiceTest {
 
     private final List<PeriodeScolaireJpaEntity> base = new ArrayList<>();

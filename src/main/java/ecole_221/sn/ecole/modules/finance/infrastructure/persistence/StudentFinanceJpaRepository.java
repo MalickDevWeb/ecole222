@@ -10,10 +10,10 @@ import java.util.Optional;
 
 public interface StudentFinanceJpaRepository extends JpaRepository<StudentFinanceJpaEntity, String> {
     Optional<StudentFinanceJpaEntity> findByStudentId(String studentId);
-    /** Tous les dossiers d'un élève, le plus récent d'abord (2026-11-14 : un élève peut en avoir plusieurs). */
+    /** Tous les dossiers d'un élève, le plus récent d'abord (un élève peut en avoir plusieurs). */
     List<StudentFinanceJpaEntity> findAllByStudentIdOrderByCreatedAtDesc(String studentId);
     /**
-     * Mêmes dossiers, verrouillés jusqu'à la fin de la transaction (2026-11-14 : deux encaissements simultanés pour
+     * Mêmes dossiers, verrouillés jusqu'à la fin de la transaction (deux encaissements simultanés pour
      * le même élève ne peuvent plus s'écraser — le second attend que le premier ait recalculé le payé).
      */
     @Lock(LockModeType.PESSIMISTIC_WRITE)
@@ -25,7 +25,7 @@ public interface StudentFinanceJpaRepository extends JpaRepository<StudentFinanc
     @Query("SELECT sf FROM StudentFinanceJpaEntity sf WHERE sf.debt > 0")
     List<StudentFinanceJpaEntity> findStudentsWithDebt();
     
-    /** Reste dû total de l'école (APP-TL-22 : avant, somme des seuls dossiers « En Retard » saisis à la main). */
+    /** Reste dû total de l'école (APP-TL-22). */
     @Query("SELECT COALESCE(SUM(sf.debt), 0) FROM StudentFinanceJpaEntity sf WHERE sf.debt > 0")
     Long totalDebtByStatus();
     

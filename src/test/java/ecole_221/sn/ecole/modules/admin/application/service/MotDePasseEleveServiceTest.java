@@ -20,7 +20,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-/** APP-TL-23 (2026-11-14) : l'école remet un mot de passe provisoire à un élève, notamment sans e-mail. */
+/** APP-TL-23 : l'école remet un mot de passe provisoire à un élève, notamment sans e-mail. */
 class MotDePasseEleveServiceTest {
 
     private final ComptesEcoleService comptes = mock(ComptesEcoleService.class);

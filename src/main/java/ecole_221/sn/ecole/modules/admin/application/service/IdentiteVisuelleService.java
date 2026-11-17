@@ -15,8 +15,7 @@ import java.util.regex.Pattern;
 
 /**
  * Identité visuelle de l'école (logo, couleur principale, fond de l'écran de connexion), enregistrée pour l'école
- * courante (2026-11-13). Avant : l'administration appelait une route réservée au super-administrateur (refusée) et
- * l'identité n'était gardée que dans le navigateur ; le logo partait en data URL de plusieurs Mo dans du JSON.
+ * courante.
  */
 @Service
 public class IdentiteVisuelleService {
@@ -41,7 +40,7 @@ public class IdentiteVisuelleService {
         if (corps == null || corps.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Aucune modification envoyée.");
         }
-        // APP-QA-04 : aucun champ reconnu → refus (avant : « enregistré » sans rien changer)
+        // APP-QA-04 : aucun champ reconnu → refus
         if (!corps.containsKey("logoUrl") && !corps.containsKey("backgroundUrl") && !corps.containsKey("primaryColor")) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Aucun champ reconnu : logoUrl, primaryColor ou backgroundUrl attendu.");
         }

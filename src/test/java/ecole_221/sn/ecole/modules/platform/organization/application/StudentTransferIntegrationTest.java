@@ -86,7 +86,6 @@ public class StudentTransferIntegrationTest {
         studentEnrollmentService.enrollStudent(student.getId(), schoolA.getId());
         IllegalStateException e = assertThrows(IllegalStateException.class,
                 () -> studentEnrollmentService.enrollStudent(student.getId(), schoolA.getId()));
-        // Avant : « actif dans une autre école… transfert », faux pour la même école
         assertEquals("Cet élève est déjà inscrit dans cette école.", e.getMessage());
     }
 

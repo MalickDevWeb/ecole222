@@ -13,8 +13,7 @@ import org.springframework.web.server.ResponseStatusException;
 /**
  * Suppression d'un compte de la plateforme.
  *
- * <p>Garde-fous (test du 2026-11-10 : le super-admin a pu supprimer SON PROPRE compte, la plateforme
- * n'avait plus aucun super-admin) :</p>
+ * <p>Garde-fous :</p>
  * <ul>
  *   <li>on ne peut pas supprimer le compte avec lequel on est connecté ;</li>
  *   <li>on ne peut pas supprimer le dernier SUPER_ADMIN.</li>

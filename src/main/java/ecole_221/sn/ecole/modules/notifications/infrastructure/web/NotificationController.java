@@ -53,7 +53,7 @@ public class NotificationController {
     public ResponseEntity<NotificationDto> createNotification(@RequestBody NotificationDto notification) {
         logger.info("POST /notifications - Création notification");
         // APP-QA-04 : destinataire, titre et contenu obligatoires et bornés ; identifiant toujours attribué par le serveur
-        // (avant : un id fourni remplaçait la notification existante portant cet id ; champs vides acceptés)
+        // (un id fourni ne remplace pas une notification existante)
         if (notification == null) {
             throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Aucune donnée reçue.");
         }
@@ -135,7 +135,7 @@ public class NotificationController {
     @Operation(summary = "Envoyer notification", description = "Envoie une notification à un destinataire")
     public ResponseEntity<NotificationJpaEntity> sendNotification(@RequestBody Map<String, Object> body) {
         logger.info("POST /notifications/send - Envoi notification");
-        // APP-QA-04 : destinataire, titre et message obligatoires (avant : notification sans titre ni destinataire créée)
+        // APP-QA-04 : destinataire, titre et message obligatoires
         return ResponseEntity.ok(notificationUseCase.sendNotification(
             texteObligatoire(body, "recipientId"),
             ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(body, "recipientRole", "Le rôle du destinataire", 30),
@@ -208,8 +208,7 @@ public class NotificationController {
     }
 
     /**
-     * Balayage de robustesse (2026-11-13) : body.get(x).toString() sur un champ absent provoquait une
-     * NullPointerException (500). Refus 400 précis à la place.
+     * Champ absent, vide ou d'un autre type : refus 400 précis.
      */
     private static String texteObligatoire(Map<String, Object> body, String cle) {
         Object v = body == null ? null : body.get(cle);

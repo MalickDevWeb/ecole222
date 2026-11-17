@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.List;
 import java.util.Map;
 
-/** Trimestres de l'école et clôture des notes (BR-04, 2026-11-14). Accès : administration et personnel autorisé. */
+/** Trimestres de l'école et clôture des notes (BR-04). Accès : administration et personnel autorisé. */
 @RestController
 @RequestMapping("/admin/periodes")
 public class PeriodesScolairesController {

@@ -34,11 +34,11 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
         registry.addInterceptor(tenantMembershipInterceptor).addPathPatterns("/**");
-        // 2026-11-13 : droits du personnel (matrice RBAC de l'école), après le contrôle d'appartenance
+        // Droits du personnel (matrice RBAC de l'école), après le contrôle d'appartenance
         registry.addInterceptor(permissions).addPathPatterns("/**");
         // cours, modules et élèves de l'espace professeur : appartenance au professeur et à l'école
         registry.addInterceptor(accesCours).addPathPatterns("/professor/**", "/prof/**");
-        // 2026-11-14 (BR-05, ENF-07) : toute écriture réussie est inscrite au journal d'audit inaltérable
+        // BR-05, ENF-07 : toute écriture réussie est inscrite au journal d'audit inaltérable
         registry.addInterceptor(journalAudit).addPathPatterns("/**");
     }
 }

@@ -9,7 +9,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
 
 /**
- * Changement du mot de passe par son titulaire (lot E, 2026-11-10).
+ * Changement du mot de passe par son titulaire (lot E).
  *
  * <p>Les comptes créés avec un mot de passe GÉNÉRÉ (élèves, professeurs, personnel, administrateur d'école
  * créé par le super-admin) portent le drapeau {@code doitChangerMotDePasse} : tant qu'il est présent, les
@@ -25,7 +25,7 @@ public class ChangementMotDePasseService {
 
     private final UserJpaRepository comptes;
     private final PasswordEncoder encodeur;
-    /** 2026-11-13 : les jetons émis avant le changement sont refusés (absent seulement dans certains tests). */
+    /** Les jetons émis avant le changement sont refusés (absent seulement dans certains tests). */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.infrastructure.security.revocation.RevocationJetons revocation;
 

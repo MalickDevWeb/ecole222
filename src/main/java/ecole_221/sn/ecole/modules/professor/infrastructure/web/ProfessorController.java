@@ -93,7 +93,7 @@ public class ProfessorController {
             
             logger.debug("Retrieved {} courses for professor {}", pageResult.getTotalElements(), profId);
             var page0 = ProfessorMapper.toCoursePageResponse(pageResult);
-            // classe et effectif RÉELS (avant : classe absente → « L3-GL » à l'écran, effectif 0)
+            // classe et effectif RÉELS
             var enrichis = page0.content().stream().map(c -> {
                 if (c.classeId() == null || classesEcole == null) return c;
                 var cl = classesEcole.findById(c.classeId()).orElse(null);
@@ -113,7 +113,6 @@ public class ProfessorController {
     @Operation(summary = "Étudiants d'un cours", description = "Étudiants de l'école du professeur, avec leur moyenne et leur dernière présence réelles dans ce cours (null si aucune saisie).")
     public ResponseEntity<List<StudentDto>> getCourseStudents(
             @Parameter(description = "Identifiant du cours") @PathVariable("courseId") String courseId) {
-        // Avant : TOUS les étudiants de TOUTES les écoles, avec « PRESENT » et une moyenne de 15 codés en dur.
         String profId = ProfExtraController.utilisateurConnecte();
         if (profId == null) {
             return ResponseEntity.status(401).build();
@@ -142,8 +141,7 @@ public class ProfessorController {
                     String.valueOf(y.getDate()).compareTo(String.valueOf(x.getDate())) > 0 ? y : x);
         }
 
-        // Élèves AFFECTÉS à la classe du cours (inscriptions_classes). Avant : tous les élèves de l'école apparaissaient
-        // dans l'appel et les notes de n'importe quel cours (test navigateur du 2026-11-10).
+        // Élèves AFFECTÉS à la classe du cours (inscriptions_classes).
         java.util.Set<String> eleveDeLaClasse = (inscriptions == null || cours.getClasse() == null) ? null
                 : inscriptions.findByClasseId(cours.getClasse()).stream()
                     .map(ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaEntity::getUserId)
@@ -309,8 +307,7 @@ public class ProfessorController {
     public ResponseEntity<Map<String, Object>> cancelCourse(
             @Parameter(description = "Identifiant de la session") @PathVariable("sessionId") String sessionId,
             @RequestBody(required = false) Map<String, String> body) {
-        // FEAT-003-BR-07 (2026-11-14) : motif obligatoire, comme sur /professor/schedule/{id}/cancel (avant : corps libre,
-        // annulation sans motif acceptée ; les élèves voient ce motif)
+        // FEAT-003-BR-07 : motif obligatoire, comme sur /professor/schedule/{id}/cancel (les élèves voient ce motif)
         String motif = ecole_221.sn.ecole.partage.ChampsRequete.texte(body, "reason", "Le motif d'annulation", 500);
         logger.info("POST /professor/planning/{}/cancel - reason={}", sessionId, motif);
         try {
@@ -397,7 +394,7 @@ public class ProfessorController {
         return ResponseEntity.ok(contenus().quizDuModule(moduleId));
     }
 
-    /** Date AAAA-MM-JJ (éventuellement suivie d'une heure) ; 400 lisible sinon (avant : « vendredi prochain » accepté). */
+    /** Date AAAA-MM-JJ (éventuellement suivie d'une heure) ; 400 lisible sinon. */
     static java.time.LocalDate dateValide(String saisie, String libelle) {
         try {
             return java.time.LocalDate.parse(saisie.trim().substring(0, Math.min(10, saisie.trim().length())));
@@ -414,7 +411,6 @@ public class ProfessorController {
 
     /**
      * Notes attendues : « cc » et/ou « examen », sur 20 (OBS-02, Agent 05).
-     * Avant : un corps aux clés inconnues (ex. noteCc) était accepté et enregistrait 0 en silence.
      */
     static void validerNotes(Map<String, Double> body) {
         if (body == null || (body.get("cc") == null && body.get("examen") == null)) {

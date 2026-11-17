@@ -177,8 +177,7 @@ public class ActionLogger {
     }
 
     /**
-     * Comme Map.of(…) mais tolère les valeurs nulles (avant : un e-mail absent faisait échouer la journalisation
-     * avec une NullPointerException, transformant une simple erreur de saisie en « erreur 500 »).
+     * Comme Map.of(…) mais tolère les valeurs nulles : un e-mail absent ne fait pas échouer la journalisation.
      */
     private static java.util.Map<String, Object> donnees(Object... clesValeurs) {
         java.util.Map<String, Object> m = new java.util.LinkedHashMap<>();

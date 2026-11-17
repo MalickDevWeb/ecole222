@@ -15,8 +15,6 @@ import org.springframework.stereotype.Component;
 
 /**
  * Authentification des connexions WebSocket / STOMP (APP-QA-02).
- * Avant : /ws était public et aucun contrôle n'était fait sur les trames : n'importe qui pouvait écouter ou
- * écrire dans le chat des cours en direct et injecter des signaux dans les sessions vocales.
  * <ul>
  *   <li>CONNECT : en-tête natif {@code Authorization: Bearer <jwt>} obligatoire, validé comme pour l'API REST ;</li>
  *   <li>SEND et SUBSCRIBE : refusés si la connexion n'est pas authentifiée.</li>
@@ -68,12 +66,11 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
     }
 
     /**
-     * Abonnements cloisonnés par école (2026-11-13). Avant : n'importe quel compte connecté, de n'importe quelle école,
-     * pouvait s'abonner au chat d'un cours en direct d'une autre école ({@code /topic/live-sessions/{id}/chat}).
-     * Désormais les cours en direct sont diffusés sur {@code /topic/ecole/{école}/…} et seule sa propre école est
-     * accessible ; l'ancien canal non cloisonné est refusé.
+     * Abonnements cloisonnés par école. Les cours en direct sont diffusés sur {@code /topic/ecole/{école}/…} et seule
+     * sa propre école est accessible ; l'ancien canal non cloisonné ({@code /topic/live-sessions/{id}/chat}) est
+     * refusé.
      *
-     * <p>Révision du 2026-11-13 (balayage des écrans) : liste blanche. Seuls les canaux {@code /topic/ecole/{école}/…}
+     * <p>Liste blanche. Seuls les canaux {@code /topic/ecole/{école}/…}
      * sont ouverts ; tout autre canal ({@code /topic/collaboration}, {@code /topic/voice/…}) est refusé, car il serait
      * partagé entre toutes les écoles.</p>
      */
@@ -94,7 +91,7 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
     }
 
     /**
-     * Envois autorisés (2026-11-13) : le chat et les réactions des cours en direct, seuls traités avec l'école de la
+     * Envois autorisés : le chat et les réactions des cours en direct, seuls traités avec l'école de la
      * connexion. Le relais vocal ({@code /app/voice/…}, sans écran ni cloisonnement) et toute autre destination sont
      * refusés.
      */

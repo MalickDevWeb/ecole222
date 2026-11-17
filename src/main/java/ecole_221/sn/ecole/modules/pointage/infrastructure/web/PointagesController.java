@@ -15,7 +15,7 @@ import java.util.Map;
 
 import static ecole_221.sn.ecole.partage.ChampsRequete.corpsRequis;
 
-/** Pointage d'arrivée et de départ par le QR d'entrée du vigile (16/11). */
+/** Pointage d'arrivée et de départ par le QR d'entrée du vigile. */
 @RestController
 public class PointagesController {
 

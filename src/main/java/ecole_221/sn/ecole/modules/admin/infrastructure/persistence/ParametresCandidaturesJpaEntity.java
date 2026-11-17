@@ -9,8 +9,7 @@ import java.time.LocalDateTime;
 
 /**
  * Paramètres de la campagne de candidature d'UNE école (une ligne par école, id = identifiant de l'école).
- * Avant : map statique commune à toutes les écoles, pré-remplie (ouverte du 2026-06-01 au 2026-08-31,
- * quatre pièces exigées) et perdue au redémarrage. Tant que l'école n'a rien enregistré : fermée, sans dates.
+ * Tant que l'école n'a rien enregistré : fermée, sans dates.
  */
 @Entity
 @Table(name = "parametres_candidatures")

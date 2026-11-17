@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 /**
  * /admin/planning/* : plus de salles / filières / classes / créneaux inventés, et les PUT sont réellement
- * enregistrés dans les tables de l'école (avant : mémoire seule, commune à toutes les écoles).
+ * enregistrés dans les tables de l'école.
  * Le cloisonnement par école est assuré par @TenantId sur les entités (findAll() filtré par Hibernate).
  */
 class AdminPlanningPersisteTest {
@@ -107,9 +107,9 @@ class AdminPlanningPersisteTest {
         assertEquals("10h", c.getHeureFin());
         assertEquals("RDM", c.getNom());
         assertEquals("c-1", c.getClasseId());
-        assertNull(c.getProfesseur());   // avant : « Professeur »
-        assertNull(c.getSalle());        // avant : « Salle »
-        assertNull(c.getType());         // avant : « CM »
+        assertNull(c.getProfesseur());
+        assertNull(c.getSalle());
+        assertNull(c.getType());
     }
 
     @Test
@@ -156,7 +156,6 @@ class AdminPlanningPersisteTest {
 
     @Test
     void putClassesEnregistreLesFraisAnnuels() throws Exception {
-        // avant : frais saisis à l'écran (450 000) puis perdus — affichés « — » après rechargement
         Mockito.when(classes.findAll()).thenReturn(List.of());
         mockMvc.perform(put("/admin/planning/classes").contentType(MediaType.APPLICATION_JSON)
                         .content("[{\"id\":\"c-2\",\"name\":\"L1 INFO\",\"level\":\"L1\",\"filiereId\":\"f-1\",\"capacityMax\":35,\"price\":450000}]"))

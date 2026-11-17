@@ -13,7 +13,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Transferts d'élèves entre écoles (2026-11-13). Accès : administration de l'école et personnel ayant la permission
+ * Transferts d'élèves entre écoles. Accès : administration de l'école et personnel ayant la permission
  * « transferts » dans la matrice des droits (PermissionsInterceptor).
  */
 @RestController

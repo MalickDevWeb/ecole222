@@ -115,7 +115,6 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
     
     @Override
     public CandidateDto updateCandidateStep(String id, String step) {
-        // Avant : l'étape (« docs », « interview »…) était rangée dans le STATUT, d'où un refus pour toute vraie étape.
         String etape = EtatsCandidature.etape(step);
         CandidateJpaEntity c = dossier(id);
         EtatsCandidature.exigerModifiable(c);
@@ -132,7 +131,6 @@ public class AdmissionUseCaseImpl implements AdmissionUseCase {
         CandidateJpaEntity c = dossier(id);
         EtatsCandidature.exigerModifiable(c);
         c.setAdmissionStatus(statut.name());
-        // Avant : le motif de refus reçu était ignoré
         c.setRejectionReason(statut == CandidateStatus.REJECTED && rejectionReason != null && !rejectionReason.isBlank()
                 ? rejectionReason.trim() : null);
         EtatsCandidature.apresDecision(c);

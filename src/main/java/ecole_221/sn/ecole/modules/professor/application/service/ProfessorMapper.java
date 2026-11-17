@@ -47,7 +47,7 @@ public final class ProfessorMapper {
             course.getName(), // titre standardisé
             course.getDescription(),
             course.getCode(),
-            course.getClasse(),   // identifiant RÉEL de la classe (avant : null)
+            course.getClasse(),   // identifiant RÉEL de la classe
             0,  // credits - non géré
             0,  // effectif : complété par le contrôleur (élèves affectés à la classe)
             List.of(),
@@ -239,8 +239,7 @@ public final class ProfessorMapper {
         
         return new HomeworkDto(
             String.valueOf(homeworkMap.getOrDefault("id", "")),
-            // le dépôt renvoie title / description / priority / deadline (avant : seules les clés titre / desc /
-            // prio / deadlineStr étaient lues → devoirs relus VIDES — test du 2026-11-10)
+            // le dépôt renvoie title / description / priority / deadline
             String.valueOf(homeworkMap.getOrDefault("titre", homeworkMap.getOrDefault("title", ""))),
             String.valueOf(homeworkMap.getOrDefault("desc", homeworkMap.getOrDefault("description", ""))),
             parsePriority(String.valueOf(homeworkMap.getOrDefault("prio", homeworkMap.getOrDefault("priority", "MEDIUM")))),
@@ -533,8 +532,7 @@ public final class ProfessorMapper {
             return SessionStatus.SCHEDULED;
         }
         
-        // statuts enregistrés en français par l'annulation / le report (avant : « annule » n'était pas reconnu
-        // → une séance ANNULÉE réapparaissait comme « planifiée » — test du 2026-11-10)
+        // statuts enregistrés en français par l'annulation / le report
         String v = java.text.Normalizer.normalize(status.trim().toUpperCase(), java.text.Normalizer.Form.NFD)
                 .replaceAll("\\p{M}", "").replace('-', '_').replace(' ', '_');
         switch (v) {

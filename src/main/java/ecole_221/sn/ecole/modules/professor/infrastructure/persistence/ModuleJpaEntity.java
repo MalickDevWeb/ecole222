@@ -19,7 +19,7 @@ public class ModuleJpaEntity {
     private String id;
     private String courseId;
     private String name;
-    /** Description du module (avant : non stockée, saisie perdue). */
+    /** Description du module. */
     @jakarta.persistence.Column(length = 2000)
     private String description;
 

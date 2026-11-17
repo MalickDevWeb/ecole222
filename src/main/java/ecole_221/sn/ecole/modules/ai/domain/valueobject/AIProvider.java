@@ -3,7 +3,7 @@ package ecole_221.sn.ecole.modules.ai.domain.valueobject;
 public record AIProvider(String provider) {
     public static final AIProvider GEMINI = new AIProvider("Gemini");
     public static final AIProvider MISTRAL = new AIProvider("Mistral");
-    // 2026-11-14 (APP-TL-24) : « OpenAI » retiré — aucune implémentation (AI_PROVIDER=openai empêchait le démarrage).
+    // APP-TL-24 : « OpenAI » retiré — aucune implémentation (AI_PROVIDER=openai empêchait le démarrage).
     public static final AIProvider MOCK = new AIProvider("Mock");
     
     public AIProvider {

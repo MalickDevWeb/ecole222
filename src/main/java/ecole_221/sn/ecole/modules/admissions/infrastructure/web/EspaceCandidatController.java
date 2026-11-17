@@ -16,7 +16,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Espace du candidat et échanges avec l'école (17/11).
+ * Espace du candidat et échanges avec l'école.
  * <ul>
  *   <li>Candidat (portail public) : routes /candidatures/suivi/… avec l'en-tête {@code X-Jeton-Suivi} reçu au suivi ;
  *       uniquement SON dossier.</li>

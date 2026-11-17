@@ -55,7 +55,7 @@ class LoginServiceSecurityTest {
 
     @Test
     void empreinte_d_un_cout_inferieur_recalculee_au_cout_actuel() {
-        // BR-03 (2026-11-13) : coût de l'application = 12 ; une empreinte au coût 4 est recalculée à la connexion
+        // BR-03 : coût de l'application = 12 ; une empreinte au coût 4 est recalculée à la connexion
         PasswordEncoder actuel = new BCryptPasswordEncoder(5);
         OrganizationUserRepositoryPort memberships = mock(OrganizationUserRepositoryPort.class);
         when(memberships.findByUserId(any())).thenReturn(List.of());

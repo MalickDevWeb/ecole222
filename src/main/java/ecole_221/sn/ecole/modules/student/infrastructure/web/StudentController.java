@@ -161,7 +161,7 @@ public class StudentController {
 
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
-        response.put("attendanceId", presenceId);   // identifiant réel de la présence enregistrée (avant : « att-<horloge> » inventé)
+        response.put("attendanceId", presenceId);   // identifiant réel de la présence enregistrée
         response.put("timestamp", java.time.LocalDateTime.now().toString());
         response.put("status", "VALIDATED");
         return ResponseEntity.ok(response);
@@ -199,7 +199,7 @@ public class StudentController {
     @Operation(summary = "Démarrer une session live", description = "Enregistre une session live démarrée par un enseignant.")
     public ResponseEntity<Map<String, Object>> startLiveSession(@RequestBody Map<String, Object> body) {
         String id = "session-" + System.currentTimeMillis();
-        // APP-QA-04 : champs contrôlés (avant : un nombre ou une liste faisait planter, un lien « javascript: » était accepté)
+        // APP-QA-04 : champs contrôlés
         String titre = ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(body, "title", "Le titre", 200);
         String cours = ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(body, "courseName", "Le cours", 200);
         String title = titre != null ? titre : (cours != null ? cours : "Session Live");
@@ -208,8 +208,7 @@ public class StudentController {
         if (link == null) {
             throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le lien de la séance (meetUrl) est obligatoire.");
         }
-        // 2026-11-14 : seul un lien Google Meet est accepté (les élèves y sont envoyés ; avant, n'importe quelle adresse
-        // http(s) passait, alors que l'écran n'en autorise pas d'autre)
+        // Seul un lien Google Meet est accepté (les élèves y sont envoyés ; l'écran n'en autorise pas d'autre)
         if (!link.matches("(?i)^https://meet\\.google\\.com/[a-z]{3}-[a-z]{4}-[a-z]{3}(\\?\\S*)?$")) {
             throw ecole_221.sn.ecole.partage.ChampsRequete.refus(
                     "Le lien de la séance doit être un lien Google Meet, de la forme https://meet.google.com/abc-defg-hij.");
@@ -222,7 +221,7 @@ public class StudentController {
                 new ecole_221.sn.ecole.modules.collaboration.infrastructure.persistence.MeetJpaEntity(
                     id, title, link, time, true
                 );
-            // 2026-11-14 : cours et VRAI nom de l'enseignant connecté (avant : ignorés, « Professeur » affiché)
+            // Cours et VRAI nom de l'enseignant connecté
             meet.setSubjectName(cours);
             var moi = compteConnecte();
             meet.setTeacherName(((moi.getPrenom() == null ? "" : moi.getPrenom()) + " " + (moi.getNom() == null ? "" : moi.getNom())).trim());
@@ -280,7 +279,7 @@ public class StudentController {
                 .mapToDouble(g -> ((Number) g.get("ects")).doubleValue())
                 .sum();
 
-        // Relevé au nom de l'étudiant connecté (avant : « Mamadou Sall », filière et niveau inventés)
+        // Relevé au nom de l'étudiant connecté
         var compte = compteConnecte();
         byte[] pdf = gradesReportService.generateTranscriptPdf(
                 ((compte.getPrenom() == null ? "" : compte.getPrenom() + " ") + (compte.getNom() == null ? "" : compte.getNom())).trim(),
@@ -302,7 +301,7 @@ public class StudentController {
             @Valid @RequestBody GradeReviewRequestDto request) {
         logger.info("POST /student/grades/{}/review - Demande de revision", gradeId);
         // APP-QA-04 : la note doit être l'une des siennes (404 sinon) et la demande est réellement transmise à
-        // l'administration (avant : « PENDING_REVIEW » répondu sans rien enregistrer)
+        // l'administration
         String eleve = etudiant();
         Map<String, Object> note = studentUseCase.getStudentGrades(eleve).stream()
                 .filter(g -> gradeId.equals(String.valueOf(g.get("id"))))
@@ -395,19 +394,19 @@ public class StudentController {
 
     // ==================== QUIZZES ====================
 
-    // Balayage du 2026-11-13 : POST /courses/{courseId}/quizzes/submit retiré — le score était calculé à partir des bonnes réponses envoyées par l'élève lui-même ; aucun écran ne l'appelait. Les quiz passent par POST /student/quizzes/{quizId}/tentatives (corrigés par le serveur).
+    // POST /courses/{courseId}/quizzes/submit retiré — le score était calculé à partir des bonnes réponses envoyées par l'élève lui-même ; aucun écran ne l'appelait. Les quiz passent par POST /student/quizzes/{quizId}/tentatives (corrigés par le serveur).
 
     // ==================== TUTEUR IA ====================
 
-    // 2026-11-14 (APP-TL-24) : POST /tutor/chat retiré — l'IA générative est hors du périmètre de cette version
+    // APP-TL-24 : POST /tutor/chat retiré — l'IA générative est hors du périmètre de cette version
     // (données mobiles, coût en devises, données de mineurs hors du Sénégal : loi n° 2008-12). Le module « ai »
     // reste en place, sans route, pour un éventuel pilote.
 
     // ==================== EMAIL NOTIFICATIONS ====================
     
-    // Balayage du 2026-11-13 : POST /send-notification retiré — un compte élève envoyait un e-mail à n'importe quelle adresse au nom de l'école (destinataire fourni par la requête) ; aucun écran ne l'appelait.
+    // POST /send-notification retiré — un compte élève envoyait un e-mail à n'importe quelle adresse au nom de l'école (destinataire fourni par la requête) ; aucun écran ne l'appelait.
     
-    // Balayage du 2026-11-13 : POST /request-confirmation retiré — même faille (e-mail vers une adresse fournie par la requête, envoyé pendant la requête) ; aucun écran ne l'appelait.
+    // POST /request-confirmation retiré — même faille (e-mail vers une adresse fournie par la requête, envoyé pendant la requête) ; aucun écran ne l'appelait.
 
     @GetMapping("/live-sessions/{sessionId}/chat")
     @Operation(summary = "Chat live session", description = "Retourne les messages du chat d'une session live.")
@@ -426,8 +425,7 @@ public class StudentController {
         logger.info("POST /student/live-sessions/{}/chat - user={}, text={}", sessionId, body.get("user"), body.get("text"));
         
         String userId = etudiant();
-        // APP-QA-04 : nom affiché = compte connecté (avant : champ « user » de la requête, usurpation possible) ;
-        // message obligatoire et borné
+        // APP-QA-04 : nom affiché = compte connecté ; message obligatoire et borné
         var authChat = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         String userName = authChat != null && authChat.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User moi
                 ? ((moi.getPrenom() == null ? "" : moi.getPrenom()) + " " + (moi.getNom() == null ? "" : moi.getNom())).trim()
@@ -474,8 +472,7 @@ public class StudentController {
     }
 
     /**
-     * Étudiant connecté (APP-SEC-19). Avant : TOUT le portail étudiant était rattaché à l'élève
-     * « usr-001 » — chaque étudiant voyait le profil, les notes, les présences et les devoirs de cet élève.
+     * Étudiant connecté (APP-SEC-19).
      */
     private static ecole_221.sn.ecole.modules.auth.domain.model.User compteConnecte() {
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
@@ -487,8 +484,6 @@ public class StudentController {
 
     /**
      * Profil RÉEL de l'élève connecté : compte (nom, e-mail, matricule…) + classe affectée (niveau, filière).
-     * Avant : lu uniquement dans le stockage annexe StudentData, rempli par les anciennes données fictives
-     * → pour un vrai compte, profil entièrement vide (« Matricule non renseigné », pas de nom).
      * Les informations complémentaires éventuellement présentes dans StudentData complètent les champs vides.
      */
     private Map<String, Object> profilReel() {

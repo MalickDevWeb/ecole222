@@ -17,10 +17,9 @@ import java.time.ZoneId;
 import java.util.*;
 
 /**
- * Règles d'admission créées par l'école (16/11) : « SI condition(s) ALORS effet », pour une session ou pour toutes.
+ * Règles d'admission créées par l'école : « SI condition(s) ALORS effet », pour une session ou pour toutes.
  * <p>
- * Avant : l'écran « Moteur de règles » était une maquette (cases écrites dans le navigateur, rien d'enregistré, rien
- * d'appliqué). Ici les règles sont enregistrées par école (table admissions_portail_elements, nature REGLE, @TenantId)
+ * Les règles sont enregistrées par école (table admissions_portail_elements, nature REGLE, @TenantId)
  * et appliquées par le SERVEUR au dépôt d'un dossier (portail public et parent) :
  * <ul>
  *   <li>EXIGER_PIECE : le dossier doit contenir la pièce (format PDF, image, ou l'un des deux) — 400 sinon ;</li>

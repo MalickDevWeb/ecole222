@@ -35,8 +35,7 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.ForkJoinPool;
 
 /**
- * Réinitialisation du mot de passe en ligne (APP-FEAT-02). Avant : « mot de passe oublié » affichait « lien envoyé »
- * sans aucun appel au serveur, et aucun moyen n'existait de retrouver l'accès à son compte.
+ * Réinitialisation du mot de passe en ligne (APP-FEAT-02).
  *
  * <ul>
  *   <li>jeton aléatoire de 256 bits, à usage unique, valable {@value #VALIDITE_MINUTES} minutes, stocké HACHÉ ;</li>
@@ -59,7 +58,7 @@ public class ReinitialisationMotDePasseService {
     private final UserJpaRepository comptes;
     private final ReinitialisationMotDePasseJpaRepository demandes;
     private final PasswordEncoder encodeur;
-    /** 2026-11-13 : un jeton volé ne survit pas à la réinitialisation du mot de passe. */
+    /** Un jeton volé ne survit pas à la réinitialisation du mot de passe. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.infrastructure.security.revocation.RevocationJetons revocation;
     private final EmailServicePort email;

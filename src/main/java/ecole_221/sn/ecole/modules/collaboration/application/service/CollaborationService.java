@@ -57,7 +57,7 @@ public class CollaborationService implements CollaborationUseCase {
     @Override
     public WorkgroupDto createWorkgroup(String name, String description, String creatorId) {
         logger.info("Création d'un groupe de travail: {} par {}", name, creatorId);
-        // APP-QA-04 : une erreur d'enregistrement remonte (avant : faux succès avec un identifiant « fallback-… » inventé)
+        // APP-QA-04 : une erreur d'enregistrement remonte
         Workgroup workgroup = WorkgroupFactory.create(name, description, creatorId, 1);
         Workgroup savedWorkgroup = collaborationRepositoryPort.saveWorkgroup(workgroup);
         return toWorkgroupDto(savedWorkgroup);
@@ -98,7 +98,7 @@ public class CollaborationService implements CollaborationUseCase {
     @Override
     public TaskDto createTask(String workgroupId, String title, String status, String assignedTo) {
         logger.info("Création d'une tâche: {}", title);
-        // APP-QA-04 : une erreur d'enregistrement remonte (avant : faux succès avec un identifiant « fallback-… » inventé)
+        // APP-QA-04 : une erreur d'enregistrement remonte
         Task task = TaskFactory.create(title, null, workgroupId, assignedTo, null);
         Task savedTask = collaborationRepositoryPort.saveTask(task);
         return toTaskDto(savedTask);
@@ -156,7 +156,7 @@ public class CollaborationService implements CollaborationUseCase {
 
     @Override
     public String enregistrerTache(String groupId, String id, String title, String status, String assignedTo) {
-        // Changement de statut = mise à jour de la même tâche (avant : chaque enregistrement créait une tâche en double)
+        // Changement de statut = mise à jour de la même tâche
         exigerGroupe(groupId);
         TaskJpaEntity task = id == null ? null : taskJpaRepository.findById(id)
                 .filter(t -> groupId.equals(t.getGroupId())).orElse(null);
@@ -207,7 +207,7 @@ public class CollaborationService implements CollaborationUseCase {
 
     @Override
     public void addMessage(String groupId, String sender, String content) {
-        // Balayage du 2026-11-13 : groupe inexistant → 404 ; message vide ou démesuré → 400 (avant : enregistré tel quel)
+        // Groupe inexistant → 404 ; message vide ou démesuré → 400
         if (groupId == null || !workgroupJpaRepository.existsById(groupId)) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,
                     "Groupe de travail introuvable.");

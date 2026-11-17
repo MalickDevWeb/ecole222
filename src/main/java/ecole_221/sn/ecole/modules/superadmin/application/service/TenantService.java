@@ -116,8 +116,7 @@ public class TenantService {
         Organization savedOrg = organizationRepositoryPort.save(org);
 
         // 3. Créer l'utilisateur admin initial de l'école
-        // Mot de passe provisoire ALÉATOIRE, renvoyé une seule fois au super-admin (avant : « {email}221! »,
-        // devinable par quiconque connaissait l'e-mail — faille trouvée au test du 2026-11-10).
+        // Mot de passe provisoire ALÉATOIRE, renvoyé une seule fois au super-admin
         String matricule = "ADM-" + System.currentTimeMillis();
         String motDePasseProvisoire = motDePasseAleatoire();
         String tempPassword = passwordEncoder.encode(motDePasseProvisoire);

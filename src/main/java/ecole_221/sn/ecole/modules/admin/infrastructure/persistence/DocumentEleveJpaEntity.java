@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 
 /**
  * Document rattaché au dossier d'un élève (référence du fichier déposé via /upload).
- * Avant : carte en mémoire indexée par l'identifiant de l'élève SANS école → visible depuis une autre école.
  */
 @Entity
 @Table(name = "documents_eleves")

@@ -23,12 +23,9 @@ import java.util.Set;
 /**
  * Inscription et transfert d'un élève entre écoles.
  *
- * <p>Révision 2026-11-10 (test des routes super-admin) :</p>
  * <ul>
- *   <li>l'élève et les écoles doivent EXISTER (avant : inscription d'un élève inexistant dans une école
- *       inexistante → lien fantôme, puis « transfert effectué avec succès ») ;</li>
- *   <li>un administrateur d'école n'agit que sur SA propre école (avant : il pouvait inscrire dans, ou retirer
- *       un élève de, n'importe quelle autre école) ; le super-admin agit sur toutes ;</li>
+ *   <li>l'élève et les écoles doivent EXISTER ;</li>
+ *   <li>un administrateur d'école n'agit que sur SA propre école ; le super-admin agit sur toutes ;</li>
  *   <li>erreurs renvoyées avec un champ « message » lisible ; plus d'annonce d'un archivage qui n'existe pas.</li>
  * </ul>
  */

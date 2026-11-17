@@ -33,7 +33,6 @@ public class SubscriptionService {
 
     @Transactional
     public SubscriptionDto subscribeTenant(AssignPlanCommand cmd) {
-        // test du 2026-11-10 : un abonnement était créé pour un établissement INEXISTANT, et avec une date de fin passée
         etablissements.findById(cmd.organizationId())
                 .orElseThrow(() -> erreur(org.springframework.http.HttpStatus.NOT_FOUND, "Établissement introuvable."));
         Plan plan = planRepository.findById(cmd.planId())

@@ -7,7 +7,7 @@ import jakarta.persistence.Table;
 
 import java.time.LocalDateTime;
 
-/** Pointage d'arrivée ou de départ d'un élève ou d'un membre du personnel (V25, 16/11). */
+/** Pointage d'arrivée ou de départ d'un élève ou d'un membre du personnel (V25). */
 @Entity
 @Table(name = "pointages")
 public class PointageJpaEntity {

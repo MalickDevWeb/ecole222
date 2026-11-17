@@ -6,7 +6,6 @@ import java.util.*;
 
 /**
  * Contrôle (pur) des doubles réservations dans un emploi du temps, appliqué par le SERVEUR à l'enregistrement.
- * Avant : seul le navigateur signalait les conflits ; un enregistrement direct ou concurrent les acceptait.
  *
  * <p>Deux créneaux du même jour se chevauchent si leurs plages [début, fin) se recouvrent (sans heure de fin :
  * même heure de début). Sont des conflits :</p>

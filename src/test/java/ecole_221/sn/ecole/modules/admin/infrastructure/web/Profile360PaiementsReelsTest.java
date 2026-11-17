@@ -23,7 +23,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** Fiche 360°, onglet Finances (2026-11-14) : versements réels du module Finances ; « non_disponible » sans dossier. */
+/** Fiche 360°, onglet Finances : versements réels du module Finances ; « non_disponible » sans dossier. */
 class Profile360PaiementsReelsTest {
 
     private MockMvc fiche(SituationFinanciereEleveService situations) {

@@ -28,7 +28,7 @@ public class SecurityController {
     /** Terminal affecté au vigile qui scanne (APP-BE-21) : refus si désactivé ou révoqué, point de passage sinon. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.modules.security.application.service.TerminauxAccesService terminauxAcces;
-    /** Dernier scan PAR ÉCOLE (avant : un seul champ partagé entre toutes les écoles). */
+    /** Dernier scan PAR ÉCOLE. */
     private final Map<String, Map<String, Object>> derniersScans = new ConcurrentHashMap<>();
 
     public SecurityController(SecurityUseCase securityUseCase, StudentUseCase studentUseCase, ActionLogger actionLogger) {
@@ -160,7 +160,7 @@ public class SecurityController {
                 && authLog.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User vigileLog) {
             terminauxAcces.exigerTerminalUtilisable(vigileLog.getId());
         }
-        // APP-QA-04 : badge ou élève obligatoire (avant : un scan vide était journalisé comme « @gate-A »)
+        // APP-QA-04 : badge ou élève obligatoire
         if (body == null || ((body.get("badgeId") == null || body.get("badgeId").isBlank())
                 && (body.get("studentId") == null || body.get("studentId").isBlank()))) {
             throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Badge ou élève obligatoire : aucun identifiant scanné.");
@@ -188,7 +188,7 @@ public class SecurityController {
     @Operation(summary = "Profil du vigile connecté", description = "Profil enregistré du vigile ; à défaut, son nom et statut « non_configuré ».")
     @GetMapping("/vigil/profile")
     public ResponseEntity<Map<String, Object>> getVigilProfile() {
-        // Profil du vigile CONNECTÉ (avant : profil « VIG-221 » pour tout le monde)
+        // Profil du vigile CONNECTÉ
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !(auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u)) {
             return ResponseEntity.status(401).build();
@@ -220,7 +220,7 @@ public class SecurityController {
         String message;
         String owner = "Inconnu";
 
-        // 2026-11-13 : le badge QR dynamique (STU_SECURE:…) est vérifié par processBadgeScan, commun à toutes les
+        // Le badge QR dynamique (STU_SECURE:…) est vérifié par processBadgeScan, commun à toutes les
         // routes de scan ; on lui transmet donc le contenu scanné tel quel.
         if (payload.startsWith("STU_SECURE:")) {
             String[] parts = payload.split(":");

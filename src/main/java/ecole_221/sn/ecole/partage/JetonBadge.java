@@ -20,9 +20,7 @@ import java.util.Optional;
 /**
  * Jeton du badge QR dynamique des élèves.
  *
- * <p>2026-11-13 : avant, hachage FNV-1a 32 bits avec une « clé secrète » écrite dans le code (badge falsifiable).</p>
- *
- * <p>2026-11-14 (décision d'accès hors ligne, EF-10) : signature <b>Ed25519</b>. Le serveur signe avec sa clé PRIVÉE ;
+ * <p>Signature <b>Ed25519</b> (décision d'accès hors ligne, EF-10). Le serveur signe avec sa clé PRIVÉE ;
  * le téléphone du vigile vérifie avec la clé PUBLIQUE ({@link #clePubliqueBase64()}), qui permet de vérifier un badge
  * mais pas d'en fabriquer. La clé est dérivée du secret du serveur (ECOLE_BADGE_SECRET, sinon JWT_SECRET) : identique
  * à chaque redémarrage et sur chaque instance ; sans secret configuré, une clé aléatoire est tirée au démarrage.</p>
@@ -168,12 +166,12 @@ public class JetonBadge {
     public record Lecture(String matricule, boolean valide) {
     }
 
-    // ==================== QR D'ENTRÉE AFFICHÉ PAR LE VIGILE (pointage, 16/11) ====================
+    // ==================== QR D'ENTRÉE AFFICHÉ PAR LE VIGILE (pointage) ====================
 
     /**
      * Préfixe du QR d'entrée de l'école, affiché par le terminal du vigile et scanné par l'élève ou le professeur pour
-     * pointer son arrivée ou son départ. Avant : QR fixe « 221-VIGILE-PORTAL-MAIN », identique pour toutes les écoles
-     * (une photo suffisait pour pointer de chez soi) et jamais vérifié.
+     * pointer son arrivée ou son départ. QR signé, propre à l'école et de courte durée : une photo ne permet pas de
+     * pointer de chez soi.
      */
     public static final String PREFIXE_ENTREE = "ENTREE_SECURE:";
 

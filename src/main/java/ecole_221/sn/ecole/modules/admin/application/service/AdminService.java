@@ -41,8 +41,7 @@ public class AdminService implements AdminUseCase {
 
     @Override
     public void updateCandidaturesSettings(boolean enabled) {
-        // Avant : seul un message de journal était écrit (rien n'était enregistré). Désormais la même table
-        // que /candidatures/settings, pour l'école courante.
+        // Même table que /candidatures/settings, pour l'école courante.
         parametresCandidatures.definirOuverture(enabled);
         repositoryPort.addRealtimeLog("Paramètres de candidature mis à jour: " + (enabled ? "activé" : "désactivé"));
     }

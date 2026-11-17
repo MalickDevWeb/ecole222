@@ -9,8 +9,7 @@ import java.time.LocalDateTime;
 
 /**
  * Pointage (émargement) d'un membre du personnel, saisi par l'administration de son école.
- * Avant : liste statique en mémoire, partagée par toutes les écoles, pré-remplie de 5 personnes inventées
- * (photos Unsplash). Désormais : persisté et cloisonné par école (@TenantId).
+ * Persisté et cloisonné par école (@TenantId).
  */
 @Entity
 @Table(name = "pointages_personnel")

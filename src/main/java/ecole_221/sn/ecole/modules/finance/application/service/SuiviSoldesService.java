@@ -20,7 +20,7 @@ import java.util.Map;
 import java.util.Objects;
 
 /**
- * Suivi des soldes (APP-TL-22, 2026-11-14) — LECTURE SEULE : aucune mesure, aucun message, aucun blocage.
+ * Suivi des soldes (APP-TL-22) — LECTURE SEULE : aucune mesure, aucun message, aucun blocage.
  *
  * <p>Le dossier financier ne porte ni échéancier ni année scolaire. Le « retard estimé » suppose donc un paiement
  * régulier en 9 mensualités d'octobre à juin : mensualité = total dû ÷ 9 ; attendu à date = total × mois entamés

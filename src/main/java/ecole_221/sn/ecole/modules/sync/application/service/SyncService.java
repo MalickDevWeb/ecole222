@@ -32,9 +32,7 @@ public class SyncService implements SyncUseCase {
     }
 
     /**
-     * 2026-11-13 (sécurité) : contrôles de l'espace professeur, réutilisés ici. Avant, /sync était ouvert à tout compte
-     * connecté sans aucun contrôle de rôle : un élève pouvait s'attribuer une note (GRADE_SAVE), faire l'appel
-     * (ATTENDANCE_SUBMIT), écrire dans le journal de l'administration (LOG_ADD) ou journaliser un passage (BADGE_SCAN).
+     * Sécurité : contrôles de l'espace professeur, réutilisés ici.
      */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.modules.professor.infrastructure.web.AccesCoursInterceptor accesCours;
@@ -96,7 +94,7 @@ public class SyncService implements SyncUseCase {
     }
 
     /**
-     * 2026-11-14 (ENF-07) : un lot /sync contient plusieurs écritures ; chacune réussie est inscrite au journal d'audit
+     * ENF-07 : un lot /sync contient plusieurs écritures ; chacune réussie est inscrite au journal d'audit
      * (l'intercepteur HTTP n'en voit qu'une : « POST /sync »). Type d'action et identifiant du lot, sans les données.
      */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -127,8 +125,7 @@ public class SyncService implements SyncUseCase {
             case "ATTENDANCE_SELF" -> {
                 exigerRole(ROLES_ELEVE, "pointage");
                 studentUseCase.submitSelfAttendance(
-                    // Avant : « usr-001 » par défaut → la présence était attribuée à un autre élève.
-                    // Désormais : l'élève CONNECTÉ ; un studentId différent dans la charge est refusé.
+                    // L'élève CONNECTÉ ; un studentId différent dans la charge est refusé.
                     etudiantConnecte(payload.get("studentId")),
                     obligatoire(payload, "type", "le type de pointage"),
                     (String) payload.get("method")
@@ -155,7 +152,7 @@ public class SyncService implements SyncUseCase {
                 exigerRole(ROLES_ENSEIGNANT, "appel");
                 exigerCoursEtEleve(obligatoire(payload, "courseId", "le cours"), obligatoire(payload, "studentId", "l'élève"));
                 professorUseCase.submitAttendance(
-                    // Avant : date « 2026-07-20 » et cours « course-1 » inventés si absents → action refusée.
+                    // Date ou cours absents → action refusée.
                     dateIso(obligatoire(payload, "date", "la date")),
                     obligatoire(payload, "studentId", "l'étudiant"),
                     (String) payload.get("studentName"),

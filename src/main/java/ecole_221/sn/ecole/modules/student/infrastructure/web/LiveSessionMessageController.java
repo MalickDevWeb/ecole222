@@ -31,12 +31,8 @@ import java.util.regex.Pattern;
 /**
  * Chat et réactions des cours en direct par WebSocket (STOMP).
  *
- * <p>Révision du 2026-11-13 (test {@code qa/e2e/websocket_securite.py}) : avant, chaque message était rejeté par la
- * base depuis la migration V6 (école vide dans le fil WebSocket → contrainte {@code ck_live_chat_messages_ecole}),
- * l'auteur était celui annoncé par le client (usurpation possible), et la diffusion sur
- * {@code /topic/live-sessions/{id}/chat} était lisible par un compte de n'importe quelle école. Désormais : auteur =
- * compte de la connexion, école = celle vérifiée à la connexion (WebSocketAuthInterceptor), texte obligatoire et
- * borné, diffusion sur un canal propre à l'école ({@code /topic/ecole/{école}/live-sessions/{id}/…}).</p>
+ * <p>Auteur = compte de la connexion, école = celle vérifiée à la connexion (WebSocketAuthInterceptor), texte
+ * obligatoire et borné, diffusion sur un canal propre à l'école ({@code /topic/ecole/{école}/live-sessions/{id}/…}).</p>
  */
 @RestController
 public class LiveSessionMessageController {
@@ -85,7 +81,7 @@ public class LiveSessionMessageController {
         LiveChatMessageJpaEntity entite = new LiveChatMessageJpaEntity(UUID.randomUUID().toString(), sessionId, auteur.getId(),
                 nom.isEmpty() ? auteur.getEmail() : nom, role, texte);
         dansLEcole(ecole, () -> messageRepository.save(entite));
-        // 2026-11-14 (ENF-07) : message reçu par WebSocket, hors de l'intercepteur HTTP → inscrit explicitement
+        // ENF-07 : message reçu par WebSocket, hors de l'intercepteur HTTP → inscrit explicitement
         journal.inscrire(new ecole_221.sn.ecole.modules.audit.infrastructure.persistence.JournalAudit.Entree(
                 ecole, auteur.getId(), entite.getUserName(), role, "CREATE", "live-sessions/chat", sessionId,
                 "Création — message du cours en direct (WebSocket /app/live-sessions/{sessionId}/chat)", null, null, "live-sessions"));

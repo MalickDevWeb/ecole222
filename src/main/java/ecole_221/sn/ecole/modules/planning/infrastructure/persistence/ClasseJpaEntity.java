@@ -25,7 +25,7 @@ public class ClasseJpaEntity {
     private String niveau;
     private int capacity;
     private int currentSize;
-    /** Frais de scolarité annuels (FCFA) ; null = non renseignés. Avant : saisis à l'écran puis perdus. */
+    /** Frais de scolarité annuels (FCFA) ; null = non renseignés. */
     @jakarta.persistence.Column(name = "frais_annuels")
     private Long fraisAnnuels;
 

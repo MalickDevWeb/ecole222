@@ -23,12 +23,8 @@ import java.util.*;
 /**
  * Dossier 360° d'un élève, ses documents, et affectation d'un cours à un créneau.
  *
- * <p>Révision 2026-11-09 : tout était gardé en mémoire (perdu au redémarrage ; documents indexés sans
- * école, donc lisibles depuis une autre école) ; le diagnostic « IA » était inventé à partir du seul
- * identifiant (texte fixe en cas d'échec) ; l'affectation de créneau répondait « success » sans rien
- * enregistrer. Désormais : persistance par école (@TenantId), élève obligatoirement membre de l'école,
- * diagnostic refusé faute de données réelles, créneau réellement créé. 2026-11-14 (APP-TL-24) : le diagnostic
- * est remplacé par une synthèse du suivi calculée par règles (GET /admin/students/{id}/synthese).</p>
+ * <p>Persistance par école (@TenantId), élève obligatoirement membre de l'école, créneau réellement créé.
+ * APP-TL-24 : synthèse du suivi calculée par règles (GET /admin/students/{id}/synthese).</p>
  */
 @RestController
 @RequestMapping("/admin")
@@ -82,7 +78,7 @@ public class AdminStudentProfileController {
         return ResponseEntity.ok(documents.findByUserIdOrderByCreatedAtAsc(studentId).stream().map(this::document).toList());
     }
 
-    /** Relecture des fichiers confidentiels (17/11). */
+    /** Relecture des fichiers confidentiels. */
     private ecole_221.sn.ecole.modules.media.domain.port.MediaStoragePort stockage;
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -179,7 +175,7 @@ public class AdminStudentProfileController {
         return ResponseEntity.status(HttpStatus.CREATED).body(res);
     }
 
-    /** 2026-11-14 : situation financière réelle (module Finances) ; facultative pour les tests sans contexte Spring. */
+    /** Situation financière réelle (module Finances) ; facultative pour les tests sans contexte Spring. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.modules.finance.application.service.SituationFinanciereEleveService situationsFinancieres;
 
@@ -232,7 +228,7 @@ public class AdminStudentProfileController {
 
     /**
      * Profil 360 : seules les données réellement saisies sont renvoyées (APP-BE-17) ; les rubriques sans
-     * source (notes, connexions, parcours) restent vides avec un statut explicite ; les paiements viennent du module Finances (2026-11-14).
+     * source (notes, connexions, parcours) restent vides avec un statut explicite ; les paiements viennent du module Finances.
      */
     private Map<String, Object> profil(ProfilEleveJpaEntity p, String studentId) {
         Map<String, Object> profile = new LinkedHashMap<>();

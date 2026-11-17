@@ -16,11 +16,10 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 /**
- * Nouveau mot de passe provisoire pour un élève, remis par l'école (APP-TL-23, 2026-11-14).
+ * Nouveau mot de passe provisoire pour un élève, remis par l'école (APP-TL-23).
  *
- * <p>Avant : un élève inscrit sans e-mail (connexion par matricule) qui oubliait son mot de passe ne pouvait pas
- * utiliser « Mot de passe oublié » (aucune adresse où envoyer le lien) et aucun écran ne permettait à l'école de lui en
- * redonner un : il perdait l'accès pour de bon.</p>
+ * <p>Un élève inscrit sans e-mail (connexion par matricule) ne peut pas utiliser « Mot de passe oublié » (aucune
+ * adresse où envoyer le lien).</p>
  *
  * <p>Ici : l'administration (module Élèves, écriture) génère un mot de passe provisoire, affiché une seule fois pour
  * être remis à l'élève (jamais envoyé, jamais journalisé) ; l'élève doit le changer à sa prochaine connexion et ses

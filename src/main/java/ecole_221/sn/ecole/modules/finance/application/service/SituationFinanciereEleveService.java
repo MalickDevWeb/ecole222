@@ -13,11 +13,10 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * Situation financière RÉELLE d'un élève (2026-11-14) : dossier financier saisi par la comptabilité de l'école
+ * Situation financière RÉELLE d'un élève : dossier financier saisi par la comptabilité de l'école
  * (montant dû, payé, reste, statut) et versements enregistrés (transactions de type PAYMENT).
  *
- * <p>Lue par l'espace parent (GET /parent/paiements) et par la fiche 360° de l'administration. Avant : ces deux
- * écrans affichaient « non disponible » alors que le module Finances enregistrait ces données. Lecture cloisonnée :
+ * <p>Lue par l'espace parent (GET /parent/paiements) et par la fiche 360° de l'administration. Lecture cloisonnée :
  * les deux entités portent @TenantId (école courante). Aucune donnée inventée : sans dossier, rien n'est renvoyé.</p>
  */
 @Service

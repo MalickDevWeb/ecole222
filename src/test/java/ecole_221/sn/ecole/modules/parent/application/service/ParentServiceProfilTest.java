@@ -19,7 +19,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
-/** Profil du parent : les coordonnées sont réellement enregistrées (avant : faux succès). */
+/** Profil du parent : les coordonnées sont réellement enregistrées. */
 class ParentServiceProfilTest {
 
     private ParentRepositoryPort parents;

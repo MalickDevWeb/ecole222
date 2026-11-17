@@ -26,15 +26,6 @@ import java.util.regex.Pattern;
 /**
  * Comptes (élèves, professeurs, personnel) d'UNE école, créés et listés par son administration.
  *
- * <p>Corrige les défauts constatés le 2026-11-09 :</p>
- * <ul>
- *   <li>comptes créés SANS mot de passe → connexion impossible (401) ;</li>
- *   <li>listes construites avec {@code findByRole} / {@code findAll} → élèves de TOUTES les écoles ;</li>
- *   <li>e-mail inventé « prenom.nom@ecole221.sn » quand l'administration n'en saisissait pas ;</li>
- *   <li>création par e-mail existant → reprise du compte d'une autre personne (rôle écrasé) ;</li>
- *   <li>suppression / modification d'un compte d'une autre école par simple identifiant.</li>
- * </ul>
- *
  * <p>Règles : l'école est celle de la requête (TenantContext), jamais un repli ; un compte n'est visible
  * et modifiable que s'il est membre de cette école ; le mot de passe est soit saisi (8 caractères min.),
  * soit généré aléatoirement et renvoyé UNE SEULE FOIS à l'administrateur pour qu'il le transmette.</p>
@@ -172,7 +163,7 @@ public class ComptesEcoleService {
     }
 
     /**
-     * Rattache un compte EXISTANT à l'école courante avec ce rôle (2026-11-14 : un parent dont les enfants sont dans
+     * Rattache un compte EXISTANT à l'école courante avec ce rôle (un parent dont les enfants sont dans
      * deux écoles garde un seul compte). Déjà membre avec ce rôle : rien à faire ; membre avec un autre rôle : 409.
      */
     @Transactional
@@ -202,8 +193,8 @@ public class ComptesEcoleService {
     public String basculerStatut(String userId, String role) {
         OrganizationUserJpaEntity lien = appartenance(userId, role).orElseThrow(() ->
                 new ResponseStatusException(HttpStatus.NOT_FOUND, "Compte introuvable dans cet établissement."));
-        // 2026-11-13 : un élève transféré vers une autre école reste une archive ; le réactiver ici l'inscrirait dans
-        // deux écoles à la fois (avant : « TRANSFERRED » repassait à « ACTIVE »).
+        // Un élève transféré vers une autre école reste une archive ; le réactiver ici l'inscrirait dans
+        // deux écoles à la fois.
         if ("TRANSFERRED".equalsIgnoreCase(lien.getStatus())) {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Élève transféré vers une autre école : son dossier est conservé en archive et ne peut pas être réactivé ici.");

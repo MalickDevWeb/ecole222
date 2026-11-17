@@ -16,11 +16,10 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.Map;
 
 /**
- * Pièces d'un dossier de candidature, remises par le serveur à l'administration de l'école (16/11).
+ * Pièces d'un dossier de candidature, remises par le serveur à l'administration de l'école.
  * <p>
- * Avant : l'écran ouvrait le lien Cloudinary public. Les PDF étaient refusés (401, diffusion des PDF bloquée sur
- * les comptes gratuits) et la carte d'identité n'était qu'une image. Ici le fichier est relu par l'API authentifiée
- * du stockage. Accès : droit « admissions » (préfixe /admissions, PermissionsInterceptor) ; dossier filtré par école
+ * Le fichier est relu par l'API authentifiée du stockage (le lien Cloudinary public refuse les PDF sur les comptes
+ * gratuits). Accès : droit « admissions » (préfixe /admissions, PermissionsInterceptor) ; dossier filtré par école
  * (@TenantId sur CandidateJpaEntity) : le dossier d'une autre école est « introuvable ».
  */
 @RestController

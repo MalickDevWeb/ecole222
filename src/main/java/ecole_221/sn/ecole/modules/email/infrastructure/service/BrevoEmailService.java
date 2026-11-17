@@ -116,8 +116,7 @@ public class BrevoEmailService implements EmailServicePort {
     }
     
     private boolean sendFallbackEmail(String to, String subject, String content, Map<String, Object> metadata) {
-        // Aucun canal d'envoi configuré : l'e-mail N'EST PAS envoyé — on le dit (avant : « true »,
-        // l'application affichait « e-mail envoyé » alors que rien ne partait).
+        // Aucun canal d'envoi configuré : l'e-mail N'EST PAS envoyé — on le dit.
         logger.warn("E-mail NON envoyé (aucun canal Brevo configuré) — sujet : {}", subject);
         return false;
     }

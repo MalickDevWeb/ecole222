@@ -45,8 +45,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
 /**
- * Administration d'une école : cloisonnement par école, comptes avec mot de passe, aucune donnée inventée
- * (révision du 2026-11-09).
+ * Administration d'une école : cloisonnement par école, comptes avec mot de passe, aucune donnée inventée.
  */
 class AdminControllerTest {
 
@@ -123,7 +122,7 @@ class AdminControllerTest {
     }
 
     /**
-     * APP-TL-22 (2026-11-14) : le statut de frais saisi à la main (« En Règle / En Retard »), qui faisait refuser l'élève
+     * APP-TL-22 : le statut de frais saisi à la main (« En Règle / En Retard »), qui faisait refuser l'élève
      * au portique, n'existe plus : la route n'est plus servie et rien n'est enregistré.
      */
     @Test
@@ -245,7 +244,6 @@ class AdminControllerTest {
 
     @Test
     void creationRefuseeSansEmailOuSiEmailDejaPris() throws Exception {
-        // avant : e-mail inventé « awa.fall@ecole221.sn »
         mockMvc.perform(post("/admin/students").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"name\":\"Awa Fall\"}"))
                 .andExpect(status().isBadRequest());
@@ -314,7 +312,7 @@ class AdminControllerTest {
         Mockito.verify(inscriptions).save(ins.capture());
         assertEquals("cls-1", ins.getValue().getClasseId());
 
-        // relecture : la classe persiste (avant : ignorée, l'élève disparaissait de la classe au rechargement)
+        // relecture : la classe persiste
         Mockito.when(appartenances.findByOrganizationIdAndRole(ecole.getId(), "ETUDIANT"))
                 .thenReturn(List.of(lien("e1", "ETUDIANT", "ACTIVE")));
         Mockito.when(comptes.findAllById(List.of("e1"))).thenReturn(List.of(compte("e1", "Awa", "Fall", "awa@a.sn")));

@@ -36,7 +36,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 
-/** Pointage d'arrivée / départ par le QR d'entrée signé du vigile (16/11). */
+/** Pointage d'arrivée / départ par le QR d'entrée signé du vigile. */
 class PointagesServiceTest {
 
     /** Horloge réglable : le QR est signé pour la minute de CETTE horloge, comme le ferait le serveur. */

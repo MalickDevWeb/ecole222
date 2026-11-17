@@ -51,8 +51,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Étudiants d'un cours : ceux de l'école du professeur, avec leurs VRAIES notes / présences (avant : tous les
- * étudiants de toutes les écoles, « PRESENT » et 15/20 codés en dur). Présences : plus de date ni de cours inventés.
+ * Étudiants d'un cours : ceux de l'école du professeur, avec leurs VRAIES notes / présences.
+ * Présences : plus de date ni de cours inventés.
  */
 class EtudiantsDuCoursParEcoleTest {
 
@@ -207,7 +207,7 @@ class EtudiantsDuCoursParEcoleTest {
                 Mockito.mock(ecole_221.sn.ecole.modules.security.application.port.usecase.SecurityUseCase.class),
                 Mockito.mock(ecole_221.sn.ecole.modules.admin.application.port.usecase.AdminUseCase.class));
 
-        // 2026-11-13 : élève connecté (rôle ETUDIANT) — il ne peut ni faire l'appel ni se noter par la synchronisation
+        // Élève connecté (rôle ETUDIANT) — il ne peut ni faire l'appel ni se noter par la synchronisation
         User eleve = Mockito.mock(User.class);
         Mockito.when(eleve.getId()).thenReturn("eleve-1");
         SecurityContextHolder.getContext().setAuthentication(new UsernamePasswordAuthenticationToken(eleve, null,

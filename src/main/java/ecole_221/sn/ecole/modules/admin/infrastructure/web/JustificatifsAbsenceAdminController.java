@@ -19,7 +19,7 @@ import java.util.Map;
 public class JustificatifsAbsenceAdminController {
 
     private final JustificatifAbsenceService service;
-    /** Relecture des fichiers confidentiels (17/11). */
+    /** Relecture des fichiers confidentiels. */
     private ecole_221.sn.ecole.modules.media.domain.port.MediaStoragePort stockage;
 
     public JustificatifsAbsenceAdminController(JustificatifAbsenceService service) {

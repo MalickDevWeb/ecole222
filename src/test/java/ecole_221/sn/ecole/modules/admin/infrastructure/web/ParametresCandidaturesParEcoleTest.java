@@ -35,8 +35,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * Paramètres de candidature : persistés PAR école (avant : map statique commune, ouverte du 2026-06-01 au
- * 2026-08-31 par défaut). Une école qui n'a rien enregistré est fermée, sans dates ni pièces exigées.
+ * Paramètres de candidature : persistés PAR école. Une école qui n'a rien enregistré est fermée, sans dates
+ * ni pièces exigées.
  */
 class ParametresCandidaturesParEcoleTest {
 

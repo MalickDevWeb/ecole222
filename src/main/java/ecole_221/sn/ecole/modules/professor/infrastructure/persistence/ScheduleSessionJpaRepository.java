@@ -10,6 +10,6 @@ public interface ScheduleSessionJpaRepository extends JpaRepository<ScheduleSess
     List<ScheduleSessionJpaEntity> findByProfessorId(String professorId);
     List<ScheduleSessionJpaEntity> findByProfessorIdAndStatus(String professorId, String status);
     List<ScheduleSessionJpaEntity> findByCourseId(String courseId);
-    /** Séances des classes données (emploi du temps de l'élève et de ses parents, 2026-11-14). */
+    /** Séances des classes données (emploi du temps de l'élève et de ses parents). */
     List<ScheduleSessionJpaEntity> findByClasseIn(java.util.Collection<String> classes);
 }

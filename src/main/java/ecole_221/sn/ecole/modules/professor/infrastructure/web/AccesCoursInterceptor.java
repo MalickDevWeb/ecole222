@@ -23,9 +23,6 @@ import java.util.Set;
  * Contrôle d'accès UNIQUE de l'espace professeur, appliqué avant toute route contenant {courseId},
  * {moduleId} ou {studentId}.
  *
- * <p>Test du parcours professeur du 2026-11-10 : un professeur pouvait noter, créer devoirs / leçons /
- * modules / rappels et faire l'appel dans le cours d'un COLLÈGUE, et un professeur d'une AUTRE ÉCOLE
- * pouvait noter un élève de l'école A ; on pouvait aussi noter un élève inexistant.</p>
  * <ul>
  *   <li>le cours (ou le cours du module) doit exister DANS l'école de la requête, sinon 404 ;</li>
  *   <li>un professeur n'agit que sur SES cours (403) ; l'administration de l'école agit sur tous ;</li>
@@ -96,7 +93,7 @@ public class AccesCoursInterceptor implements HandlerInterceptor {
     }
 
     /**
-     * APP-TL-05 (2026-11-14) : la classe existe dans l'école de la requête (sinon 404, comme une classe inexistante :
+     * APP-TL-05 : la classe existe dans l'école de la requête (sinon 404, comme une classe inexistante :
      * on ne révèle pas les classes d'une autre école) et le professeur connecté y enseigne au moins un cours
      * (sinon 403) ; l'administration de l'école y a accès.
      */

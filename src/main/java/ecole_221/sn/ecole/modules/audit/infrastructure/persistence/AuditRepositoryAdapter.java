@@ -156,7 +156,7 @@ public class AuditRepositoryAdapter implements AuditRepositoryPort {
     private AuditLog toAuditLog(AuditLogJpaEntity entity) {
         return AuditLogFactory.reconstruct(
             entity.getId(),
-            // entrée d'une écriture publique sans compte (candidature, 2026-11-14) : pas d'auteur enregistré
+            // entrée d'une écriture publique sans compte (candidature) : pas d'auteur enregistré
             entity.getActorId() == null ? "anonyme" : entity.getActorId(),
             entity.getActionType(),
             entity.getActionDescription(),

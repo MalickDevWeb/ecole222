@@ -38,7 +38,7 @@ public class PlanService {
 
     @Transactional
     public PlanDto createPlan(CreatePlanCommand cmd) {
-        // erreurs de saisie trouvées au test du 2026-11-10 : prix négatifs et doublons acceptés
+        // Erreurs de saisie refusées : prix négatifs et doublons
         if (cmd.priceMonthly().signum() < 0 || cmd.priceYearly().signum() < 0) {
             throw erreur(org.springframework.http.HttpStatus.BAD_REQUEST, "Les prix d'une offre ne peuvent pas être négatifs.");
         }

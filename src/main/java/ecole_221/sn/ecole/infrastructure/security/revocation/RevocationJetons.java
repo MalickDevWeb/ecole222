@@ -13,8 +13,7 @@ import java.util.Date;
 import java.util.HexFormat;
 
 /**
- * Révocation des jetons JWT (2026-11-13, sécurité maximale). Avant : un jeton restait valable 24 h après la
- * déconnexion ou après un changement de mot de passe.
+ * Révocation des jetons JWT (sécurité maximale).
  * <ul>
  *   <li>déconnexion : le jeton présenté est révoqué jusqu'à son expiration (seule son empreinte est stockée) ;</li>
  *   <li>changement / réinitialisation du mot de passe : tous les jetons émis avant ce moment sont refusés.</li>

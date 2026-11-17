@@ -33,10 +33,8 @@ import static ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel;
 /**
  * Wiki, notes, journal d'activité, présences aux réunions et devoirs de groupe — enregistrés en base, par école (V8).
  *
- * <p>Avant (balayage du 2026-11-13) : listes en mémoire du serveur, perdues au redémarrage et communes à toutes les
- * écoles (fuite d'une école à l'autre) ; notes privées lues par tous ; corps enregistré tel quel (nombre, liste, null…) ;
- * devoirs de groupe jamais enregistrés. Désormais : seuls les champs connus sont gardés, chacun contrôlé ; l'auteur est
- * le compte connecté ; une note privée n'est lue que par son auteur.</p>
+ * <p>Seuls les champs connus sont gardés, chacun contrôlé ; l'auteur est le compte connecté ; une note privée n'est
+ * lue que par son auteur.</p>
  */
 @Service
 public class ElementsCollaboratifsService {

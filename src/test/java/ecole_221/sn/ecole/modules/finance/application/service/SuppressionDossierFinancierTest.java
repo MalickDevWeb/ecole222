@@ -17,8 +17,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 /**
- * APP-TL-05 (2026-11-14) : suppression d'un dossier financier. Avant : deleteById silencieux, « succès » pour un dossier
- * inexistant ou d'une autre école ; un dossier avec versements pouvait être effacé.
+ * APP-TL-05 : suppression d'un dossier financier.
  */
 class SuppressionDossierFinancierTest {
 

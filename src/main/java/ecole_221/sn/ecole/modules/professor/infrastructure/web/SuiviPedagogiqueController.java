@@ -20,7 +20,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Suivi pédagogique (lot E, 2026-11-10) : demandes de report validées par l'administration, cahier de textes,
+ * Suivi pédagogique (lot E) : demandes de report validées par l'administration, cahier de textes,
  * tableau de bord de la classe et fiche élève. Les routes /professor/courses/{courseId}/** sont contrôlées par
  * AccesCoursInterceptor (cours de l'école et du professeur) ; /admin/** est réservé à l'administration (SecurityConfig).
  */

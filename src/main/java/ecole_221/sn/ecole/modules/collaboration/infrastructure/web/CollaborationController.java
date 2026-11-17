@@ -27,11 +27,11 @@ public class CollaborationController {
     private final CollaborationUseCase collaborationUseCase;
     private final ActionLogger actionLogger;
 
-    /** Wiki, présences et devoirs de groupe enregistrés en base par école (V8 ; avant : listes en mémoire communes). */
+    /** Wiki, présences et devoirs de groupe enregistrés en base par école (V8). */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService elementsCollaboratifs;
 
-    /** Membres, chef et classe des groupes (V10 ; avant : choisis à l'écran puis ignorés par le serveur). */
+    /** Membres, chef et classe des groupes (V10). */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.modules.collaboration.application.service.MembresGroupeService membresGroupe;
 
@@ -83,7 +83,7 @@ public class CollaborationController {
     public ResponseEntity<List<Map<String, Object>>> getStudents(
             @Parameter(description = "Classe : seuls les élèves inscrits sont listés") @RequestParam(value = "classeId", required = false) String classeId) {
         java.util.Set<String> filtre = classeId == null || classeId.isBlank() || membresGroupe == null ? null : membresGroupe.elevesDeLaClasse(classeId.strip());
-        // Étudiants ACTIFS de l'école courante (avant : 8 étudiants inventés, moyennes comprises)
+        // Étudiants ACTIFS de l'école courante
         List<Map<String, Object>> students = new java.util.ArrayList<>();
         String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse(null);
         if (ecole != null && appartenances != null && comptes != null) {
@@ -104,7 +104,7 @@ public class CollaborationController {
     @PostMapping("/workgroups")
     @Operation(summary = "Créer un groupe", description = "Corps {name (obligatoire, unique dans l'école → 409), description?, classId?, memberIds?, leaderId?}. Enseignant ou administration : membres = élèves actifs de l'école, inscrits dans la classe si elle est donnée, chef parmi les membres (premier membre par défaut). Élève : seul membre et chef ; memberIds, leaderId ou classId → 403. Tout est vérifié avant la création.")
     public ResponseEntity<Map<String, Object>> createWorkgroup(@RequestBody Map<String, Object> body) {
-        // APP-QA-04 : nom obligatoire et texte, longueurs bornées (avant : groupe sans nom créé, ou faux succès « fallback-… »)
+        // APP-QA-04 : nom obligatoire et texte, longueurs bornées
         String name = texte(body, "name", "Le nom du groupe", 100);
         String description = texteOptionnel(body, "description", "La description", 1_000);
         var moi = moi();
@@ -151,7 +151,7 @@ public class CollaborationController {
     public ResponseEntity<Map<String, Object>> addDocument(
             @Parameter(description = "Identifiant du groupe") @PathVariable("groupId") String groupId,
             @RequestBody Map<String, Object> body) {
-        // APP-QA-04 : champs contrôlés, déposant = compte connecté (avant : addedBy lu dans la requête, souvent vide)
+        // APP-QA-04 : champs contrôlés, déposant = compte connecté
         String nom = texte(body, "name", "Le nom du document", 255);
         String url = texteOptionnel(body, "url", "Le lien du document", 1_000);
         if (url != null && !url.matches("(?i)^https?://\\S+$")) {
@@ -177,7 +177,6 @@ public class CollaborationController {
     public ResponseEntity<Map<String, Object>> addHomework(
             @Parameter(description = "Identifiant du groupe") @PathVariable("groupId") String groupId,
             @RequestBody Map<String, Object> body) {
-        // Avant (balayage du 2026-11-13) : « success » renvoyé sans rien enregistrer
         Map<String, Object> devoir = elementsCollaboratifs.enregistrer(
                 ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService.DEVOIR, body, groupId);
         return ResponseEntity.ok(Map.of("success", true, "id", devoir.get("id")));
@@ -196,7 +195,6 @@ public class CollaborationController {
             @Parameter(description = "Identifiant du groupe") @PathVariable("groupId") String groupId,
             @RequestBody Map<String, Object> body) {
         // APP-QA-04 : titre obligatoire, statut dans la liste connue ; un changement de statut met à jour la tâche
-        // (avant : chaque changement de statut créait une nouvelle tâche en double)
         String id = collaborationUseCase.enregistrerTache(groupId,
                 texteOptionnel(body, "id", "L'identifiant de la tâche", 100),
                 texte(body, "title", "Le titre de la tâche", 200),
@@ -233,7 +231,7 @@ public class CollaborationController {
     public ResponseEntity<Map<String, Object>> addMessage(
             @Parameter(description = "Identifiant du groupe") @PathVariable("groupId") String groupId,
             @RequestBody Map<String, Object> body) {
-        // Auteur = compte connecté (avant : champ « sender » de la requête, n'importe qui signait au nom d'un autre)
+        // Auteur = compte connecté, jamais le champ « sender » de la requête
         var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
         if (!(auth != null && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u)) {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Veuillez vous connecter.");
@@ -255,7 +253,7 @@ public class CollaborationController {
     @PostMapping("/meets")
     @Operation(summary = "Créer une réunion", description = "Planifie une classe virtuelle (subjectName ou title, meetLink ou link : lien Google Meet https://meet.google.com/abc-defg-hij, date, time).")
     public ResponseEntity<Map<String, Object>> createMeet(@RequestBody Map<String, Object> body) {
-        // APP-QA-04 : seuls les champs connus, contrôlés (avant : corps enregistré tel quel, nombre ou liste compris)
+        // APP-QA-04 : seuls les champs connus, contrôlés
         corpsRequis(body);
         Map<String, Object> d = new HashMap<>();
         String titre = texteOptionnel(body, "subjectName", "La matière", 200);
@@ -263,8 +261,8 @@ public class CollaborationController {
         d.put("title", texteOptionnel(body, "title", "Le titre de la réunion", 200) != null ? texteOptionnel(body, "title", "Le titre de la réunion", 200) : d.get("subjectName"));
         String lien = texteOptionnel(body, "meetLink", "Le lien de la réunion", 1_000);
         lien = lien != null ? lien : texte(body, "link", "Le lien de la réunion", 1_000);
-        // APP-TL-26 (2026-11-14) : seul un lien Google Meet collé est accepté, même règle que les cours en direct
-        // (StudentController, POST /student/live-sessions). Avant : n'importe quelle adresse http(s).
+        // APP-TL-26 : seul un lien Google Meet collé est accepté, même règle que les cours en direct
+        // (StudentController, POST /student/live-sessions).
         if (!lien.matches(LIEN_MEET)) {
             throw refus("Le lien de la réunion doit être un lien Google Meet, de la forme https://meet.google.com/abc-defg-hij.");
         }
@@ -303,7 +301,6 @@ public class CollaborationController {
     @PostMapping("/voice-sessions")
     @Operation(summary = "Créer une session vocale (non disponible)", description = "Répond 501 : fonction non encore réalisée.")
     public ResponseEntity<Map<String, Object>> createVoiceSession(@RequestBody(required = false) Map<String, Object> body) {
-        // Avant (balayage du 2026-11-13) : identifiant inventé, rien d'enregistré, « success » annoncé
         throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_IMPLEMENTED, "Les sessions vocales ne sont pas encore disponibles.");
     }
     
@@ -318,14 +315,12 @@ public class CollaborationController {
     @GetMapping("/voice-sessions/{sessionId}")
     @Operation(summary = "Détails d'une session vocale", description = "Aucune session vocale n'existe encore : 404.")
     public ResponseEntity<Map<String, Object>> getVoiceSession(@PathVariable String sessionId) {
-        // Avant : session « active » inventée pour n'importe quel identifiant
         throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Session vocale introuvable.");
     }
     
     @DeleteMapping("/voice-sessions/{sessionId}")
     @Operation(summary = "Terminer une session vocale", description = "Aucune session vocale n'existe encore : 404.")
     public ResponseEntity<Map<String, Object>> deleteVoiceSession(@PathVariable String sessionId) {
-        // Avant : « Session vocale terminée » pour n'importe quel identifiant
         throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Session vocale introuvable.");
     }
     
@@ -344,7 +339,6 @@ public class CollaborationController {
     public ResponseEntity<Map<String, Object>> startGroupVoiceSession(
             @Parameter(description = "Identifiant du groupe") @PathVariable("groupId") String groupId,
             @RequestBody(required = false) Map<String, Object> body) {
-        // Avant : session « active » inventée, rien d'enregistré
         throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_IMPLEMENTED, "Les sessions vocales ne sont pas encore disponibles.");
     }
 
@@ -353,7 +347,7 @@ public class CollaborationController {
     @GetMapping("/attendances")
     @Operation(summary = "Présences collaboration", description = "Retourne la liste des présences aux réunions de collaboration.")
     public ResponseEntity<List<Map<String, Object>>> getCollaborationAttendances() {
-        // Encadrants : toutes les présences de l'école ; élève : les siennes (avant : liste en mémoire commune à toutes les écoles)
+        // Encadrants : toutes les présences de l'école ; élève : les siennes
         return ResponseEntity.ok(elementsCollaboratifs.lister(
                 ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService.PRESENCE, null));
     }
@@ -385,8 +379,7 @@ public class CollaborationController {
 @Tag(name = "Wiki", description = "Documentation collaborative, notes et logs d'audit")
 class WikiController {
 
-    // Avant (balayage du 2026-11-13) : listes en mémoire COMMUNES À TOUTES LES ÉCOLES, perdues au redémarrage,
-    // notes privées lues par tous. Désormais : base de données par école (V8).
+    // Base de données par école (V8).
     private final ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService elements;
 
     WikiController(ecole_221.sn.ecole.modules.collaboration.application.service.ElementsCollaboratifsService elements) {

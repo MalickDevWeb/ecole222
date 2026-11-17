@@ -31,7 +31,7 @@ public class FichiersLocauxController {
 
     @GetMapping("/public/media/{nom}")
     public ResponseEntity<byte[]> lire(@PathVariable String nom) throws IOException {
-        // 17/11 : un fichier confidentiel n'est jamais servi par son lien (seul le serveur le relit, pour une personne autorisée)
+        // Un fichier confidentiel n'est jamais servi par son lien (seul le serveur le relit, pour une personne autorisée)
         if (nom != null && nom.startsWith(StockageLocalFichiers.PREFIXE_PRIVE)) {
             throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Fichier introuvable.");
         }

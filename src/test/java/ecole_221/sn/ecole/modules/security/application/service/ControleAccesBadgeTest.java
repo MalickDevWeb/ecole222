@@ -85,7 +85,7 @@ class ControleAccesBadgeTest {
 
     @Test
     void eleveRefuseAvecSonSeulMatricule() {
-        // 2026-11-13 : un matricule tapé ou photocopié n'ouvre plus la porte
+        // Un matricule tapé ou photocopié n'ouvre plus la porte
         compte("e1", "ETU-001", RoleUtilisateur.ETUDIANT, ecoleA);
         Map<String, Object> r = service.processBadgeScan("ETU-001");
         assertEquals(false, r.get("accessGranted"));
@@ -107,9 +107,8 @@ class ControleAccesBadgeTest {
     }
 
     /**
-     * APP-TL-22 (2026-11-14) : l'accès au campus ne dépend jamais des frais. Avant : un élève marqué « En Retard » à la
-     * main était refusé au portique. Désormais un élève au QR valide et membre actif entre, quel que soit son reste dû,
-     * et aucune donnée financière n'apparaît dans la décision ni dans le journal du vigile.
+     * APP-TL-22 : l'accès au campus ne dépend jamais des frais. Un élève au QR valide et membre actif entre, quel que
+     * soit son reste dû, et aucune donnée financière n'apparaît dans la décision ni dans le journal du vigile.
      */
     @Test
     void eleveAvecResteDuAutoriseSansDonneeFinanciere() {

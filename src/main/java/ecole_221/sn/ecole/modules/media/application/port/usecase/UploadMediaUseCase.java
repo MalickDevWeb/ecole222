@@ -7,7 +7,7 @@ public interface UploadMediaUseCase {
     UploadedFile upload(byte[] fileBytes, String fileName, String contentType) throws IOException;
     UploadedFile upload(byte[] fileBytes, String fileName, String contentType, String userId) throws IOException;
 
-    /** 17/11 : envoi confidentiel (fichier lisible seulement par le serveur). */
+    /** Envoi confidentiel (fichier lisible seulement par le serveur). */
     default UploadedFile upload(byte[] fileBytes, String fileName, String contentType, String userId, boolean confidentiel) throws IOException {
         return upload(fileBytes, fileName, contentType, userId);
     }

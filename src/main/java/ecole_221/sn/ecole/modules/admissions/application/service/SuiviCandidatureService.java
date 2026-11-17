@@ -23,8 +23,6 @@ import java.util.regex.Pattern;
  *   <li>au suivi : email + mot de passe → uniquement SON dossier (école courante, @TenantId) ; échec générique,
  *       tentatives répétées freinées.</li>
  * </ul>
- * Avant : le mot de passe saisi au dépôt n'était jamais envoyé et la « connexion » se faisait dans le navigateur
- * à partir de la base complète des candidats (GET /admissions/db, désormais fermé).
  */
 @Service
 public class SuiviCandidatureService {
@@ -57,7 +55,6 @@ public class SuiviCandidatureService {
 
     /**
      * Pièces du dossier (corps « pieces ») : clé → [libellé, clé enregistrée dans additionalInfo, obligatoire].
-     * Avant : le portail n'envoyait que « fournie : oui / non » (docs.idCard / docs.diploma), jamais le fichier.
      */
     private static final String[][] PIECES = {
         {"pieceIdentite", "la pièce d'identité (CNI ou passeport)", "pieceIdentiteUrl", "1"},

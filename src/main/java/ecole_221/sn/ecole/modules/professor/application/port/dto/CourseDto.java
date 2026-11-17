@@ -32,7 +32,7 @@ public record CourseDto(
     
     @Schema(description = "Liste des modules")
     List<ModuleDto> modules,
-    /** Nom RÉEL de la classe du cours (avant : absent, l'écran affichait « L3-GL » inventé). */
+    /** Nom RÉEL de la classe du cours. */
     String classe
 ) {
     public CourseDto avecClasse(String nomClasse, int effectif) {

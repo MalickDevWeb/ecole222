@@ -9,7 +9,7 @@ import java.time.LocalDateTime;
 
 /**
  * Informations complémentaires d'un élève saisies par l'administration de SON école (santé comprise).
- * Avant : carte en mémoire, perdue à chaque redémarrage. Cloisonné par école (@TenantId).
+ * Cloisonné par école (@TenantId).
  */
 @Entity
 @Table(name = "profils_eleves")

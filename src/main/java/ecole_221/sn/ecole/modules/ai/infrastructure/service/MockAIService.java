@@ -11,9 +11,7 @@ import java.util.Map;
 /**
  * Fournisseur d'IA ABSENT (aucun « ai.provider » configuré).
  *
- * <p>Avant (jusqu'au 2026-11-09) : faux tuteur qui se déclarait disponible et renvoyait des phrases toutes
- * faites (« Je comprends votre question… ») présentées comme une réponse d'IA. Constat Kasongo SUP-QC-20261109.
- * Désormais : déclaré indisponible et message explicite ; aucune réponse simulée.</p>
+ * <p>Déclaré indisponible et message explicite ; aucune réponse simulée. Constat Kasongo SUP-QC-20261109.</p>
  */
 @Service
 @ConditionalOnProperty(name = "ai.provider", havingValue = "mock", matchIfMissing = true)

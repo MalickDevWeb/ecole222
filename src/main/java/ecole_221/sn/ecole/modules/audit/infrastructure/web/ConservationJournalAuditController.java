@@ -8,7 +8,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 /**
- * Durée de conservation du journal d'audit (2026-11-14) — super-administrateur seulement (règle /v1/super-admin/**
+ * Durée de conservation du journal d'audit — super-administrateur seulement (règle /v1/super-admin/**
  * de SecurityConfig). La modification est elle-même inscrite au journal (JournalAuditInterceptor).
  */
 @RestController

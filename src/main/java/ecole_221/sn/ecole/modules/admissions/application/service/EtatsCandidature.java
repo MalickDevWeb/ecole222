@@ -10,8 +10,7 @@ import java.util.Locale;
 
 /**
  * Cohérence entre la DÉCISION (admission_status) et l'ÉTAPE du Kanban (current_step) d'une candidature
- * (APP-BE-24). Avant : les deux évoluaient séparément ; un dossier pouvait être « admis » à l'étape « new »,
- * ou à l'étape « rejected » tout en restant « en attente ».
+ * (APP-BE-24).
  * <ul>
  *   <li>décision ACCEPTED / FINALISE → étape admitted ; REJECTED → rejected ; décision rouverte → étape new ;</li>
  *   <li>étape admitted → ACCEPTED ; rejected → REJECTED ; new → EN_ATTENTE ; docs / interview → EN_COURS

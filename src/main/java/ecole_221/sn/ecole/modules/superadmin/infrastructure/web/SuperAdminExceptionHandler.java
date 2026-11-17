@@ -14,7 +14,7 @@ import java.util.Map;
 /**
  * Gestion globale des exceptions pour le module Super Admin.
  */
-// Avant le gestionnaire global (sinon ses 404 / 409 devenaient des 500 — test du 2026-11-10)
+// Avant le gestionnaire global (sinon ses 404 / 409 devenaient des 500)
 @org.springframework.core.annotation.Order(org.springframework.core.Ordered.HIGHEST_PRECEDENCE)
 @RestControllerAdvice(assignableTypes = SuperAdminUserController.class)
 public class SuperAdminExceptionHandler {

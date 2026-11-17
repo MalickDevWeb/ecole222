@@ -28,7 +28,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
-/** Journal d'audit exhaustif des écritures (BR-05, ENF-07, 2026-11-14). */
+/** Journal d'audit exhaustif des écritures (BR-05, ENF-07). */
 class JournalAuditInterceptorTest {
 
     private final JournalAudit journal = mock(JournalAudit.class);

@@ -38,7 +38,7 @@ public class GroupChatController {
     @PostMapping("/groups")
     public ResponseEntity<?> createGroup(@RequestBody Map<String, String> request) {
         try {
-            // APP-QA-04 : nom obligatoire et borné (avant : discussion sans nom créée)
+            // APP-QA-04 : nom obligatoire et borné
             String name = request == null ? null : request.get("name");
             if (name == null || name.isBlank()) {
                 throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le nom de la discussion est obligatoire.");
@@ -85,7 +85,6 @@ public class GroupChatController {
             GroupChatDto group = groupChatService.getGroupChat(id);
             return ResponseEntity.ok(group);
         } catch (Exception e) {
-            // Avant : toute erreur devenait 404 (y compris un refus d'accès)
             throw relancer(e);
         }
     }
@@ -298,8 +297,7 @@ public class GroupChatController {
     @GetMapping("/groups/types/{type}")
     public ResponseEntity<List<GroupChatDto>> getGroupsByType(@PathVariable String type) {
         try {
-            // 2026-11-13 : seulement les discussions dont le compte fait partie (avant : toutes celles de l'école,
-            // discussions privées à deux comprises, avec leurs participants)
+            // Seulement les discussions dont le compte fait partie
             String moi = moi();
             List<GroupChatDto> groups = groupChatService.getGroupChatsByType(type).stream()
                     .filter(g -> g.participantIds() != null && g.participantIds().contains(moi)).toList();
@@ -316,7 +314,7 @@ public class GroupChatController {
         try {
             String user1Id = exigerMoi(request.get("user1Id"));
             String user2Id = request.get("user2Id");
-            // APP-QA-04 : interlocuteur obligatoire et différent de soi (avant : discussion créée avec un interlocuteur nul)
+            // APP-QA-04 : interlocuteur obligatoire et différent de soi
             if (user2Id == null || user2Id.isBlank() || user2Id.length() > 255) {
                 throw ecole_221.sn.ecole.partage.ChampsRequete.refus("L'interlocuteur est obligatoire.");
             }
@@ -405,7 +403,6 @@ public class GroupChatController {
     public ResponseEntity<List<MessageDto>> getMessages(@PathVariable String id) {
         try {
             exigerMembre(id);
-            // Avant : toujours une liste vide (lecture commentée)
             return ResponseEntity.ok(groupChatService.getMessages(id));
         } catch (Exception e) {
             logger.error("Erreur récupération messages", e);
@@ -425,7 +422,6 @@ public class GroupChatController {
             groupChatService.markMessageAsRead(chatId, id, userId);
             return ResponseEntity.ok().build();
         } catch (Exception e) {
-            // Avant : 200 renvoyé même en cas d'échec (« pour éviter un 500 dans les tests »)
             logger.warn("Marquage message lu refusé : {}", e.getMessage());
             throw relancer(e);
         }
@@ -464,22 +460,16 @@ public class GroupChatController {
             throw relancer(e);
         }
     }
-    
-    // Balayage du 2026-11-13 : POST /test/run-all retiré (répondait « operational » sans rien tester, aucun écran ne l'utilisait).
 
     /**
-     * Balayage de robustesse (2026-11-13) : chaque erreur devenait un 500, même un champ manquant ou une discussion
-     * introuvable. L'erreur est relancée telle quelle : le gestionnaire global renvoie 400 / 404 avec la vraie cause,
+     * L'erreur est relancée telle quelle : le gestionnaire global renvoie 400 / 404 avec la vraie cause,
      * et 500 seulement pour une vraie erreur du serveur.
      */
     private static RuntimeException relancer(Exception e) {
         return e instanceof RuntimeException r ? r : new RuntimeException(e.getMessage(), e);
     }
 
-    // ==================== CONTRÔLES D'IDENTITÉ ET D'APPARTENANCE (2026-11-13) ====================
-    // Avant : l'auteur (creatorId, senderId, userId, user1Id) était lu dans la requête : n'importe quel compte agissait
-    // au nom d'un autre (un élève créait un groupe au nom de l'administrateur), et aucune route ne vérifiait
-    // l'appartenance au groupe (lecture des messages, ajout de participants, renommage par un non-membre).
+    // ==================== CONTRÔLES D'IDENTITÉ ET D'APPARTENANCE ====================
 
     /** Identifiant du compte connecté (401 sinon). */
     private static String moi() {

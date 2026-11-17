@@ -32,7 +32,7 @@ public class StudentEnrollmentService {
             .filter(OrganizationUser::isActive)
             .toList();
 
-        // Déjà inscrit dans CETTE école : avant, le message parlait à tort d'une autre école et d'un transfert.
+        // Déjà inscrit dans CETTE école
         if (actives.stream().anyMatch(m -> organizationId.equals(m.getOrganizationId()))) {
             throw new IllegalStateException("Cet élève est déjà inscrit dans cette école.");
         }

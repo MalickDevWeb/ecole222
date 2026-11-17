@@ -30,7 +30,7 @@ public class CachedBodyHttpServletRequest extends HttpServletRequestWrapper {
 
     public CachedBodyHttpServletRequest(HttpServletRequest request) throws IOException {
         super(request);
-        // Lecture bornée (2026-11-13) : avant, readAllBytes() chargeait en mémoire un corps de n'importe quelle taille.
+        // Lecture bornée : readAllBytes() chargerait en mémoire un corps de n'importe quelle taille.
         byte[] lu = request.getInputStream().readNBytes(LIMITE_OCTETS + 1);
         if (lu.length > LIMITE_OCTETS) {
             throw new CorpsTropVolumineuxException();

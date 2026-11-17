@@ -16,8 +16,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Durée de conservation du journal d'audit (décision du Tech Lead, 2026-11-14) : « pour l'instant 30 minutes, mais on
- * peut le changer ; elle ne doit pas être figée dans le code ».
+ * Durée de conservation du journal d'audit : « pour l'instant 30 minutes, mais on peut le changer ; elle ne doit pas
+ * être figée dans le code ».
  *
  * <p>La durée est rangée dans {@code parametres_plateforme} (migration V14) et modifiée par le super-administrateur.
  * La base n'admet la suppression d'une entrée que si elle est plus ancienne que cette durée (déclencheur V14) ; la

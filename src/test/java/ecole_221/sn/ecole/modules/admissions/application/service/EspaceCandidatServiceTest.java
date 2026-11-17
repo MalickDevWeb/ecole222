@@ -21,7 +21,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/** 17/11 : espace du candidat — jeton de suivi, pièces, échanges avec l'école. */
+/** Espace du candidat — jeton de suivi, pièces, échanges avec l'école. */
 class EspaceCandidatServiceTest {
 
     private final Map<String, ElementPortailAdmissionJpaEntity> stockage = new LinkedHashMap<>();

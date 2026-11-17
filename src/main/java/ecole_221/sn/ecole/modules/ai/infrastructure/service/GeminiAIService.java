@@ -72,7 +72,7 @@ public class GeminiAIService implements AIServicePort {
         logger.info("Utilisation de la réponse fallback ({} caractères)", (message == null ? 0 : message.length()));
         
         // Réponse fallback simple qui simule une IA
-        // Pas de réponse imitant l'IA (avant : « Je suis votre assistant IA… votre message sera traité »)
+        // Pas de réponse imitant l'IA
         return "L'assistant IA n'est pas disponible : aucun service d'IA n'est configuré pour cet établissement.";
     }
 }

@@ -17,11 +17,10 @@ import java.util.Map;
 import java.util.Set;
 
 /**
- * Journal d'audit EXHAUSTIF des écritures HTTP (BR-05, ENF-07, 2026-11-14).
+ * Journal d'audit EXHAUSTIF des écritures HTTP (BR-05, ENF-07).
  *
- * <p>Avant : le « journal » ActionLogger n'écrivait que dans les traces de l'application ; la table {@code audit_logs},
- * rendue inaltérable par la base (V11), ne recevait que de rares entrées. Désormais toute écriture RÉUSSIE (POST, PUT,
- * PATCH, DELETE, statut &lt; 400) d'un compte connecté y est inscrite : auteur (compte, nom, rôle), école (ou
+ * <p>Toute écriture RÉUSSIE (POST, PUT, PATCH, DELETE, statut &lt; 400) d'un compte connecté est inscrite dans la
+ * table {@code audit_logs}, rendue inaltérable par la base (V11) : auteur (compte, nom, rôle), école (ou
  * « plateforme »), route avec ses identifiants, adresse IP, navigateur. Le contenu de la requête n'est jamais copié
  * (mots de passe, données personnelles).</p>
  *
@@ -38,7 +37,7 @@ public class JournalAuditInterceptor implements HandlerInterceptor {
     static final Set<String> ECRITURES = Set.of("POST", "PUT", "PATCH", "DELETE");
     /** Jamais inscrites ici : identifiants de connexion, et entrées déjà écrites explicitement. */
     static final Set<String> EXCLUES = Set.of("/auth/login", "/auth/login-token", "/audit/logs",
-            "/candidatures/regles/evaluer");   // 16/11 : lecture (pièces exigées), aucune écriture
+            "/candidatures/regles/evaluer");   // Lecture (pièces exigées), aucune écriture
     static final Set<String> ANONYMES_JOURNALISEES = Set.of("/candidatures/submit", "/register-school",
             "/auth/reinitialiser-mot-de-passe");
 

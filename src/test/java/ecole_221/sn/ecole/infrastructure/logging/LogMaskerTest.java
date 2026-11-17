@@ -58,7 +58,7 @@ class LogMaskerTest {
         assertTrue(LogMasker.masquer("x".repeat(1000)).length() < 320);
     }
 
-    /** Avant : StackOverflowError ou dizaines de secondes sur 100 000 caractères (y compris à la connexion publique). */
+    /** Sur 100 000 caractères : ni StackOverflowError ni dizaines de secondes (y compris à la connexion publique). */
     @org.junit.jupiter.api.Test
     void texteGeantMasqueRapidementSansDebordementNiFuite() {
         String geant = "{\"password\":\"" + "A".repeat(100_000) + "\",\"email\":\"awa.diop@exemple.sn\"}";

@@ -18,7 +18,7 @@ import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * APP-BE-14 : tous les champs d'une classe virtuelle sont conservés (aller-retour POST → GET).
- * APP-TL-26 (2026-11-14) : plus de champ « compte Google obligatoire » (enregistré sans effet) ; seul un lien
+ * APP-TL-26 : plus de champ « compte Google obligatoire » (enregistré sans effet) ; seul un lien
  * Google Meet est accepté par POST /collaboration/meets, comme pour les cours en direct.
  */
 class MeetAllerRetourTest {

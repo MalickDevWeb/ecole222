@@ -69,7 +69,6 @@ class StudentControllerTest {
 
     @Test
     void profilConstruitDepuisLeCompteReel() throws Exception {
-        // avant : profil lu dans StudentData seul → vide pour un vrai compte (« Matricule non renseigné »)
         Mockito.when(studentDataRepository.findById(anyString())).thenReturn(java.util.Optional.empty());
 
         mockMvc.perform(get("/student/profile")
@@ -99,7 +98,6 @@ class StudentControllerTest {
 
     @Test
     void badgeAvecLeMatriculeReel() throws Exception {
-        // avant : matricule inventé « SN-2026-<hash> » sur le QR d'accès
         Mockito.when(studentDataRepository.findById(anyString())).thenReturn(java.util.Optional.empty());
         Map<String, Object> badge = new HashMap<>();
         badge.put("matricule", "ETU-1");

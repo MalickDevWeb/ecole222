@@ -11,7 +11,7 @@ import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.HandlerInterceptor;
 
 /**
- * Application de la matrice des droits aux rôles du personnel (2026-11-13).
+ * Application de la matrice des droits aux rôles du personnel.
  *
  * <p>Un Directeur, une Secrétaire, un Comptable, un Surveillant ou un RH n'atteint une route que si la permission du
  * module correspondant (lecture ou écriture) lui est accordée dans l'école de la requête. Une route qui n'appartient

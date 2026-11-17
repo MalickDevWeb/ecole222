@@ -227,8 +227,6 @@ public class ParentController {
     public ResponseEntity<List<Map<String, Object>>> getProfesseurs(
             @Parameter(hidden = true) @RequestHeader(value = "Authorization", required = false) String authHeader) {
         // APP-BE-17 / APP-SEC-17 : uniquement les professeurs ACTIFS de l'école courante.
-        // Avant : tous les comptes PROFESSEUR de toutes les écoles (emails compris), titre « Dr. »
-        // ajouté à tous, et deux professeurs inventés si la liste était vide.
         String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse(null);
         List<Map<String, Object>> result = new java.util.ArrayList<>();
         if (ecole != null && appartenances != null) {
@@ -260,7 +258,7 @@ public class ParentController {
     /**
      * Identifiant du parent connecté (APP-SEC-11).
      * L'utilisateur est celui authentifié par le filtre JWT (cookie ou en-tête Bearer) ; l'en-tête
-     * n'est plus redécodé ici, ce qui faisait échouer les appels authentifiés par cookie.
+     * n'est pas redécodé ici (cela ferait échouer les appels authentifiés par cookie).
      * Le paramètre authHeader est conservé pour la signature des routes (documentation OpenAPI masquée).
      */
     private String extractParentIdFromToken(String authHeader) {

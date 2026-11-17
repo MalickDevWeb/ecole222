@@ -7,9 +7,8 @@ import org.springframework.web.server.ResponseStatusException;
 import java.util.*;
 
 /**
- * Conversion des listes envoyées par l'écran « Gestion de l'école » vers le modèle admin.
- * Avant : le corps était désérialisé directement dans les agrégats (sans constructeur Jackson) → le PUT
- * échouait et le front se rabattait sur PUT /planning/* qui répondait 200 sans rien enregistrer.
+ * Conversion des listes envoyées par l'écran « Gestion de l'école » vers le modèle admin (les agrégats n'ont pas de
+ * constructeur Jackson).
  * Accepte les noms de champs du front (day/slot/subject/prof/roomName, capacityMax…) comme ceux du back.
  * Champ obligatoire manquant → 400 explicite ; aucune valeur par défaut inventée.
  */
@@ -22,8 +21,8 @@ final class PlanningPayloads {
         for (Map<String, Object> m : lignes(corps)) {
             String nom = obligatoire(m, "le nom de la salle", "name", "nom");
             Integer cap = entier(m, "capacity", "capacite", "capacityMax");
-            // APP-QA-04 : capacité obligatoire et d'au moins 1 place (avant : absente → 0, puis toute la liste des salles
-            // devenait illisible, la règle « capacité positive » étant appliquée à la lecture)
+            // APP-QA-04 : capacité obligatoire et d'au moins 1 place (la règle « capacité positive », appliquée à la
+            // lecture, rendrait sinon toute la liste des salles illisible)
             if (cap == null) throw mauvais("La capacité de la salle « " + nom + " » est obligatoire.");
             if (cap < 1) throw mauvais("La capacité de la salle « " + nom + " » doit être d'au moins 1 place.");
             res.add(RoomFactory.reconstruct(id(m), nom, cap == null ? 0 : cap, liste(m.get("equipment"))));
@@ -49,7 +48,7 @@ final class PlanningPayloads {
             Integer frais = entier(m, "price", "fraisAnnuels", "frais");
             if (frais != null && frais < 0) throw mauvais("Les frais annuels de la classe « " + nom + " » ne peuvent pas être négatifs.");
             Integer capacite = entier(m, "capacityMax", "capacity", "capacite");
-            // Avant : capacité nulle ou négative acceptée ; absente → classe illisible à la lecture (APP-QA-04)
+            // Capacité obligatoire : absente, la classe serait illisible à la lecture (APP-QA-04)
             if (capacite == null) throw mauvais("La capacité de la classe « " + nom + " » est obligatoire.");
             if (capacite < 1) throw mauvais("La capacité de la classe « " + nom + " » doit être d'au moins 1 élève.");
             res.add(ClasseFactory.reconstruct(id(m), nom, filiere == null ? "" : filiere,
@@ -103,7 +102,7 @@ final class PlanningPayloads {
         for (String c : cles) {
             Object v = m.get(c);
             if (v == null) continue;
-            // APP-QA-04 : une liste, un objet ou un booléen n'est plus converti en texte (avant : salle nommée « [a, 1, null] »)
+            // APP-QA-04 : une liste, un objet ou un booléen n'est plus converti en texte
             if (!(v instanceof String) && !(v instanceof Number)) {
                 throw mauvais("Le champ « " + c + " » doit être un texte.");
             }

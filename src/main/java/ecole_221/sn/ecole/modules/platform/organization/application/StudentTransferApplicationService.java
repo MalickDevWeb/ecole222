@@ -57,7 +57,7 @@ public class StudentTransferApplicationService {
         oldMembership.setStatus(MembershipStatus.TRANSFERRED);
         orgUserRepositoryPort.save(oldMembership);
 
-        // 4. Appartenance dans l'école de destination. Retour dans une ancienne école (2026-11-13) : l'appartenance
+        // 4. Appartenance dans l'école de destination. Retour dans une ancienne école : l'appartenance
         //    archivée (« TRANSFERRED ») est réactivée au lieu d'en créer une seconde pour la même école.
         Optional<OrganizationUser> ancienne = memberships.stream()
             .filter(m -> m.getOrganizationId().equals(toOrganizationId))

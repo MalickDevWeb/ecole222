@@ -7,8 +7,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 /**
  * Une filière enregistrée par l'administration (PUT /admin/planning/filieres) n'a pas forcément de niveau.
- * Avant : sa relecture levait « Le niveau ne peut pas être null » et toute la liste GET /planning/filieres
- * répondait 500 pour l'école.
+ * Sa relecture ne doit pas échouer : toute la liste GET /planning/filieres répondrait 500 pour l'école.
  */
 class FiliereSansNiveauTest {
 

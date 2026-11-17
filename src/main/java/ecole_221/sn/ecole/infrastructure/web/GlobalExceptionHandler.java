@@ -66,7 +66,7 @@ public class GlobalExceptionHandler {
                 .body(ApiErrorResponse.of(ErrorCode.COURSE_NOT_FOUND, ex.getMessage()));
     }
 
-    /** Route inexistante : 404 (avant : 500 « erreur interne » via le gestionnaire générique). */
+    /** Route inexistante : 404. */
     @ExceptionHandler(org.springframework.web.servlet.resource.NoResourceFoundException.class)
     public ResponseEntity<ApiErrorResponse> handleNoResource(org.springframework.web.servlet.resource.NoResourceFoundException ex) {
         log.debug("[Not Found] {}", ex.getMessage());
@@ -77,7 +77,7 @@ public class GlobalExceptionHandler {
 
     /**
      * Requête mal formée (paramètre obligatoire absent, valeur de mauvais type, corps JSON illisible) :
-     * 400 avec un message en français. Avant : 500 « erreur interne » (balayage des routes du 2026-11-09).
+     * 400 avec un message en français.
      */
     @ExceptionHandler({org.springframework.web.bind.MissingServletRequestParameterException.class,
             org.springframework.web.method.annotation.MethodArgumentTypeMismatchException.class,
@@ -100,7 +100,7 @@ public class GlobalExceptionHandler {
     }
 
     /**
-     * Corps JSON illisible : nomme le champ fautif quand Jackson le connaît (APP-QA-04, 2026-11-13).
+     * Corps JSON illisible : nomme le champ fautif quand Jackson le connaît (APP-QA-04).
      * Ex. « Le champ « capacity » n'a pas le bon type (nombre attendu). » au lieu d'un message générique.
      */
     static String messageCorpsIllisible(Throwable ex) {
@@ -147,8 +147,7 @@ public class GlobalExceptionHandler {
             details.put(fieldError.getField(), fieldError.getDefaultMessage());
         }
         log.warn("[Validation Error] {}", details);
-        // message LISIBLE : les raisons réelles (avant : « Erreur de validation des champs du formulaire. » seul,
-        // l'utilisateur ne savait pas quel champ corriger — test navigateur du 2026-11-10)
+        // message LISIBLE : les raisons réelles
         String raisons = ex.getBindingResult().getFieldErrors().stream()
                 .map(FieldError::getDefaultMessage).filter(java.util.Objects::nonNull).distinct()
                 .collect(java.util.stream.Collectors.joining(" ; "));
@@ -209,8 +208,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGeneralException(Exception ex) {
-        // Balayage de robustesse du 2026-11-13 (qa/robustesse_api.py) : ces cas finissaient en 500 « erreur
-        // interne » alors qu'il s'agit d'une requête invalide ou d'un élément introuvable.
+        // Balayage de robustesse (qa/robustesse_api.py) : ces cas ne finissent pas en 500 « erreur interne »,
+        // car il s'agit d'une requête invalide ou d'un élément introuvable.
         ResponseEntity<ApiErrorResponse> refus = refusExplique(ex);
         if (refus != null) {
             log.warn("[Requête refusée] {} — {}", refus.getStatusCode(), ex.getMessage());

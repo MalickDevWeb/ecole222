@@ -18,7 +18,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
-/** Durée de conservation du journal d'audit, paramétrable (décision du Tech Lead du 14/11 : 30 minutes pour l'instant). */
+/** Durée de conservation du journal d'audit, paramétrable (30 minutes pour l'instant). */
 class ConservationJournalAuditServiceTest {
 
     private final JdbcTemplate jdbc = mock(JdbcTemplate.class);

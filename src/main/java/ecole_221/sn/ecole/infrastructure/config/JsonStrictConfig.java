@@ -8,12 +8,12 @@ import tools.jackson.databind.cfg.CoercionInputShape;
 import tools.jackson.databind.type.LogicalType;
 
 /**
- * JSON reçu : un nombre ou un booléen n'est plus converti en silence en texte (APP-QA-04, 2026-11-13).
+ * JSON reçu : un nombre ou un booléen n'est plus converti en silence en texte (APP-QA-04).
  *
- * <p>Avant : {@code {"name": -999999999999}} ou {@code {"name": true}} créait une filière nommée « -999999999999 »
- * ou « true ». Désormais : 400 « Le champ « name » n'a pas le bon type (texte attendu). ». Un texte contenant un
- * nombre (« 30 ») reste accepté pour un champ numérique. Les corps libres ({@code Map<String, Object>}) ne sont pas
- * concernés : leurs champs sont contrôlés un à un ({@code ChampsRequete}).</p>
+ * <p>{@code {"name": -999999999999}} ou {@code {"name": true}} : 400 « Le champ « name » n'a pas le bon type (texte
+ * attendu). ». Un texte contenant un nombre (« 30 ») reste accepté pour un champ numérique. Les corps libres
+ * ({@code Map<String, Object>}) ne sont pas concernés : leurs champs sont contrôlés un à un
+ * ({@code ChampsRequete}).</p>
  */
 @Configuration
 public class JsonStrictConfig {

@@ -113,7 +113,7 @@ public class NotificationUseCaseImpl implements NotificationUseCase {
     
     @Override
     public NotificationTemplateJpaEntity updateTemplate(String id, NotificationTemplateJpaEntity template) {
-        // APP-QA-04 : modèle inexistant → 404 (avant : créé avec des champs nuls) ; champs éditables bornés
+        // APP-QA-04 : modèle inexistant → 404 ; champs éditables bornés
         NotificationTemplateJpaEntity existant = templateRepository.findById(id)
                 .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Modèle de notification introuvable."));
         if (template == null) {

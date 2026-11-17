@@ -50,8 +50,7 @@ public class User implements UserDetails {
         this.prenom = Objects.requireNonNull(prenom, "Le prénom ne peut pas être null");
         this.email = Objects.requireNonNull(email, "L'email ne peut pas être null");
         this.password = password;
-        // APP-ARC-07 (A6) : pas de matricule inventé — avant, tout compte sans matricule recevait « 2026-EC-001 »
-        // (le même pour tous), affiché et réenregistré tel quel.
+        // APP-ARC-07 (A6) : pas de matricule inventé
         this.matricule = matricule;
         this.globalRole = globalRole;
         this.tenantProfiles = tenantProfiles != null ? new ArrayList<>(tenantProfiles) : new ArrayList<>();

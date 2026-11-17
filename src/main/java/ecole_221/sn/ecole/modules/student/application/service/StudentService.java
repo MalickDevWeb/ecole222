@@ -64,7 +64,7 @@ public class StudentService implements StudentUseCase {
             .orElseGet(HashMap::new);
     }
 
-    /** Badge QR signé par le serveur (2026-11-13 : HMAC-SHA256, voir JetonBadge). */
+    /** Badge QR signé par le serveur (HMAC-SHA256, voir JetonBadge). */
     private ecole_221.sn.ecole.partage.JetonBadge jetonBadge = ecole_221.sn.ecole.partage.JetonBadge.aleatoire();
 
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -97,7 +97,7 @@ public class StudentService implements StudentUseCase {
      */
     @Override
     public boolean validateQrToken(String matricule, long minuteEpoch, String token) {
-        // 2026-11-13 : HMAC-SHA256 à clé serveur, comparaison en temps constant (avant : FNV-1a à clé écrite en dur)
+        // HMAC-SHA256 à clé serveur, comparaison en temps constant
         return jetonBadge.valide(matricule, minuteEpoch, token);
     }
 
@@ -132,9 +132,8 @@ public class StudentService implements StudentUseCase {
 
     @Override
     public PageResult<Map<String, Object>> getActiveLiveSessions(int page, int size) { 
-        // 2026-11-14 : avant, TOUTES les réunions de l'école (y compris celles de l'espace collaboratif) étaient
-        // listées comme séances « ACTIVE » au nom de « Professeur ». Désormais : seulement les séances en direct
-        // lancées par un enseignant (identifiant « session-… ») encore actives, avec leur cours et le vrai nom.
+        // Seulement les séances en direct lancées par un enseignant (identifiant « session-… ») encore actives,
+        // avec leur cours et le vrai nom.
         List<Map<String, Object>> sessions = meetJpaRepository.findAll().stream()
                 .filter(meet -> meet.getId() != null && meet.getId().startsWith("session-") && meet.isActive())
                 .map(meet -> {

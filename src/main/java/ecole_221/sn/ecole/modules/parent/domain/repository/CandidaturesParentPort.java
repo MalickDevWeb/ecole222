@@ -12,7 +12,7 @@ public interface CandidaturesParentPort {
     default void exigerOuverture() { }
 
     /**
-     * Règles d'admission de l'école (16/11) : erreur 400 si une règle bloque le dépôt ou si une pièce exigée manque.
+     * Règles d'admission de l'école : erreur 400 si une règle bloque le dépôt ou si une pièce exigée manque.
      * Renvoie les informations à ajouter au dossier (pièces exigées par les règles, avertissements).
      */
     default Map<String, String> appliquerRegles(Map<String, String> reponses, Map<String, String> piecesSupplementaires) {

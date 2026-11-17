@@ -31,7 +31,7 @@ public class Course {
         }
         this.totalHours = totalHours;
         this.profId = Objects.requireNonNull(profId, "L'ID professeur ne peut pas être null");
-        // non renseignés = null (avant : « DEFAULT-CODE » / « Description par défaut » affichés comme réels)
+        // non renseignés = null
         this.code = code;
         this.description = description;
     }

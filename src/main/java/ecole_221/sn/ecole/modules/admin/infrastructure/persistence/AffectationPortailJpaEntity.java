@@ -9,7 +9,6 @@ import java.time.LocalDateTime;
 
 /**
  * Affectation du portail d'accès d'une école (portail + vigile).
- * Avant : valeur en mémoire PARTAGÉE par toutes les écoles, « Porte Principale » par défaut.
  */
 @Entity
 @Table(name = "affectations_portail")

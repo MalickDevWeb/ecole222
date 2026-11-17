@@ -21,13 +21,9 @@ import java.util.Map;
 import java.util.UUID;
 
 /**
- * Écolages (frais de scolarité) — chaîne complète, 2026-11-14.
+ * Écolages (frais de scolarité) — chaîne complète.
  *
- * <p>Avant : aucun écran ne permettait d'ouvrir le dossier financier d'un élève ni d'encaisser un versement ; l'API
- * de création refusait tout (identifiant non généré) et enregistrait sinon n'importe quoi (élève inexistant, montant
- * négatif). Les paiements restaient donc « non disponibles » pour les parents et la fiche 360°.</p>
- *
- * <p>Ici : dossier ouvert pour un VRAI élève de l'école (404 sinon), un seul par élève (409), montant dû borné ;
+ * <p>Dossier ouvert pour un VRAI élève de l'école (404 sinon), un seul par élève (409), montant dû borné ;
  * versement rattaché au dossier, montant borné, moyen dans une liste fermée, date jamais dans le futur ; payé, reste
  * dû et statut recalculés dans la même transaction. Statuts : « En Règle » (soldé), « En Avance » (payé au-delà du
  * dû), « Non soldé » (reste dû ; aucune échéance n'étant enregistrée, rien ne permet de dire « en retard »).</p>

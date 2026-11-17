@@ -23,7 +23,7 @@ public record EnrollChildPayloadDto(
     String photoIdentiteUrl,
     String relevesNotesUrl,
     String diplomeUrl,
-    /** 16/11 : pièces exigées par les règles d'admission de l'école (code de la pièce → lien /media/upload). */
+    /** Pièces exigées par les règles d'admission de l'école (code de la pièce → lien /media/upload). */
     java.util.Map<String, String> piecesSupplementaires
 ) {
     /** Compatibilité : dossier sans pièce exigée par une règle. */

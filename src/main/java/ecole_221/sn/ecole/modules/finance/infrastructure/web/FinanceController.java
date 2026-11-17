@@ -33,7 +33,7 @@ public class FinanceController {
         this.suiviSoldes = suiviSoldes;
     }
 
-    // APP-TL-22 (2026-11-14) : LECTURE SEULE. Dossiers « Non soldé » de l'école avec un retard ESTIMÉ (paiement régulier
+    // APP-TL-22 : LECTURE SEULE. Dossiers « Non soldé » de l'école avec un retard ESTIMÉ (paiement régulier
     // d'octobre à juin supposé, aucun échéancier n'étant enregistré) et les parents liés, pour que la comptabilité les
     // appelle. Aucune mesure n'est prise contre l'élève ; aucun message n'est envoyé. Permission : finances.lire.
     @GetMapping("/recouvrement")
@@ -95,7 +95,7 @@ public class FinanceController {
         return ResponseEntity.ok(financeUseCase.updateStudentFinance(id, studentFinance));
     }
     
-    // APP-TL-22 (2026-11-14) : PATCH /finance/students/{id}/status SUPPRIMÉ. Le statut d'un dossier (« En Règle »,
+    // APP-TL-22 : PATCH /finance/students/{id}/status SUPPRIMÉ. Le statut d'un dossier (« En Règle »,
     // « En Avance », « Non soldé ») n'est plus saisi à la main : il est recalculé à partir du montant dû et du payé.
 
     @DeleteMapping("/students/{id}")
@@ -175,9 +175,9 @@ public class FinanceController {
     
     // ==================== ENDPOINTS AUTOMATION (compatibilité JPA) ====================
     
-    // APP-BE-23 : la route des relances répondait {success: true} sans rien faire (faux succès). Aucun échéancier par
-    // élève n'est enregistré : aucune relance ne peut être fondée sur des données réelles. Réponse explicite 501.
-    // APP-TL-22 (2026-11-14) : POST /finance/block-debtors est SUPPRIMÉ. Aucun élève n'est bloqué pour des frais
+    // APP-BE-23 : aucun échéancier par élève n'est enregistré ; aucune relance ne peut être fondée sur des données
+    // réelles. Réponse explicite 501.
+    // APP-TL-22 : POST /finance/block-debtors est SUPPRIMÉ. Aucun élève n'est bloqué pour des frais
     // impayés (ni portique, ni application, ni bulletin) : un suivi des soldes avec message au parent est prévu.
 
     @PostMapping("/payment-reminders")

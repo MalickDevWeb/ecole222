@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Règles d'admission de l'école (16/11). Administration : droit « admissions » (préfixe /admissions).
+ * Règles d'admission de l'école. Administration : droit « admissions » (préfixe /admissions).
  * Évaluation publique : le portail candidat et la page parent demandent quelles pièces la règle exige et si le dépôt
  * est bloqué, AVANT l'envoi. Les avertissements internes ne sont jamais renvoyés au public.
  */

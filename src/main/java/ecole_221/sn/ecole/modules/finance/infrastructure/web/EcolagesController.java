@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.*;
 import java.util.Map;
 
 /**
- * Écolages (2026-11-14) : ouverture du dossier financier d'un élève et encaissement des versements. Droits :
+ * Écolages : ouverture du dossier financier d'un élève et encaissement des versements. Droits :
  * module « finances » de la matrice de l'école (écriture), comme le reste de /finance.
  */
 @RestController

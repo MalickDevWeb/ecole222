@@ -42,11 +42,10 @@ public class LoginService implements LoginUseCase {
     }
 
     /**
-     * Freinage des essais de mot de passe (2026-11-13). Avant : après 8 mots de passe faux, le bon passait aussitôt —
-     * rien ne ralentissait un essai massif de mots de passe sur un compte. Désormais : 5 échecs en 15 minutes pour
-     * un même e-mail (existant ou non, pour ne pas révéler l'existence du compte) → 429 jusqu'à la fin de la fenêtre,
-     * même avec le bon mot de passe. Une connexion réussie remet le compteur à zéro. Mémoire du serveur : en cas de
-     * plusieurs instances, chaque instance compte de son côté (limite connue).
+     * Freinage des essais de mot de passe : 5 échecs en 15 minutes pour un même e-mail (existant ou non, pour ne pas
+     * révéler l'existence du compte) → 429 jusqu'à la fin de la fenêtre, même avec le bon mot de passe. Une connexion
+     * réussie remet le compteur à zéro. Mémoire du serveur : en cas de plusieurs instances, chaque instance compte de
+     * son côté (limite connue).
      */
     static final int ECHECS_MAX = 5;
     static final java.time.Duration FENETRE = java.time.Duration.ofMinutes(15);
@@ -97,7 +96,7 @@ public class LoginService implements LoginUseCase {
     @Override
     public LoginResponseDto login(LoginCommand command) {
         log.info("Tentative de connexion pour : {}", command.getEmail());
-        // corps vide / champs absents : 400 clair (avant : NullPointerException → 500)
+        // corps vide / champs absents : 400 clair
         if (command.getEmail() == null || command.getEmail().isBlank()
                 || command.getPassword() == null || command.getPassword().isBlank()) {
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "L'e-mail et le mot de passe sont obligatoires.");
@@ -105,8 +104,7 @@ public class LoginService implements LoginUseCase {
 
         // SEC-002 : aucun compte n'est créé à la connexion (les comptes de démo sont créés au
         // démarrage par SuperAdminInitializer, hors profil prod) et aucun mot de passe universel.
-        // E-mail tapé avec espaces ou majuscules (clavier de téléphone) : retrouvé quand même (2026-11-13 ;
-        // avant : « Email ou mot de passe incorrect. » pour « Eleve@Ecole.sn »)
+        // E-mail tapé avec espaces ou majuscules (clavier de téléphone) : retrouvé quand même
         String email = ecole_221.sn.ecole.partage.TexteNormalise.normaliser(command.getEmail());
         String cleFrein = email.toLowerCase(java.util.Locale.ROOT);
         if (cleFrein.length() > 320) cleFrein = cleFrein.substring(0, 320);
@@ -117,7 +115,7 @@ public class LoginService implements LoginUseCase {
                 .or(() -> parMatricule(email))
                 .orElseThrow(() -> {
                     // Même coût de calcul qu'un compte existant : la durée de la réponse ne révèle pas si l'adresse
-                    // existe (énumération des comptes par chronométrage, 2026-11-13).
+                    // existe (énumération des comptes par chronométrage).
                     passwordEncoder.matches(command.getPassword(), empreinteLeurre());
                     noterEchec(cle);
                     log.warn("Email non trouvé : {}", command.getEmail());
@@ -136,7 +134,7 @@ public class LoginService implements LoginUseCase {
         }
 
         echecs.remove(cle);
-        // BR-03 (2026-11-13) : empreinte d'un coût inférieur (ancien coût 10) recalculée au coût actuel.
+        // BR-03 : empreinte d'un coût inférieur (ancien coût 10) recalculée au coût actuel.
         if (passwordEncoder.upgradeEncoding(user.getPassword())) {
             try {
                 user.setPassword(passwordEncoder.encode(command.getPassword()));

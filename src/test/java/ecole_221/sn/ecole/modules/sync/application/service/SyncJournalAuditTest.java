@@ -24,7 +24,7 @@ import java.util.Map;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.*;
 
-/** Lot /sync : chaque écriture réussie du lot est inscrite au journal d'audit (ENF-07, 2026-11-14). */
+/** Lot /sync : chaque écriture réussie du lot est inscrite au journal d'audit (ENF-07). */
 class SyncJournalAuditTest {
 
     @AfterEach

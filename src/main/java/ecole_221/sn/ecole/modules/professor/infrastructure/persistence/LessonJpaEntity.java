@@ -21,7 +21,7 @@ public class LessonJpaEntity {
     private String title;
     private int duration;
     private String date;
-    // Support de cours tel que saisi à l'écran (avant : description, pièce jointe et module perdus)
+    // Support de cours tel que saisi à l'écran
     @jakarta.persistence.Column(length = 4000)
     private String description;
     @jakarta.persistence.Column(name = "module_id")

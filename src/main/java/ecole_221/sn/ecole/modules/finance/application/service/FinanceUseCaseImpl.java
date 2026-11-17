@@ -50,7 +50,7 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     
     @Override
     public StudentFinanceJpaEntity getStudentFinanceByStudentId(String studentId) {
-        // 2026-11-14 : dossier le plus récent (findByStudentId échouait si l'élève en avait plusieurs)
+        // Dossier le plus récent (findByStudentId échoue si l'élève en a plusieurs)
         return studentFinanceRepository.findAllByStudentIdOrderByCreatedAtDesc(studentId).stream().findFirst().orElse(null);
     }
     
@@ -75,7 +75,7 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     @Override
     public StudentFinanceJpaEntity updateStudentFinance(String id, StudentFinanceJpaEntity studentFinance) {
         logger.info("Mise à jour finance étudiant: {}", id);
-        // APP-QA-04 : fiche inexistante → 404 (avant : créée, champs nuls compris) ; seuls les champs éditables, bornés
+        // APP-QA-04 : fiche inexistante → 404 ; seuls les champs éditables, bornés
         StudentFinanceJpaEntity existante = studentFinanceRepository.findById(id)
                 .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Fiche financière introuvable."));
         if (studentFinance == null) {
@@ -88,7 +88,7 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
             existante.setClasse(texteBorne(studentFinance.getClasse(), "La classe", 100));
         }
         if (studentFinance.getStatus() != null && !studentFinance.getStatus().strip().equals(existante.getStatus())) {
-            // APP-TL-22 : le statut n'est plus saisissable (avant : « En Retard » saisi à la main, sans lien avec les versements)
+            // APP-TL-22 : le statut n'est pas saisissable
             throw ecole_221.sn.ecole.partage.ChampsRequete.refus(
                     "Le statut n'est pas modifiable : il est calculé à partir du montant dû et des versements enregistrés.");
         }
@@ -102,9 +102,8 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     @Override
     public void deleteStudentFinance(String id) {
         logger.info("Suppression finance étudiant: {}", id);
-        // APP-TL-05 (2026-11-14) : avant, deleteById silencieux → « succès » pour un dossier inexistant ou d'une autre
-        // école (rien n'était supprimé). Désormais 404 ; et un dossier qui porte des versements n'est pas supprimé
-        // (409) : ce serait effacer l'historique comptable de l'élève.
+        // APP-TL-05 : dossier inexistant ou d'une autre école → 404 ; un dossier qui porte des versements n'est pas
+        // supprimé (409) : ce serait effacer l'historique comptable de l'élève.
         StudentFinanceJpaEntity d = studentFinanceRepository.findById(id)   // @TenantId : école courante
                 .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.NOT_FOUND, "Dossier financier introuvable dans cet établissement."));
@@ -193,7 +192,7 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
         
         // Mettre à jour la finance étudiante si c'est un paiement (compatibilité)
         if ("PAYMENT".equals(transactionDto.type()) && transactionDto.studentId() != null) {
-            // 2026-11-14 : dossier le plus récent (findByStudentId échouait si l'élève en avait plusieurs)
+            // Dossier le plus récent (findByStudentId échoue si l'élève en a plusieurs)
             StudentFinanceJpaEntity studentFinance = studentFinanceRepository.findAllByStudentIdOrderByCreatedAtDesc(transactionDto.studentId())
                     .stream().findFirst().orElse(null);
             if (studentFinance != null) {
@@ -325,7 +324,7 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
         );
     }
 
-    // ==================== CONTRÔLES DES CHAMPS (APP-QA-04, 2026-11-13) ====================
+    // ==================== CONTRÔLES DES CHAMPS (APP-QA-04) ====================
     // APP-TL-22 : statuts d'un dossier tous calculés par EcolagesService.statut (En Règle, En Avance, Non soldé) ;
     // « En Retard » saisi à la main est supprimé.
     private static long nul0(Long v) {

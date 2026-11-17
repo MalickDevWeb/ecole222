@@ -30,10 +30,10 @@ import java.time.ZoneId;
 import java.util.*;
 
 /**
- * Espace du candidat (17/11) : après connexion au suivi (email + mot de passe), le candidat reçoit un JETON DE SUIVI
+ * Espace du candidat : après connexion au suivi (email + mot de passe), le candidat reçoit un JETON DE SUIVI
  * signé (2 h) qui lui donne accès à SON dossier seulement : ses pièces (consultées dans l'application, ajoutées ou
  * remplacées tant que la décision n'est pas rendue) et les messages échangés avec l'école. Quand l'école écrit, le
- * candidat est prévenu par e-mail. Avant : page de suivi en lecture seule, « contactez directement l'école ».
+ * candidat est prévenu par e-mail.
  * <p>
  * Messages : table admissions_portail_elements, nature ECHANGE (@TenantId), jamais touchée par POST /admissions/db.
  */

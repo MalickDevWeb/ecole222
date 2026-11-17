@@ -7,14 +7,13 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 /**
- * Verrou de création « vérifier puis enregistrer » (2026-11-13).
+ * Verrou de création « vérifier puis enregistrer ».
  *
- * <p>Avant : dix requêtes identiques envoyées au même instant (double clic de plusieurs personnes, réseau qui rejoue)
- * passaient toutes la vérification « ce nom existe-t-il ? » avant qu'aucune n'enregistre : 7 groupes de travail et
- * 3 classes portant le même nom ont été créés lors du test. Le verrou consultatif PostgreSQL
- * ({@code pg_advisory_xact_lock}) est pris sur la clé (école + nom) et tenu jusqu'à la fin de la transaction : les
- * créations concurrentes du même nom passent l'une après l'autre, et la deuxième voit la première. Il vaut aussi
- * avec plusieurs instances du serveur. Sans PostgreSQL (tests unitaires sur H2), aucun verrou n'est pris.</p>
+ * <p>Sans verrou, des requêtes identiques envoyées au même instant (double clic de plusieurs personnes, réseau qui
+ * rejoue) passent toutes la vérification « ce nom existe-t-il ? » avant qu'aucune n'enregistre. Le verrou consultatif
+ * PostgreSQL ({@code pg_advisory_xact_lock}) est pris sur la clé (école + nom) et tenu jusqu'à la fin de la
+ * transaction : les créations concurrentes du même nom passent l'une après l'autre, et la deuxième voit la première.
+ * Il vaut aussi avec plusieurs instances du serveur. Sans PostgreSQL (tests unitaires sur H2), aucun verrou n'est pris.</p>
  */
 @Component
 public class VerrouCreation {

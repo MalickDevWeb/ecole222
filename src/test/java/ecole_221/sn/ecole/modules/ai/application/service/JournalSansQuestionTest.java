@@ -17,7 +17,7 @@ import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
-/** APP-SEC-26 (2026-11-14) : la question d'un élève n'est jamais écrite dans les journaux (loi n° 2008-12). */
+/** APP-SEC-26 : la question d'un élève n'est jamais écrite dans les journaux (loi n° 2008-12). */
 class JournalSansQuestionTest {
 
     private static final String QUESTION = "Je suis Awa Ndiaye, 77 123 45 67, ma mère est malade";

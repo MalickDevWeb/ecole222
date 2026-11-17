@@ -8,7 +8,7 @@ public interface MediaStoragePort {
     UploadedFile upload(byte[] fileBytes, String fileName, String contentType) throws IOException;
 
     /**
-     * Envoi CONFIDENTIEL (17/11 : pièces d'identité, relevés, justificatifs, coffre de l'élève) : le fichier n'est pas
+     * Envoi CONFIDENTIEL (pièces d'identité, relevés, justificatifs, coffre de l'élève) : le fichier n'est pas
      * lisible par son lien ; seul le serveur le relit ({@link #relire}) pour une personne autorisée.
      */
     default UploadedFile upload(byte[] fileBytes, String fileName, String contentType, boolean confidentiel) throws IOException {
@@ -16,7 +16,7 @@ public interface MediaStoragePort {
     }
 
     /**
-     * Relit par le SERVEUR un fichier déjà envoyé (16/11 : pièces des candidats). Seuls les liens de ce stockage sont
+     * Relit par le SERVEUR un fichier déjà envoyé (ex. pièces des candidats). Seuls les liens de ce stockage sont
      * acceptés (compte Cloudinary de l'application, ou fichier local du mode simulation) : jamais une adresse
      * quelconque. Vide si le lien n'appartient pas à ce stockage ; IOException si le stockage ne répond pas.
      */
