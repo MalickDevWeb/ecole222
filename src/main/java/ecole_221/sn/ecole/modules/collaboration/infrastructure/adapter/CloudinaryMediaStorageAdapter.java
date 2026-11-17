@@ -31,12 +31,29 @@ public class CloudinaryMediaStorageAdapter implements MediaStoragePort {
     public CloudinaryMediaStorageAdapter(
             @Value("${cloudinary.cloud-name:}") String cloudName,
             @Value("${cloudinary.api-key:}") String apiKey,
-            @Value("${cloudinary.api-secret:}") String apiSecret) {
+            @Value("${cloudinary.api-secret:}") String apiSecret,
+            @Value("${cloudinary.simulation:false}") boolean simulation) {
+        this.simulation = simulation;
         this.cloudName = cloudName;
         this.apiKey = apiKey;
         this.apiSecret = apiSecret;
     }
     
+    /** Simulation explicite seulement (CLOUDINARY_SIMULATION=true : développement / QA isolée). */
+    private final boolean simulation;
+
+    /**
+     * Stockage indisponible : erreur explicite (503) au lieu d'une fausse URL présentée comme le
+     * fichier enregistré — sauf simulation demandée explicitement.
+     */
+    private String simulationOuErreur(String type, String nom) {
+        if (simulation) {
+            return getSimulatedUrl(type, nom);
+        }
+        throw new ecole_221.sn.ecole.modules.media.domain.exception.StockageIndisponibleException(
+                "Stockage des fichiers indisponible : le fichier n'a pas été enregistré.");
+    }
+
     private synchronized Cloudinary getCloudinary() {
         if (cloudinary == null) {
             if (cloudName == null || cloudName.isBlank() ||
@@ -63,7 +80,7 @@ public class CloudinaryMediaStorageAdapter implements MediaStoragePort {
         Cloudinary client = getCloudinary();
         
         if (client == null) {
-            return getSimulatedUrl("audio", fileName);
+            return simulationOuErreur("audio", fileName);
         }
         
         try {
@@ -76,7 +93,7 @@ public class CloudinaryMediaStorageAdapter implements MediaStoragePort {
             return (String) uploadResult.get("secure_url");
         } catch (Exception e) {
             logger.error("[ERROR] Échec de l'upload audio sur Cloudinary: {}", e.getMessage());
-            return getSimulatedUrl("audio", fileName);
+            return simulationOuErreur("audio", fileName);
         }
     }
     
@@ -88,7 +105,7 @@ public class CloudinaryMediaStorageAdapter implements MediaStoragePort {
         Cloudinary client = getCloudinary();
         
         if (client == null) {
-            return getSimulatedUrl("image", fileName);
+            return simulationOuErreur("image", fileName);
         }
         
         try {
@@ -105,7 +122,7 @@ public class CloudinaryMediaStorageAdapter implements MediaStoragePort {
             return (String) uploadResult.get("secure_url");
         } catch (Exception e) {
             logger.error("[ERROR] Échec de l'upload image sur Cloudinary: {}", e.getMessage());
-            return getSimulatedUrl("image", fileName);
+            return simulationOuErreur("image", fileName);
         }
     }
     
@@ -117,7 +134,7 @@ public class CloudinaryMediaStorageAdapter implements MediaStoragePort {
         Cloudinary client = getCloudinary();
         
         if (client == null) {
-            return getSimulatedUrl("video", fileName);
+            return simulationOuErreur("video", fileName);
         }
         
         try {
@@ -130,7 +147,7 @@ public class CloudinaryMediaStorageAdapter implements MediaStoragePort {
             return (String) uploadResult.get("secure_url");
         } catch (Exception e) {
             logger.error("[ERROR] Échec de l'upload vidéo sur Cloudinary: {}", e.getMessage());
-            return getSimulatedUrl("video", fileName);
+            return simulationOuErreur("video", fileName);
         }
     }
     
@@ -142,7 +159,7 @@ public class CloudinaryMediaStorageAdapter implements MediaStoragePort {
         Cloudinary client = getCloudinary();
         
         if (client == null) {
-            return getSimulatedUrl("file", fileName);
+            return simulationOuErreur("file", fileName);
         }
         
         try {
@@ -155,7 +172,7 @@ public class CloudinaryMediaStorageAdapter implements MediaStoragePort {
             return (String) uploadResult.get("secure_url");
         } catch (Exception e) {
             logger.error("[ERROR] Échec de l'upload fichier sur Cloudinary: {}", e.getMessage());
-            return getSimulatedUrl("file", fileName);
+            return simulationOuErreur("file", fileName);
         }
     }
     
@@ -167,7 +184,7 @@ public class CloudinaryMediaStorageAdapter implements MediaStoragePort {
         Cloudinary client = getCloudinary();
         
         if (client == null) {
-            return getSimulatedUrl("avatar", groupId);
+            return simulationOuErreur("avatar", groupId);
         }
         
         try {
@@ -186,7 +203,7 @@ public class CloudinaryMediaStorageAdapter implements MediaStoragePort {
             return (String) uploadResult.get("secure_url");
         } catch (Exception e) {
             logger.error("[ERROR] Échec de l'upload avatar sur Cloudinary: {}", e.getMessage());
-            return getSimulatedUrl("avatar", groupId);
+            return simulationOuErreur("avatar", groupId);
         }
     }
     
@@ -212,14 +229,14 @@ public class CloudinaryMediaStorageAdapter implements MediaStoragePort {
         Cloudinary client = getCloudinary();
         
         if (client == null) {
-            return getSimulatedUrl("file", publicId);
+            return simulationOuErreur("file", publicId);
         }
         
         try {
             return cloudinary.url().publicId(publicId).generate();
         } catch (Exception e) {
             logger.error("[ERROR] Erreur lors de la génération de l'URL: {}", e.getMessage());
-            return getSimulatedUrl("file", publicId);
+            return simulationOuErreur("file", publicId);
         }
     }
     

@@ -12,7 +12,8 @@ server:
   error:
     include-message: always
     include-binding-errors: always
-    include-stacktrace: on_param
+    # Jamais de pile d'exécution renvoyée au client (avant : on_param, ?trace=true suffisait à l'obtenir)
+    include-stacktrace: never
     include-exception: false
 
 spring:
@@ -25,9 +26,9 @@ spring:
       enabled: false
   
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://ep-patient-darkness-avnjut8j-pooler.c-11.us-east-1.aws.neon.tech/221-db?sslmode=require&channelBinding=require}
-    username: ${DATABASE_USERNAME:neondb_owner}
-    password: ${DATABASE_PASSWORD:npg_4yY7uSBEPobK}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/ecole221}
+    username: ${DATABASE_USERNAME:postgres}
+    password: ${DATABASE_PASSWORD:}
     driver-class-name: org.postgresql.Driver
     hikari:
       maximum-pool-size: 15
@@ -43,7 +44,8 @@ spring:
   jpa:
     database-platform: org.hibernate.dialect.PostgreSQLDialect
     hibernate:
-      ddl-auto: update
+      # Le schéma est géré par Flyway ; Hibernate vérifie seulement qu'il correspond au code (APP-ARC-03)
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     repositories:
       bootstrap-mode: lazy
     show-sql: false
@@ -59,9 +61,10 @@ spring:
     open-in-view: false
   
   flyway:
-    enabled: false
+    enabled: ${FLYWAY_ENABLED:true}
+    # Base existante sans historique Flyway : marquée à la version 1 (schéma consolidé), rien n'est réexécuté
     baseline-on-migrate: true
-    baseline-version: 0
+    baseline-version: 1
     clean-on-validation-error: false
     validate-on-migrate: true
     locations: classpath:db/migration
@@ -70,10 +73,12 @@ spring:
     redis:
       repositories:
         enabled: false
-      url: ${REDIS_URL:rediss://default:gQAAAAAAArCqAAIgcDExMDg4N2E5MjkwZjM0YTEwOWE1ODRmNzU3ODI4ZmJmNA@crisp-tortoise-176298.upstash.io:6379}
+      url: ${REDIS_URL:redis://localhost:6379}
       ssl:
         enabled: true
-      timeout: 60000ms
+      # Court : si Redis tombe, le cache est contourné (RedisConfig) au lieu de bloquer chaque requête
+      timeout: ${REDIS_TIMEOUT:2s}
+      connect-timeout: ${REDIS_CONNECT_TIMEOUT:2s}
       lettuce:
         pool:
           max-active: 8
@@ -120,25 +125,29 @@ logging:
       max-file-size: 10MB
       total-size-cap: 1GB
 
+# B6 (revue DevSecOps du 15/11) : Swagger UI et spécification OpenAPI FERMÉS PAR DÉFAUT. Avant : ouverts dans tout
+# déploiement qui ne pose pas SPRING_PROFILES_ACTIVE=prod — c'est le cas de backend/render.yaml et du Dockerfile, donc
+# de la production. Ouverts seulement là où SPRINGDOC_ENABLED=true est posé (qa/start_backend.sh : backends de QA,
+# lus par generer_contrat_routes.py). application-prod.yaml les ferme de toute façon, même si la variable traîne.
 springdoc:
   api-docs:
     path: /v3/api-docs
-    enabled: true
+    enabled: ${SPRINGDOC_ENABLED:false}
   swagger-ui:
     path: /swagger-ui.html
-    enabled: true
+    enabled: ${SPRINGDOC_ENABLED:false}
     try-it-out-enabled: true
     operations-sorter: alpha
     tags-sorter: alpha
     display-request-duration: true
 
 cloudinary:
-  cloud-name: ${CLOUDINARY_CLOUD_NAME:qudmvipg}
-  api-key: ${CLOUDINARY_API_KEY:512985687338673}
-  api-secret: ${CLOUDINARY_API_SECRET:iF7CTcBpQrS11jszJKQ2-Qu3V6k}
+  cloud-name: ${CLOUDINARY_CLOUD_NAME:}
+  api-key: ${CLOUDINARY_API_KEY:}
+  api-secret: ${CLOUDINARY_API_SECRET:}
 
 jwt:
-  secret: ${JWT_SECRET:ecole221-super-secret-key-must-be-at-least-32-chars}
+  secret: ${JWT_SECRET:}
 
 # Configuration pour les services IA (Gemini, Mistral, Mock)
 ai:
@@ -153,6 +162,55 @@ ai:
     model: ${MISTRAL_MODEL:mistral-large-latest}
     temperature: ${MISTRAL_TEMPERATURE:0.7}
     max-tokens: ${MISTRAL_MAX_TOKENS:1000}
+
+# Adresse publique du site : base des liens envoyés par e-mail (réinitialisation du mot de passe).
+# Jamais déduite de la requête (Host, X-Forwarded-Host, Origin, Referer, X-Tenant-Slug : falsifiables) ni d'un domaine
+# propre d'école (son DNS appartient à un tiers et peut basculer).
+app:
+  url-frontend: ${FRONTEND_URL:http://localhost:5173}
+
+# Domaine propre d'une école (décisions du Tech Lead du 15/11 : pointage DNS + déclaration) :
+#  - <slug>.<domaine> désigne l'école <slug> ;
+#  - un domaine propre n'est servi que s'il est DÉCLARÉ par l'école (Administration › Adresse de l'école) ET que son
+#    CNAME mène à <slug>.<domaine> ET que l'école est active ; revérifié toutes les 6 heures ;
+#  - dns.statique : table « nom=cible,nom=cible » lue à la place du vrai DNS (tests et QA uniquement, jamais en prod) ;
+#  - relais.confiance : IP des relais (nginx, Caddy) dont l'en-tête X-Forwarded-Host est cru (aucun par défaut) ;
+#    sinon Host seul.
+ecole:
+  plateforme:
+    domaine: ${PLATFORM_DOMAIN:myschool.sn}
+  dns:
+    statique: ${ECOLE_DNS_STATIQUE:}
+  relais:
+    # VIDE par défaut : derrière nginx ou le proxy Vite la connexion vient de 127.0.0.1 ; ne déclarer que l'IP d'un
+    # relais qui ÉCRASE X-Forwarded-Host (nginx.conf, Caddyfile.exemple).
+    confiance: "${ECOLE_RELAIS_CONFIANCE:}"
+  domaines:
+    verification:
+      intervalle: ${ECOLE_DOMAINES_VERIFICATION_INTERVALLE:PT6H}
+  # Archivage des écoles (décisions du Tech Lead du 16/11, V24) : une école suspendue depuis le seuil part dans un fichier
+  # chiffré (AES-256-GCM). Un seul réglage choisit le stockage : local (développement, ce profil) ou cloudinary
+  # (production, application-prod.yaml). Seuil et conservation : parametres_plateforme (écran du super-admin).
+  #  - production : true refuse le stockage local et exige ARCHIVES_CLE. Render pose RENDER=true dans ses services :
+  #    un déploiement Render sans profil prod est donc traité comme une production (jamais d'archive sur son disque
+  #    effacé à chaque déploiement).
+  #  - cle : ARCHIVES_CLE, 32 octets en base64 ; absente hors production : clé de développement créée à part
+  #    (cle-developpement, droits 600), jamais dans le dossier des archives.
+  archivage:
+    stockage: ${ARCHIVES_STOCKAGE:local}
+    production: ${ARCHIVES_PRODUCTION:${RENDER:false}}
+    cle: ${ARCHIVES_CLE:}
+    cle-developpement: ${ARCHIVES_CLE_DEVELOPPEMENT:${user.home}/.ecole221/cle-archives-developpement}
+    local:
+      # hors du dépôt git ; montable comme volume Docker
+      dossier: ${ARCHIVES_DOSSIER:${user.home}/ecole221-archives}
+    cloudinary:
+      dossier: ${ARCHIVES_DOSSIER_CLOUDINARY:ecole221-archives}
+    automatique:
+      active: ${ARCHIVES_AUTOMATIQUE:true}
+      cron: ${ARCHIVES_AUTOMATIQUE_CRON:0 30 2 * * *}
+    purge:
+      lot: 1000
 
 # Configuration pour les services d'emails (Brevo)
 email:

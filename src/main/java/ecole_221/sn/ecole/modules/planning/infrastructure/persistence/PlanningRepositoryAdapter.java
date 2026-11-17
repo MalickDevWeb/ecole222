@@ -29,11 +29,15 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     private final FiliereJpaRepository filiereJpaRepository;
     private final ClasseJpaRepository classeJpaRepository;
     
+    private final ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService corbeille;
+
     public PlanningRepositoryAdapter(
             RoomJpaRepository roomJpaRepository,
             SlotJpaRepository slotJpaRepository,
             FiliereJpaRepository filiereJpaRepository,
-            ClasseJpaRepository classeJpaRepository) {
+            ClasseJpaRepository classeJpaRepository,
+            ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService corbeille) {
+        this.corbeille = corbeille;
         this.roomJpaRepository = roomJpaRepository;
         this.slotJpaRepository = slotJpaRepository;
         this.filiereJpaRepository = filiereJpaRepository;
@@ -61,24 +65,24 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Room> findAllRooms() {
         logger.debug("Récupération de toutes les salles depuis JPA");
         return roomJpaRepository.findAll().stream()
-            .map(this::toRoom)
+            .flatMap(e -> lisible(e, this::toRoom))
             .collect(Collectors.toList());
     }
     
     @Override
-    public void deleteRoom(String roomId) {
+    public String deleteRoom(String roomId) {
         logger.debug("Suppression de la salle: {}", roomId);
         if (!roomJpaRepository.existsById(roomId)) {
             throw new RoomNotFoundException(roomId);
         }
-        roomJpaRepository.deleteById(roomId);
+        return corbeille.supprimer(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.SALLE, roomId);   // corbeille (V21)
     }
     
     @Override
     public List<Room> findRoomsByCapacityMin(int minCapacity) {
         logger.debug("Récupération des salles avec capacité minimale: {}", minCapacity);
         return roomJpaRepository.findByCapacityGreaterThanEqual(minCapacity).stream()
-            .map(this::toRoom)
+            .flatMap(e -> lisible(e, this::toRoom))
             .collect(Collectors.toList());
     }
     
@@ -86,7 +90,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Room> findRoomsByLocation(String location) {
         logger.debug("Récupération des salles par emplacement: {}", location);
         return roomJpaRepository.findByLocation(location).stream()
-            .map(this::toRoom)
+            .flatMap(e -> lisible(e, this::toRoom))
             .collect(Collectors.toList());
     }
     
@@ -111,24 +115,24 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Slot> findAllSlots() {
         logger.debug("Récupération de tous les créneaux depuis JPA");
         return slotJpaRepository.findAll().stream()
-            .map(this::toSlot)
+            .flatMap(e -> lisible(e, this::toSlot))
             .collect(Collectors.toList());
     }
     
     @Override
-    public void deleteSlot(String slotId) {
+    public String deleteSlot(String slotId) {
         logger.debug("Suppression du créneau: {}", slotId);
         if (!slotJpaRepository.existsById(slotId)) {
             throw new SlotNotFoundException(slotId);
         }
-        slotJpaRepository.deleteById(slotId);
+        return corbeille.supprimer(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.CRENEAU_HORAIRE, slotId);   // corbeille (V21)
     }
     
     @Override
     public List<Slot> findSlotsByDayOfWeek(String dayOfWeek) {
         logger.debug("Récupération des créneaux par jour: {}", dayOfWeek);
         return slotJpaRepository.findByDayOfWeek(dayOfWeek).stream()
-            .map(this::toSlot)
+            .flatMap(e -> lisible(e, this::toSlot))
             .collect(Collectors.toList());
     }
     
@@ -136,7 +140,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Slot> findSlotsByType(SlotType type) {
         logger.debug("Récupération des créneaux par type: {}", type);
         return slotJpaRepository.findByType(type.value()).stream()
-            .map(this::toSlot)
+            .flatMap(e -> lisible(e, this::toSlot))
             .collect(Collectors.toList());
     }
     
@@ -154,31 +158,31 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public Optional<Filiere> findFiliereById(String filiereId) {
         logger.debug("Récupération de la filière: {}", filiereId);
         return filiereJpaRepository.findById(filiereId)
-            .map(this::toFiliere);
+            .map(PlanningRepositoryAdapter::toFiliere);
     }
     
     @Override
     public List<Filiere> findAllFilieres() {
         logger.debug("Récupération de toutes les filières depuis JPA");
         return filiereJpaRepository.findAll().stream()
-            .map(this::toFiliere)
+            .map(PlanningRepositoryAdapter::toFiliere)
             .collect(Collectors.toList());
     }
     
     @Override
-    public void deleteFiliere(String filiereId) {
+    public String deleteFiliere(String filiereId) {
         logger.debug("Suppression de la filière: {}", filiereId);
         if (!filiereJpaRepository.existsById(filiereId)) {
             throw new FiliereNotFoundException(filiereId);
         }
-        filiereJpaRepository.deleteById(filiereId);
+        return corbeille.supprimer(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.FILIERE, filiereId);   // corbeille (V21)
     }
     
     @Override
     public List<Filiere> findFilieresByLevel(String level) {
         logger.debug("Récupération des filières par niveau: {}", level);
         return filiereJpaRepository.findByLevel(level).stream()
-            .map(this::toFiliere)
+            .map(PlanningRepositoryAdapter::toFiliere)
             .collect(Collectors.toList());
     }
     
@@ -203,24 +207,24 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Classe> findAllClasses() {
         logger.debug("Récupération de toutes les classes depuis JPA");
         return classeJpaRepository.findAll().stream()
-            .map(this::toClasse)
+            .flatMap(e -> lisible(e, this::toClasse))
             .collect(Collectors.toList());
     }
     
     @Override
-    public void deleteClasse(String classeId) {
+    public String deleteClasse(String classeId) {
         logger.debug("Suppression de la classe: {}", classeId);
         if (!classeJpaRepository.existsById(classeId)) {
             throw new ClasseNotFoundException(classeId);
         }
-        classeJpaRepository.deleteById(classeId);
+        return corbeille.supprimer(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.CLASSE, classeId);   // corbeille (V21)
     }
     
     @Override
     public List<Classe> findClassesByFiliere(String filiereId) {
         logger.debug("Récupération des classes de la filière: {}", filiereId);
         return classeJpaRepository.findByFiliereId(filiereId).stream()
-            .map(this::toClasse)
+            .flatMap(e -> lisible(e, this::toClasse))
             .collect(Collectors.toList());
     }
     
@@ -228,7 +232,7 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     public List<Classe> findClassesByLevel(String level) {
         logger.debug("Récupération des classes par niveau: {}", level);
         return classeJpaRepository.findByLevel(level).stream()
-            .map(this::toClasse)
+            .flatMap(e -> lisible(e, this::toClasse))
             .collect(Collectors.toList());
     }
     
@@ -274,13 +278,17 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
         return entity;
     }
     
-    private Filiere toFiliere(FiliereJpaEntity entity) {
+    /**
+     * Le niveau est facultatif pour les filières enregistrées par l'administration (PUT /admin/planning/filieres).
+     * Niveau inconnu → vide (jamais inventé).
+     */
+    static Filiere toFiliere(FiliereJpaEntity entity) {
         return FiliereFactory.reconstruct(
             entity.getId(),
             entity.getName(),
             entity.getCode(),
             entity.getDescription(),
-            entity.getLevel()
+            entity.getLevel() == null ? "" : entity.getLevel()
         );
     }
     
@@ -295,12 +303,14 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     }
     
     private Classe toClasse(ClasseJpaEntity entity) {
+        // Une classe enregistrée sans filière ou sans niveau (non renseignés) ne doit plus faire échouer
+        // toute la liste (500 sur GET /planning/classes) : valeur vide = non renseignée.
         return ClasseFactory.reconstruct(
             entity.getId(),
-            entity.getName(),
+            entity.getName() == null ? "" : entity.getName(),
             entity.getCode(),
-            entity.getFiliereId(),
-            entity.getLevel(),
+            entity.getFiliereId() == null ? "" : entity.getFiliereId(),
+            entity.getLevel() == null ? "" : entity.getLevel(),
             entity.getCapacity(),
             entity.getCurrentSize()
         );
@@ -316,5 +326,18 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
         entity.setCapacity(classe.getCapacity());
         entity.setCurrentSize(classe.getCurrentSize());
         return entity;
+    }
+
+    /**
+     * Lecture d'une ligne pour une LISTE : une ligne invalide en base (ex. salle de capacité 0 enregistrée avant le
+     * contrôle d'écriture) est signalée et ignorée, au lieu de faire échouer toute la liste pour toute l'école.
+     */
+    private <E, D> java.util.stream.Stream<D> lisible(E ligne, java.util.function.Function<E, D> conversion) {
+        try {
+            return java.util.stream.Stream.of(conversion.apply(ligne));
+        } catch (IllegalArgumentException | NullPointerException ex) {
+            logger.warn("Ligne de planning invalide ignorée ({}) : {}", ligne.getClass().getSimpleName(), ex.getMessage());
+            return java.util.stream.Stream.empty();
+        }
     }
 }

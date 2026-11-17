@@ -7,5 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 import java.util.List;
 
 public interface WorkgroupJpaRepository extends JpaRepository<WorkgroupJpaEntity, String> {
-    // Les requêtes par défaut peuvent être ajoutées ici (ex: findByCourseId)
+    /** Nom déjà pris dans l'école (double clic, doublon). */
+    boolean existsByNameIgnoreCase(String name);
 }

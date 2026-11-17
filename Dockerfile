@@ -14,9 +14,14 @@ FROM eclipse-temurin:21-jre-alpine
 
 WORKDIR /app
 
-COPY --from=build /workspace/target/*.jar app.jar
+RUN addgroup -g 10001 appgroup && adduser -u 10001 -G appgroup -s /sbin/nologin -D appuser && \
+    chown -R appuser:appgroup /app
 
-EXPOSE 8080
+COPY --from=build --chown=appuser:appgroup /workspace/target/*.jar app.jar
+
+USER appuser:appgroup
+
+EXPOSE 8090
 
 ENTRYPOINT ["java", \
   "-Djava.security.egd=file:/dev/./urandom", \

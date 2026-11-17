@@ -60,7 +60,7 @@ echo ""
 
 # Connexion pour obtenir le token
 echo "Connexion du vigile..."
-LOGIN_RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"etudiant221@gmail.com","password":"ecole221"}' http://127.0.0.1:8080/api/api/auth/login)
+LOGIN_RESPONSE=$(curl -s -X POST -H "Content-Type: application/json" -d '{"email":"etudiant221@gmail.com","password":"'"${DEMO_ACCOUNTS_PASSWORD:?Exportez DEMO_ACCOUNTS_PASSWORD}"'"}' http://127.0.0.1:8080/api/api/auth/login)
 VIGIL_TOKEN=$(echo $LOGIN_RESPONSE | jq -r '.token')
 
 # Si le token est null, on continue sans authentification pour les endpoints publics

@@ -6,8 +6,8 @@ import ecole_221.sn.ecole.modules.student.infrastructure.persistence.CourseDetai
 import ecole_221.sn.ecole.modules.student.infrastructure.persistence.CourseDetail;
 import ecole_221.sn.ecole.modules.student.infrastructure.persistence.StudentDataRepository;
 import ecole_221.sn.ecole.infrastructure.logging.ActionLogger;
-import ecole_221.sn.ecole.modules.ai.application.port.usecase.AIUseCase;
 import ecole_221.sn.ecole.modules.email.application.port.usecase.EmailUseCase;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.Mockito;
@@ -31,23 +31,39 @@ class StudentControllerTest {
     private CourseDetailRepository courseDetailRepository;
     private StudentDataRepository studentDataRepository;
     private ActionLogger actionLogger;
-    private AIUseCase aiUseCase;
     private EmailUseCase emailUseCase;
+    private ecole_221.sn.ecole.modules.professor.application.service.QuizTentativeService quizEleve;
     private MockMvc mockMvc;
+
+    /** APP-SEC-19 : le portail étudiant sert l'étudiant CONNECTÉ (ici usr-001). */
+    private static void connecter(String id) {
+        var u = ecole_221.sn.ecole.modules.auth.domain.model.UserFactory.reconstructSimple(id, "Ba", "Fatou", id + "@ex.sn",
+                "ecole221", "ETU-1", ecole_221.sn.ecole.modules.auth.domain.valueobject.RoleUtilisateur.ETUDIANT, null);
+        org.springframework.security.core.context.SecurityContextHolder.getContext().setAuthentication(
+                new org.springframework.security.authentication.UsernamePasswordAuthenticationToken(u, null, u.getAuthorities()));
+    }
+
+    @AfterEach
+    void deconnecter() {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+    }
 
     @BeforeEach
     void setUp() {
+        connecter("usr-001");
         studentUseCase = Mockito.mock(StudentUseCase.class);
         courseDetailRepository = Mockito.mock(CourseDetailRepository.class);
         studentDataRepository = Mockito.mock(StudentDataRepository.class);
         actionLogger = Mockito.mock(ActionLogger.class);
-        aiUseCase = Mockito.mock(AIUseCase.class);
         emailUseCase = Mockito.mock(EmailUseCase.class);
         
         StudentController controller = new StudentController(
             studentUseCase, courseDetailRepository, studentDataRepository, 
-            null, actionLogger, aiUseCase, emailUseCase
+            null, actionLogger, emailUseCase
         );
+        // Appartenance du cours à la classe de l'élève (détails de cours)
+        quizEleve = Mockito.mock(ecole_221.sn.ecole.modules.professor.application.service.QuizTentativeService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "quizEleve", quizEleve);
         
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
@@ -56,21 +72,16 @@ class StudentControllerTest {
     }
 
     @Test
-    void testGetProfile() throws Exception {
-        Map<String, Object> mockProfile = new HashMap<>();
-        mockProfile.put("id", "usr-001");
-        mockProfile.put("name", "Test Student");
-        mockProfile.put("email", "test@ecole221.sn");
-        
+    void profilConstruitDepuisLeCompteReel() throws Exception {
         Mockito.when(studentDataRepository.findById(anyString())).thenReturn(java.util.Optional.empty());
-        Mockito.when(studentUseCase.getStudentProfile(anyString())).thenReturn(mockProfile);
 
         mockMvc.perform(get("/student/profile")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.id").value("usr-001"));
-
-        Mockito.verify(studentUseCase, Mockito.times(1)).getStudentProfile("usr-001");
+                .andExpect(jsonPath("$.id").value("usr-001"))
+                .andExpect(jsonPath("$.nom").value("Ba"))
+                .andExpect(jsonPath("$.prenom").value("Fatou"))
+                .andExpect(jsonPath("$.matricule").value("ETU-1"));
     }
 
     @Test
@@ -90,19 +101,18 @@ class StudentControllerTest {
     }
 
     @Test
-    void testGetDigitalBadge() throws Exception {
-        Map<String, Object> mockBadge = new HashMap<>();
-        mockBadge.put("matricule", "2026-EC-001");
-        mockBadge.put("qrCode", "test-qr-code");
-        
-        Mockito.when(studentUseCase.getDigitalBadge(anyString())).thenReturn(mockBadge);
+    void badgeAvecLeMatriculeReel() throws Exception {
+        Mockito.when(studentDataRepository.findById(anyString())).thenReturn(java.util.Optional.empty());
+        Map<String, Object> badge = new HashMap<>();
+        badge.put("matricule", "ETU-1");
+        Mockito.when(studentUseCase.getDigitalBadge(anyString(), anyString(), anyString(), Mockito.any())).thenReturn(badge);
 
         mockMvc.perform(get("/student/digital-badge")
                 .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.matricule").value("2026-EC-001"));
+                .andExpect(jsonPath("$.matricule").value("ETU-1"));
 
-        Mockito.verify(studentUseCase, Mockito.times(1)).getDigitalBadge("usr-001");
+        Mockito.verify(studentUseCase).getDigitalBadge(Mockito.eq("usr-001"), Mockito.eq("ETU-1"), Mockito.eq("Fatou Ba"), Mockito.any());
     }
 
     @Test
@@ -132,6 +142,7 @@ class StudentControllerTest {
 
     @Test
     void testGetCourseDetailsFallbackToLegacyId() throws Exception {
+        Mockito.when(quizEleve.estCoursDeSaClasse("course-1", "usr-001")).thenReturn(true);
         Map<String, Object> detailData = new HashMap<>();
         detailData.put("id", "course-1");
         detailData.put("title", "Architecture des Microservices");
@@ -147,6 +158,7 @@ class StudentControllerTest {
 
     @Test
     void testGetCourseDetailsNotFoundReturns404() throws Exception {
+        Mockito.when(quizEleve.estCoursDeSaClasse("course-404", "usr-001")).thenReturn(true);
         Mockito.when(courseDetailRepository.findById("course-404")).thenReturn(java.util.Optional.empty());
         Mockito.when(courseDetailRepository.findById("c-404")).thenReturn(java.util.Optional.empty());
 
@@ -154,5 +166,56 @@ class StudentControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Cours non trouvé avec l'identifiant: course-404"));
+    }
+
+    @Test
+    void detailsDuCoursSansLesBonnesReponsesDesQuiz() throws Exception {
+        Mockito.when(quizEleve.estCoursDeSaClasse("course-7", "usr-001")).thenReturn(true);
+        Map<String, Object> q1 = new HashMap<>();
+        q1.put("question", "Combien de tours fait la boucle ?");
+        q1.put("options", java.util.List.of("1", "2", "3"));
+        q1.put("reponseCorrecte", 2);
+        q1.put("explication", "La condition est vérifiée trois fois.");
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", "course-7");
+        data.put("title", "Algorithmique");
+        data.put("quizzes", java.util.List.of(q1));
+        Mockito.when(courseDetailRepository.findById("course-7")).thenReturn(java.util.Optional.of(new CourseDetail("course-7", data)));
+
+        String corps = mockMvc.perform(get("/student/courses/course-7/details"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Algorithmique"))
+                .andExpect(jsonPath("$.quizzes[0].question").value("Combien de tours fait la boucle ?"))
+                .andExpect(jsonPath("$.quizzes[0].options.length()").value(3))
+                .andExpect(jsonPath("$.quizzes[0].reponseCorrecte").doesNotExist())
+                .andExpect(jsonPath("$.quizzes[0].explication").doesNotExist())
+                .andReturn().getResponse().getContentAsString();
+        org.assertj.core.api.Assertions.assertThat(corps).doesNotContain("reponseCorrecte");
+        // le contenu enregistré n'est pas modifié
+        org.assertj.core.api.Assertions.assertThat(q1).containsKey("reponseCorrecte");
+    }
+
+    @Test
+    void detailsDUnCoursHorsDeSaClasse404SansLireLeContenu() throws Exception {
+        Mockito.when(quizEleve.estCoursDeSaClasse(anyString(), anyString())).thenReturn(false);
+        mockMvc.perform(get("/student/courses/course-9/details"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Cours non trouvé avec l'identifiant: course-9"));
+        Mockito.verify(courseDetailRepository, Mockito.never()).findById(anyString());
+    }
+
+    @Test
+    void chaqueEtudiantVoitSesPropresNotes() throws Exception {
+        connecter("etu-autre");
+        Mockito.when(studentUseCase.getStudentGrades(anyString())).thenReturn(java.util.List.of());
+        mockMvc.perform(get("/student/grades")).andExpect(status().isOk());
+        Mockito.verify(studentUseCase).getStudentGrades("etu-autre");
+        Mockito.verify(studentUseCase, Mockito.never()).getStudentGrades("usr-001");
+    }
+
+    @Test
+    void sansConnexionRefuse() throws Exception {
+        org.springframework.security.core.context.SecurityContextHolder.clearContext();
+        mockMvc.perform(get("/student/grades")).andExpect(status().isUnauthorized());
     }
 }

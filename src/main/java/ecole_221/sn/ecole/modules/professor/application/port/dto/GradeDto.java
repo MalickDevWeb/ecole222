@@ -42,7 +42,8 @@ public record GradeDto(
     public static double calculateFinalGrade(Double cc, Double examen) {
         double ccVal = cc != null ? cc : 0;
         double examVal = examen != null ? examen : 0;
-        return (ccVal * 0.4) + (examVal * 0.6);
+        // arrondi au centième : évite 15.600000000000001 affiché aux étudiants
+        return Math.round(((ccVal * 0.4) + (examVal * 0.6)) * 100) / 100.0;
     }
     
     /**

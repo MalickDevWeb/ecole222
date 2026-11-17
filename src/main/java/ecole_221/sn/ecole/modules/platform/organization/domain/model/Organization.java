@@ -171,7 +171,7 @@ public class Organization {
     // Comportements métier
     public void validate() {
         if (!this.status.equals(OrganizationStatus.PENDING)) {
-            throw new IllegalStateException("Seules les organizations en statut PENDING peuvent être validées. Statut actuel: '" + this.status.value() + "'");
+            throw new IllegalStateException("Seul un établissement en attente peut être approuvé (statut actuel : " + this.status.value() + ").");
         }
         this.status = OrganizationStatus.ACTIVE;
         this.validatedAt = LocalDateTime.now();
@@ -180,7 +180,7 @@ public class Organization {
     
     public void suspend() {
         if (!this.status.equals(OrganizationStatus.ACTIVE)) {
-            throw new IllegalStateException("Seules les organizations ACTIVE peuvent être suspendues");
+            throw new IllegalStateException("Seul un établissement actif peut être suspendu.");
         }
         this.status = OrganizationStatus.SUSPENDED;
         this.suspendedAt = LocalDateTime.now();
@@ -189,7 +189,7 @@ public class Organization {
     
     public void reactivate() {
         if (!this.status.equals(OrganizationStatus.SUSPENDED)) {
-            throw new IllegalStateException("Seules les organizations SUSPENDED peuvent être réactivées");
+            throw new IllegalStateException("Seul un établissement suspendu peut être réactivé.");
         }
         this.status = OrganizationStatus.ACTIVE;
         this.suspendedAt = null;
@@ -209,6 +209,21 @@ public class Organization {
             throw new IllegalStateException("Seules les organizations archivées peuvent être désarchivées");
         }
         this.status = OrganizationStatus.SUSPENDED; // On désarchive en mode suspendu par sécurité
+        // suspended_at sert au seuil d'archivage automatique ; une ancienne date relancerait aussitôt un archivage.
+        // Tout retour à SUSPENDED repart de maintenant.
+        this.suspendedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Restauration d'une école archivée : l'école redevient ACTIVE et n'est plus comptée comme suspendue.
+     */
+    public void restaurer() {
+        if (!this.status.equals(OrganizationStatus.ARCHIVED)) {
+            throw new IllegalStateException("Seule une école archivée peut être restaurée.");
+        }
+        this.status = OrganizationStatus.ACTIVE;
+        this.suspendedAt = null;
         this.updatedAt = LocalDateTime.now();
     }
     

@@ -70,7 +70,7 @@ public class Candidate {
     }
 
     public void setStatut(String statut) {
-        this.statut = CandidateStatus.valueOf(statut);
+        this.statut = CandidateStatus.from(statut);
     }
 
     public void setNote(Double note) {

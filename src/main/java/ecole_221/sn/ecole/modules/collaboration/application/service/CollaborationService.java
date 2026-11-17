@@ -57,15 +57,10 @@ public class CollaborationService implements CollaborationUseCase {
     @Override
     public WorkgroupDto createWorkgroup(String name, String description, String creatorId) {
         logger.info("Création d'un groupe de travail: {} par {}", name, creatorId);
-        try {
-            Workgroup workgroup = WorkgroupFactory.create(name, description, creatorId, 1);
-            Workgroup savedWorkgroup = collaborationRepositoryPort.saveWorkgroup(workgroup);
-            return toWorkgroupDto(savedWorkgroup);
-        } catch (Exception e) {
-            logger.error("Erreur création workgroup", e);
-            // Fallback: retourner un DTO vide
-            return new WorkgroupDto("fallback-" + UUID.randomUUID().toString().substring(0, 8), name, description, creatorId, 1);
-        }
+        // APP-QA-04 : une erreur d'enregistrement remonte
+        Workgroup workgroup = WorkgroupFactory.create(name, description, creatorId, 1);
+        Workgroup savedWorkgroup = collaborationRepositoryPort.saveWorkgroup(workgroup);
+        return toWorkgroupDto(savedWorkgroup);
     }
     
     @Override
@@ -103,15 +98,10 @@ public class CollaborationService implements CollaborationUseCase {
     @Override
     public TaskDto createTask(String workgroupId, String title, String status, String assignedTo) {
         logger.info("Création d'une tâche: {}", title);
-        try {
-            Task task = TaskFactory.create(title, null, workgroupId, assignedTo, null);
-            Task savedTask = collaborationRepositoryPort.saveTask(task);
-            return toTaskDto(savedTask);
-        } catch (Exception e) {
-            logger.error("Erreur création task", e);
-            // Fallback: retourner un DTO vide
-            return new TaskDto("fallback-" + UUID.randomUUID().toString().substring(0, 8), title, null, workgroupId, assignedTo, status, "MEDIUM");
-        }
+        // APP-QA-04 : une erreur d'enregistrement remonte
+        Task task = TaskFactory.create(title, null, workgroupId, assignedTo, null);
+        Task savedTask = collaborationRepositoryPort.saveTask(task);
+        return toTaskDto(savedTask);
     }
     
     @Override
@@ -140,6 +130,7 @@ public class CollaborationService implements CollaborationUseCase {
 
     @Override
     public void addDocument(String groupId, String name, String type, String size, String url, String addedBy) {
+        exigerGroupe(groupId);
         DocumentJpaEntity doc = new DocumentJpaEntity();
         doc.setId("doc-" + UUID.randomUUID().toString().substring(0, 8));
         doc.setGroupId(groupId);
@@ -161,6 +152,31 @@ public class CollaborationService implements CollaborationUseCase {
             map.put("assignedTo", task.getAssignedTo());
             return map;
         }).toList();
+    }
+
+    @Override
+    public String enregistrerTache(String groupId, String id, String title, String status, String assignedTo) {
+        // Changement de statut = mise à jour de la même tâche
+        exigerGroupe(groupId);
+        TaskJpaEntity task = id == null ? null : taskJpaRepository.findById(id)
+                .filter(t -> groupId.equals(t.getGroupId())).orElse(null);
+        if (task == null) {
+            task = new TaskJpaEntity();
+            task.setId("task-" + UUID.randomUUID().toString().substring(0, 8));
+            task.setGroupId(groupId);
+        }
+        task.setTitle(title);
+        task.setStatus(status);
+        task.setAssignedTo(assignedTo);
+        taskJpaRepository.save(task);
+        return task.getId();
+    }
+
+    private void exigerGroupe(String groupId) {
+        if (groupId == null || !workgroupJpaRepository.existsById(groupId)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,
+                    "Groupe de travail introuvable.");
+        }
     }
 
     @Override
@@ -191,25 +207,92 @@ public class CollaborationService implements CollaborationUseCase {
 
     @Override
     public void addMessage(String groupId, String sender, String content) {
+        // Groupe inexistant → 404 ; message vide ou démesuré → 400
+        if (groupId == null || !workgroupJpaRepository.existsById(groupId)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND,
+                    "Groupe de travail introuvable.");
+        }
+        if (content == null || content.isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Le message est vide.");
+        }
+        if (content.length() > 4_000) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Message trop long (4 000 caractères au maximum).");
+        }
         MessageJpaEntity message = new MessageJpaEntity();
         message.setId("msg-" + UUID.randomUUID().toString().substring(0, 8));
         message.setGroupId(groupId);
         message.setSender(sender);
-        message.setContent(content);
+        message.setContent(content.strip());
         message.setTimestamp(LocalDateTime.now());
         messageJpaRepository.save(message);
     }
 
     @Override
     public List<Map<String, Object>> getMeets() {
+        java.time.LocalDateTime maintenant = HoraireClasseVirtuelle.maintenant();
         return meetJpaRepository.findAll().stream().map(meet -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", meet.getId());
             map.put("title", meet.getTitle());
             map.put("link", meet.getLink());
             map.put("time", meet.getTime());
+            // APP-BE-14 : forme « classe virtuelle » attendue par le frontend
+            map.put("subjectName", meet.getSubjectName() != null ? meet.getSubjectName() : meet.getTitle());
+            map.put("meetLink", meet.getLink());
+            map.put("date", meet.getMeetDate());
+            map.put("teacherName", meet.getTeacherName());
+            map.put("classIds", liste(meet.getClassIds()));
+            map.put("classNames", liste(meet.getClassNames()));
+            map.put("isPublished", Boolean.TRUE.equals(meet.getPublished()));
+            map.put("auteurId", meet.getAuteurId());   // Le professeur retrouve les classes virtuelles qu'il a créées
+            // V26 : horaire et statut (à venir, en cours, terminée, sans horaire) à l'heure de l'école
+            map.put("debut", meet.getDebut() == null ? null : meet.getDebut().toString());
+            map.put("fin", meet.getFin() == null ? null : meet.getFin().toString());
+            map.put("statut", HoraireClasseVirtuelle.statut(meet.getDebut(), meet.getFin(), maintenant));
             return map;
         }).toList();
+    }
+
+    private static List<String> liste(String csv) {
+        return csv == null || csv.isBlank() ? List.of() : java.util.Arrays.stream(csv.split(",")).map(String::trim).filter(x -> !x.isEmpty()).toList();
+    }
+
+    private static String csv(Object valeur) {
+        if (valeur instanceof java.util.Collection<?> c) {
+            return c.stream().map(String::valueOf).collect(java.util.stream.Collectors.joining(","));
+        }
+        return valeur == null ? null : String.valueOf(valeur);
+    }
+
+    private static String texte(Map<String, Object> d, String... cles) {
+        for (String k : cles) {
+            Object v = d.get(k);
+            if (v != null && !String.valueOf(v).isBlank()) {
+                return String.valueOf(v);
+            }
+        }
+        return null;
+    }
+
+    @Override
+    public void createMeet(Map<String, Object> d) {
+        MeetJpaEntity meet = new MeetJpaEntity();
+        meet.setId("meet-" + UUID.randomUUID().toString().substring(0, 8));
+        meet.setTitle(texte(d, "title", "subjectName"));
+        meet.setLink(texte(d, "link", "meetLink"));
+        meet.setTime(texte(d, "time"));
+        meet.setMeetDate(texte(d, "date"));
+        meet.setSubjectName(texte(d, "subjectName", "title"));
+        meet.setTeacherName(texte(d, "teacherName"));
+        meet.setClassIds(csv(d.get("classIds")));
+        meet.setClassNames(csv(d.get("classNames")));
+        meet.setPublished(Boolean.TRUE.equals(d.get("isPublished")));
+        meet.setAuteurId(ecole_221.sn.ecole.partage.CompteCourant.id());   // V22 : auteur de la séance
+        if (d.get("debut") instanceof java.time.LocalDateTime debut) meet.setDebut(debut);   // V26
+        if (d.get("fin") instanceof java.time.LocalDateTime fin) meet.setFin(fin);
+        meetJpaRepository.save(meet);
     }
 
     @Override
@@ -219,6 +302,7 @@ public class CollaborationService implements CollaborationUseCase {
         meet.setTitle(title);
         meet.setLink(link);
         meet.setTime(time);
+        meet.setAuteurId(ecole_221.sn.ecole.partage.CompteCourant.id());   // V22 : auteur de la séance
         meetJpaRepository.save(meet);
     }
     

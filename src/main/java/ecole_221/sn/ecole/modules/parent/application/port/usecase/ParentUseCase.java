@@ -22,11 +22,7 @@ public interface ParentUseCase {
     // Planning
     List<ScheduleDto> getChildSchedule(String enfantId);
     
-    // Messages
-    List<MessageDto> getParentMessages(String parentId);
-    MessageDto sendMessage(String parentId, SendMessageRequestDto request);
-    MessageDto markMessageAsRead(String messageId, String parentId);
-    
+
     // Candidatures
     List<ApplicationDto> getParentApplications(String parentId);
     String enrollChild(String parentId, EnrollChildPayloadDto payload);
@@ -35,12 +31,11 @@ public interface ParentUseCase {
     PaymentDto getParentPayments(String parentId);
     
     // Profil
+    ParentProfileDto getParentProfile(String parentId);
     ParentProfileDto updateParentProfile(String parentId, ParentProfileDto profileDto);
     
     // Rendez-vous
     String requestAppointment(String parentId, AppointmentRequestDto request);
     java.util.List<java.util.Map<String, Object>> getParentAppointments(String parentId);
-    
-    // Justificatifs
-    String justifyAbsence(String presenceId, String parentId, String motif, String fileUrl);
+
 }

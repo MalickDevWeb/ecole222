@@ -26,4 +26,14 @@ public interface ParentRepositoryPort {
     Optional<ParentEnfant> findParentEnfantByParentIdAndEnfantId(String parentId, String enfantId);
     void deleteParentEnfant(String parentId, String enfantId);
     boolean existsParentEnfant(String parentId, String enfantId);
+
+    // Notes réelles d'un enfant (APP-BE-19) ; par défaut aucune
+    default List<ecole_221.sn.ecole.modules.parent.domain.model.NoteEnfant> findNotesByEnfantId(String enfantId) {
+        return List.of();
+    }
+
+    // Présences réelles d'un enfant (APP-BE-19) ; par défaut aucune
+    default List<ecole_221.sn.ecole.modules.parent.domain.model.PresenceEnfant> findPresencesByEnfantId(String enfantId) {
+        return List.of();
+    }
 }

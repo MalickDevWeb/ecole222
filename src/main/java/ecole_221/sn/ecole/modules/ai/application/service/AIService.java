@@ -25,7 +25,8 @@ public class AIService implements AIUseCase {
     
     @Override
     public String generateTutorResponse(String message) {
-        logger.info("Génération de réponse tuteur pour: {}", message);
+        // APP-SEC-26 : jamais le texte de la question (données d'élèves mineurs, loi n° 2008-12), seulement sa longueur
+        logger.info("Génération de réponse tuteur ({} caractères)", (message == null ? 0 : message.length()));
         
         // Ajouter le contexte du tuteur IA
         Map<String, Object> context = Map.of(
@@ -45,7 +46,7 @@ public class AIService implements AIUseCase {
     
     @Override
     public String generateTutorResponseWithContext(String message, Map<String, Object> context) {
-        logger.info("Génération de réponse tuteur avec contexte pour: {}", message);
+        logger.info("Génération de réponse tuteur avec contexte ({} caractères)", (message == null ? 0 : message.length()));
         
         // Fusionner le contexte tuteur avec le contexte fourni
         Map<String, Object> tutorContext = Map.of(
@@ -61,7 +62,7 @@ public class AIService implements AIUseCase {
     
     @Override
     public String generateEducationalContent(String topic, String type) {
-        logger.info("Génération de contenu éducatif - Type: {}, Sujet: {}", type, topic);
+        logger.info("Génération de contenu éducatif - Type: {}, sujet de {} caractères", type, topic == null ? 0 : topic.length());
         
         String prompt = switch (type.toLowerCase()) {
             case "quiz" -> "Génère un quiz sur le sujet: " + topic + " avec 5 questions à choix multiples et leurs réponses.";

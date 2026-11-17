@@ -10,6 +10,7 @@ import jakarta.validation.constraints.NotBlank;
 public record CreateTenantCommand(
 
         @NotBlank(message = "Le nom de l'établissement est obligatoire")
+        @jakarta.validation.constraints.Size(max = 150, message = "Le nom de l'établissement ne doit pas dépasser 150 caractères")
         String name,
 
         @NotBlank(message = "L'email de l'établissement est obligatoire")
@@ -19,6 +20,7 @@ public record CreateTenantCommand(
         String country,
         String city,
         String address,
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^\\+?[0-9 .-]{6,20}$", message = "Numéro de téléphone invalide (chiffres uniquement, ex. +221 77 123 45 67)")
         String phone,
         String website,
         String logo,
@@ -34,5 +36,6 @@ public record CreateTenantCommand(
         @Email(message = "L'email de l'administrateur doit être valide")
         String adminEmail,
 
+        @jakarta.validation.constraints.Pattern(regexp = "^$|^\\+?[0-9 .-]{6,20}$", message = "Numéro de téléphone de l'administrateur invalide")
         String adminPhone
 ) {}

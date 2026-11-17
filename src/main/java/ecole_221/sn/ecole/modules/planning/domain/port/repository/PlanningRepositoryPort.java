@@ -35,7 +35,8 @@ public interface PlanningRepositoryPort {
     /**
      * Supprime une salle par son ID.
      */
-    void deleteRoom(String roomId);
+    /** @return le libellé conservé dans la corbeille (V21) */
+    String deleteRoom(String roomId);
     
     /**
      * Récupère les salles par capacité minimale.
@@ -67,7 +68,8 @@ public interface PlanningRepositoryPort {
     /**
      * Supprime un créneau horaire par son ID.
      */
-    void deleteSlot(String slotId);
+    /** @return le libellé conservé dans la corbeille (V21) */
+    String deleteSlot(String slotId);
     
     /**
      * Récupère les créneaux par jour de la semaine.
@@ -99,7 +101,8 @@ public interface PlanningRepositoryPort {
     /**
      * Supprime une filière par son ID.
      */
-    void deleteFiliere(String filiereId);
+    /** @return le libellé conservé dans la corbeille (V21) */
+    String deleteFiliere(String filiereId);
     
     /**
      * Récupère les filières par niveau.
@@ -126,7 +129,8 @@ public interface PlanningRepositoryPort {
     /**
      * Supprime une classe par son ID.
      */
-    void deleteClasse(String classeId);
+    /** @return le libellé conservé dans la corbeille (V21) */
+    String deleteClasse(String classeId);
     
     /**
      * Récupère les classes par filière.

@@ -6,7 +6,8 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "classes")
-public class ClasseJpaEntity {
+@org.hibernate.annotations.SQLRestriction("supprime_le is null")   // corbeille (V21) : ligne supprimée invisible partout
+public class ClasseJpaEntity extends ecole_221.sn.ecole.partage.ColonnesCorbeille {
     @org.hibernate.annotations.TenantId
     @jakarta.persistence.Column(name = "organization_id")
     private String organizationId;
@@ -25,6 +26,9 @@ public class ClasseJpaEntity {
     private String niveau;
     private int capacity;
     private int currentSize;
+    /** Frais de scolarité annuels (FCFA) ; null = non renseignés. */
+    @jakarta.persistence.Column(name = "frais_annuels")
+    private Long fraisAnnuels;
 
     @jakarta.persistence.PrePersist
     @jakarta.persistence.PreUpdate
@@ -58,6 +62,8 @@ public class ClasseJpaEntity {
     public int getCapacity() { return capacity; }
     public void setCapacity(int capacity) { this.capacity = capacity; }
     
+    public Long getFraisAnnuels() { return fraisAnnuels; }
+    public void setFraisAnnuels(Long fraisAnnuels) { this.fraisAnnuels = fraisAnnuels; }
     public int getCurrentSize() { return currentSize; }
     public void setCurrentSize(int currentSize) { this.currentSize = currentSize; }
 }

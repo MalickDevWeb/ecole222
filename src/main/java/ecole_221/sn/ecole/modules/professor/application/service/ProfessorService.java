@@ -50,8 +50,13 @@ public class ProfessorService implements ProfessorUseCase {
             .toList();
     }
 
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.admin.periodes.PeriodesScolairesService periodes;
+
     @Override
     public void saveGrade(String studentId, String courseId, Double cc, Double exam) {
+        // BR-04 : l'ancien couple CC / Examen n'est pas daté ; il suit la période du jour.
+        if (periodes != null) periodes.exigerOuverte(java.time.LocalDate.now(), "les notes ne peuvent plus être saisies ni modifiées");
         repositoryPort.saveGrade(studentId, courseId, cc, exam);
     }
 
@@ -122,6 +127,8 @@ public class ProfessorService implements ProfessorUseCase {
     public List<Map<String, Object>> getSchedule(String professorId) {
         List<ScheduleSessionJpaEntity> sessions = scheduleRepository.findByProfessorId(professorId);
         return sessions.stream()
+            // Séance dont le créneau a été retiré de l'emploi du temps → n'apparaît plus
+            .filter(s -> !"retire".equals(s.getStatus()))
             .map(this::scheduleToMap)
             .toList();
     }

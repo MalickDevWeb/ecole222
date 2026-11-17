@@ -32,7 +32,8 @@ public class PublicOnboardingController {
     public ResponseEntity<Organization> registerSchool(@RequestBody SchoolRegistrationRequest request) {
         log.info("[register-school] Inscription demandée pour: {}", request.getSchoolName());
         Organization org = organizationService.registerSchool(request);
-        return ResponseEntity.ok(org);
+        // US-02 [FEAT-001-SC-03] : création → 201 Created (relevé OBS-01, Agent 05)
+        return ResponseEntity.status(201).body(org);
     }
 
     @GetMapping({"/public/check-availability", "/v1/public/check-availability"})
@@ -59,9 +60,16 @@ public class PublicOnboardingController {
             return ResponseEntity.badRequest().build();
         }
 
+        // Défaut F7 : une école SUSPENDED, ARCHIVED, REJECTED (ou EXPIRED, CANCELLED) n'a plus de fiche
+        // publique (404, même réponse qu'un identifiant inconnu) ; une école PENDING reste lisible avec statut « PENDING »
+        // (écran « en attente de validation »).
         // Cas spécial Ecole 221
         if ("ecole221".equalsIgnoreCase(slug) || "ecole-221".equalsIgnoreCase(slug)) {
-            return organizationService.getOrganizationBySlug("ecole-221")
+            java.util.Optional<Organization> ecole221 = organizationService.getOrganizationBySlug("ecole-221");
+            if (ecole221.isPresent() && !ficheVisible(ecole221.get())) {
+                return introuvable(slug);
+            }
+            return ecole221
                 .map(org -> {
                     Map<String, Object> branding = new HashMap<>();
                     String primaryColor = "#B3181C";
@@ -71,13 +79,15 @@ public class PublicOnboardingController {
                     branding.put("primaryColor", primaryColor);
                     if (org.getLogo() != null && !org.getLogo().isBlank()) {
                         branding.put("logoUrl", org.getLogo());
+                if (org.getSettings() != null && org.getSettings().get("backgroundUrl") != null) {
+                    branding.put("backgroundUrl", String.valueOf(org.getSettings().get("backgroundUrl")));
+                }
                     }
-                    return ResponseEntity.ok(Map.of(
-                        "id", org.getId(),
-                        "name", org.getName(),
-                        "slug", "ecole-221",
-                        "branding", branding
-                    ));
+                    if (org.getSettings() != null && org.getSettings().get("backgroundUrl") != null) {
+                        branding.put("backgroundUrl", String.valueOf(org.getSettings().get("backgroundUrl")));
+                    }
+                    return ResponseEntity.ok(publique(org.getId(), org.getName(), "ecole-221", branding,
+                            org.getPhone(), org.getEmail(), org.getCity(), org.getStatus().value()));
                 })
                 .orElseGet(() -> ResponseEntity.ok(Map.of(
                     "id", "default-tenant-id",
@@ -90,6 +100,7 @@ public class PublicOnboardingController {
         }
 
         return organizationService.getOrganizationBySlug(slug)
+            .filter(PublicOnboardingController::ficheVisible)
             .map(org -> {
                 Map<String, Object> branding = new HashMap<>();
                 String primaryColor = "#7C3AED"; // fallback default
@@ -99,15 +110,37 @@ public class PublicOnboardingController {
                 branding.put("primaryColor", primaryColor);
                 branding.put("logoUrl", org.getLogo());
 
-                return ResponseEntity.ok(Map.of(
-                    "id", org.getId(),
-                    "name", org.getName(),
-                    "slug", org.getSlug(),
-                    "branding", branding
-                ));
+                return ResponseEntity.ok(publique(org.getId(), org.getName(), org.getSlug(), branding,
+                        org.getPhone(), org.getEmail(), org.getCity(), org.getStatus().value()));
             })
-            .orElseGet(() -> ResponseEntity.status(404).body(Map.of("error", "Établissement non trouvé pour le slug: " + slug)));
+            .orElseGet(() -> introuvable(slug));
+    }
+
+    /** Fiche publique servie pour une école active ou en attente de validation seulement (défaut F7). */
+    static boolean ficheVisible(Organization org) {
+        return org.isActive() || ecole_221.sn.ecole.modules.platform.organization.domain.valueobject.OrganizationStatus.PENDING
+                .equals(org.getStatus());
+    }
+
+    private static ResponseEntity<Map<String, Object>> introuvable(String slug) {
+        return ResponseEntity.status(404).body(Map.<String, Object>of("error", "Établissement non trouvé pour le slug: " + slug));
+    }
+
+    /**
+     * Fiche publique de l'école : identité, couleurs et COORDONNÉES RÉELLES (téléphone, e-mail, ville saisis à
+     * l'inscription). Valeur absente = null (jamais de coordonnée inventée).
+     */
+    private static Map<String, Object> publique(String id, String nom, String slug, Map<String, Object> branding,
+                                                String telephone, String email, String ville, String statut) {
+        Map<String, Object> m = new HashMap<>();
+        m.put("statut", statut);   // F7 : « ACTIVE » ou « PENDING »
+        m.put("id", id);
+        m.put("name", nom);
+        m.put("slug", slug);
+        m.put("branding", branding);
+        m.put("phone", telephone);
+        m.put("email", email);
+        m.put("city", ville);
+        return m;
     }
 }
-
-

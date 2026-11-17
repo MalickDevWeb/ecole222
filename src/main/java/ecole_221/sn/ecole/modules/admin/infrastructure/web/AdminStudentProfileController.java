@@ -1,155 +1,267 @@
 package ecole_221.sn.ecole.modules.admin.infrastructure.web;
 
-import ecole_221.sn.ecole.modules.ai.application.port.usecase.AIUseCase;
+import io.swagger.v3.oas.annotations.Operation;
+import ecole_221.sn.ecole.modules.admin.application.service.ComptesEcoleService;
+import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.DocumentEleveJpaEntity;
+import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.DocumentEleveJpaRepository;
+import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.ProfilEleveJpaEntity;
+import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.ProfilEleveJpaRepository;
+import ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaEntity;
+import ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaRepository;
+import ecole_221.sn.ecole.modules.professor.infrastructure.persistence.ScheduleSessionJpaEntity;
+import ecole_221.sn.ecole.modules.professor.infrastructure.persistence.ScheduleSessionJpaRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
+import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 
+/**
+ * Dossier 360° d'un élève, ses documents, et affectation d'un cours à un créneau.
+ *
+ * <p>Persistance par école (@TenantId), élève obligatoirement membre de l'école, créneau réellement créé.
+ * APP-TL-24 : synthèse du suivi calculée par règles (GET /admin/students/{id}/synthese).</p>
+ */
 @RestController
 @RequestMapping("/admin")
-@CrossOrigin(origins = "*")
 public class AdminStudentProfileController {
 
     private static final Logger logger = LoggerFactory.getLogger(AdminStudentProfileController.class);
 
-    private final AIUseCase aiUseCase;
-    private final Map<String, Map<String, Object>> profileStore = new ConcurrentHashMap<>();
-    private final Map<String, List<Map<String, Object>>> documentStore = new ConcurrentHashMap<>();
+    private final ComptesEcoleService comptesEcole;
+    private final ProfilEleveJpaRepository profils;
+    private final DocumentEleveJpaRepository documents;
+    private final CourseJpaRepository cours;
+    private final ScheduleSessionJpaRepository seances;
 
-    public AdminStudentProfileController(AIUseCase aiUseCase) {
-        this.aiUseCase = aiUseCase;
+    public AdminStudentProfileController(ComptesEcoleService comptesEcole, ProfilEleveJpaRepository profils,
+                                         DocumentEleveJpaRepository documents, CourseJpaRepository cours,
+                                         ScheduleSessionJpaRepository seances) {
+        this.comptesEcole = comptesEcole;
+        this.profils = profils;
+        this.documents = documents;
+        this.cours = cours;
+        this.seances = seances;
     }
 
+    @Operation(summary = "Dossier 360° d'un élève", description = "Données réellement saisies (groupe sanguin, allergies) ; rubriques sans source renvoyées vides avec leur statut. 404 si l'élève n'est pas de l'école.")
     @GetMapping("/students/{id}/profile360")
     public ResponseEntity<Map<String, Object>> getProfile360(@PathVariable("id") String studentId) {
-        logger.info("GET /admin/students/{}/profile360", studentId);
-        return ResponseEntity.ok(profileStore.computeIfAbsent(studentId, this::buildDefaultProfile));
+        comptesEcole.membre(studentId, "ETUDIANT");   // 404 si l'élève n'est pas de cette école
+        return ResponseEntity.ok(profil(profils.findFirstByUserId(studentId).orElse(null), studentId));
     }
 
+    @Operation(summary = "Compléter le dossier d'un élève", description = "Corps {bloodGroup?, allergies?} : seuls les champs envoyés changent. 404 si l'élève n'est pas de l'école.")
     @PostMapping("/students/{id}/profile360")
     public ResponseEntity<Map<String, Object>> updateProfile360(
             @PathVariable("id") String studentId,
             @RequestBody Map<String, Object> fields) {
-        logger.info("POST /admin/students/{}/profile360", studentId);
-        Map<String, Object> profile = profileStore.computeIfAbsent(studentId, this::buildDefaultProfile);
-        Map<String, Object> extra = castMap(profile.get("extra"));
-        if (fields.containsKey("email")) {
-            // no-op placeholder for future user linkage
-        }
-        if (fields.containsKey("bloodGroup")) extra.put("sante", fields.get("bloodGroup"));
-        if (fields.containsKey("allergies")) extra.put("allergies", fields.get("allergies"));
-        profile.put("extra", extra);
-        profileStore.put(studentId, profile);
-        return ResponseEntity.ok(profile);
+        comptesEcole.membre(studentId, "ETUDIANT");
+        ProfilEleveJpaEntity p = profils.findFirstByUserId(studentId)
+                .orElseGet(() -> new ProfilEleveJpaEntity(UUID.randomUUID().toString(), studentId));
+        if (fields.containsKey("bloodGroup")) p.setGroupeSanguin(texte(fields.get("bloodGroup")));
+        if (fields.containsKey("allergies")) p.setAllergies(texte(fields.get("allergies")));
+        p.setUpdatedAt(LocalDateTime.now());
+        profils.save(p);
+        logger.info("POST /admin/students/{}/profile360 - dossier mis à jour", studentId);
+        return ResponseEntity.ok(profil(p, studentId));
     }
 
+    @Operation(summary = "Documents d'un élève", description = "Pièces déposées pour l'élève, de la plus ancienne à la plus récente.")
     @GetMapping("/students/{id}/documents")
     public ResponseEntity<List<Map<String, Object>>> getDocuments(@PathVariable("id") String studentId) {
-        logger.info("GET /admin/students/{}/documents", studentId);
-        return ResponseEntity.ok(documentStore.getOrDefault(studentId, List.of()));
+        comptesEcole.membre(studentId, "ETUDIANT");
+        return ResponseEntity.ok(documents.findByUserIdOrderByCreatedAtAsc(studentId).stream().map(this::document).toList());
     }
 
+    /** Relecture des fichiers confidentiels. */
+    private ecole_221.sn.ecole.modules.media.domain.port.MediaStoragePort stockage;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setStockage(ecole_221.sn.ecole.modules.media.domain.port.MediaStoragePort stockage) {
+        this.stockage = stockage;
+    }
+
+    @Operation(summary = "Fichier d'un document de l'élève", description = "Relu par le serveur (fichier confidentiel : aucun lien public).")
+    @GetMapping("/students/{id}/documents/{docId}/fichier")
+    public ResponseEntity<byte[]> fichierDocument(@PathVariable("id") String studentId, @PathVariable("docId") String docId) {
+        comptesEcole.membre(studentId, "ETUDIANT");
+        DocumentEleveJpaEntity doc = documents.findById(docId == null ? "" : docId)
+                .filter(d -> studentId.equals(d.getUserId()))
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Document introuvable."));
+        if (stockage == null) throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Stockage des fichiers indisponible.");
+        return ecole_221.sn.ecole.modules.media.infrastructure.web.RemiseFichier.remettre(stockage, doc.getUrl(), "document");
+    }
+
+    @Operation(summary = "Ajouter un document à un élève", description = "Corps {name, url, size?} : le fichier est d'abord envoyé via /media/upload, puis son adresse est enregistrée ici. 201 avec la liste à jour.")
     @PostMapping("/students/{id}/documents")
     public ResponseEntity<Map<String, Object>> addDocument(
             @PathVariable("id") String studentId,
             @RequestBody Map<String, String> body) {
-        logger.info("POST /admin/students/{}/documents", studentId);
-        Map<String, Object> doc = new LinkedHashMap<>();
-        doc.put("id", "doc-" + System.currentTimeMillis());
-        doc.put("name", body.getOrDefault("name", "Document"));
-        doc.put("size", body.getOrDefault("size", "0 Mo"));
-        doc.put("url", body.getOrDefault("url", ""));
-
-        List<Map<String, Object>> docs = new ArrayList<>(documentStore.getOrDefault(studentId, List.of()));
-        docs.add(doc);
-        documentStore.put(studentId, docs);
-
-        return ResponseEntity.ok(Map.of("documents", docs));
+        comptesEcole.membre(studentId, "ETUDIANT");
+        String nom = texte(body.get("name"));
+        String url = texte(body.get("url"));
+        if (nom == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le nom du document est obligatoire.");
+        if (url == null) throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                "Le document doit d'abord être déposé (adresse du fichier manquante).");
+        documents.save(new DocumentEleveJpaEntity("doc-" + UUID.randomUUID(), studentId, nom, texte(body.get("size")), url));
+        List<Map<String, Object>> docs = documents.findByUserIdOrderByCreatedAtAsc(studentId).stream().map(this::document).toList();
+        return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("documents", docs));
     }
 
-    @PostMapping("/student-diagnostic")
-    public ResponseEntity<Map<String, String>> generateDiagnostic(@RequestBody Map<String, String> body) {
-        String studentId = body.getOrDefault("studentId", "unknown");
-        logger.info("POST /admin/student-diagnostic for student {}", studentId);
+    /** APP-TL-24 : synthèse calculée par règles ; facultative pour les tests sans contexte Spring. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.student.application.service.SyntheseSuiviEleveService syntheses;
 
-        String prompt = "Génère un diagnostic académique concis (5-8 lignes) pour l'étudiant ID "
-                + studentId + ". Mentionne forces, axes d'amélioration et recommandations.";
-        String text;
-        try {
-            text = aiUseCase.generateTutorResponse(prompt);
-        } catch (Exception e) {
-            text = "Diagnostic académique pour l'étudiant " + studentId
-                    + " : profil stable, assiduité correcte, progression satisfaisante en UE techniques. "
-                    + "Recommandation : renforcer les compétences en planification de projet et en anglais technique.";
+    void setSyntheses(ecole_221.sn.ecole.modules.student.application.service.SyntheseSuiviEleveService s) {
+        this.syntheses = s;
+    }
+
+    /**
+     * Synthèse du suivi d'un élève (APP-TL-24) : remplace l'ancien « diagnostic IA » (POST /admin/student-diagnostic,
+     * qui répondait 503). Calculée par règles à partir du bulletin, de l'appel et des devoirs enregistrés ; aucune IA,
+     * aucun score ni probabilité.
+     */
+    @Operation(summary = "Synthèse du suivi d'un élève", description = "Moyenne générale, matières sous 10/20, assiduité et devoirs non rendus, calculés sur les données enregistrées, avec les alertes et les règles appliquées (R1 à R4). 404 si l'élève n'est pas de l'école.")
+    @GetMapping("/students/{id}/synthese")
+    public ResponseEntity<Map<String, Object>> getSynthese(@PathVariable("id") String studentId) {
+        comptesEcole.membre(studentId, "ETUDIANT");   // 404 si l'élève n'est pas de cette école
+        if (syntheses == null) {
+            throw new ResponseStatusException(HttpStatus.SERVICE_UNAVAILABLE, "Synthèse du suivi indisponible.");
         }
-        return ResponseEntity.ok(Map.of("text", text));
+        return ResponseEntity.ok(syntheses.synthese(studentId));
     }
 
+    @Operation(summary = "Programmer une séance d'un cours", description = "Corps {courseId, day, time, room, professorId?} : crée une séance planifiée pour un cours de l'école (professeur du cours par défaut). 201.")
     @PostMapping("/schedule/assign")
     public ResponseEntity<Map<String, Object>> assignSchedule(@RequestBody Map<String, String> body) {
-        logger.info("POST /admin/schedule/assign - courseId={}", body.get("courseId"));
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "courseId", body.getOrDefault("courseId", ""),
-                "day", body.getOrDefault("day", ""),
-                "time", body.getOrDefault("time", ""),
-                "room", body.getOrDefault("room", "")
-        ));
-    }
-
-    @SuppressWarnings("unchecked")
-    private Map<String, Object> castMap(Object value) {
-        if (value instanceof Map<?, ?> map) {
-            return (Map<String, Object>) map;
+        String courseId = texte(body.get("courseId"));
+        String day = texte(body.get("day"));
+        String time = texte(body.get("time"));
+        String room = texte(body.get("room"));
+        if (courseId == null || day == null || time == null || room == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Cours, jour, horaire et salle sont obligatoires.");
         }
-        return new LinkedHashMap<>();
+        CourseJpaEntity c = cours.findById(courseId)   // @TenantId : cours de cette école uniquement
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cours introuvable dans cet établissement."));
+        String prof = Optional.ofNullable(texte(body.get("professorId"))).orElse(c.getProfId());
+        if (prof != null) comptesEcole.membre(prof, "PROFESSEUR");
+        ScheduleSessionJpaEntity s = new ScheduleSessionJpaEntity();
+        s.setId("ses-" + UUID.randomUUID());
+        s.setCourseId(c.getId());
+        s.setCourseTitle(c.getName());
+        s.setClasse(c.getClasse());
+        s.setDay(day);
+        s.setTime(time);
+        s.setRoom(room);
+        s.setProfessorId(prof);
+        s.setStatus("PLANIFIE");
+        s.setCreatedAt(LocalDateTime.now());
+        s.setUpdatedAt(LocalDateTime.now());
+        seances.save(s);
+        logger.info("POST /admin/schedule/assign - séance {} créée pour le cours {}", s.getId(), courseId);
+        Map<String, Object> res = new LinkedHashMap<>();
+        res.put("success", true);
+        res.put("id", s.getId());
+        res.put("courseId", courseId);
+        res.put("day", day);
+        res.put("time", time);
+        res.put("room", room);
+        res.put("professorId", prof);
+        return ResponseEntity.status(HttpStatus.CREATED).body(res);
     }
 
-    private Map<String, Object> buildDefaultProfile(String studentId) {
+    /** Situation financière réelle (module Finances) ; facultative pour les tests sans contexte Spring. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.finance.application.service.SituationFinanciereEleveService situationsFinancieres;
+
+    void setSituationsFinancieres(ecole_221.sn.ecole.modules.finance.application.service.SituationFinanciereEleveService s) {
+        this.situationsFinancieres = s;
+    }
+
+    /** Versements réels de l'élève pour l'onglet Finances ; « non_disponible » sans dossier financier. */
+    private void paiements(Map<String, Object> profile, String studentId) {
+        var situation = situationsFinancieres == null ? java.util.Optional.<ecole_221.sn.ecole.modules.finance.application.service.SituationFinanciereEleveService.Situation>empty()
+                : situationsFinancieres.situation(studentId);
+        if (situation.isEmpty()) {
+            profile.put("payments", List.of());
+            profile.put("paymentsStatus", "non_disponible");
+            return;
+        }
+        var s = situation.get();
+        java.time.format.DateTimeFormatter jour = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy");
+        List<Map<String, Object>> lignes = new java.util.ArrayList<>();
+        for (var v : s.versements()) {
+            Map<String, Object> l = new LinkedHashMap<>();
+            l.put("label", v.description() == null || v.description().isBlank() ? "Versement" : v.description());
+            l.put("status", "Payé");
+            l.put("amount", v.montant());
+            l.put("date", v.date() == null ? "—" : v.date().format(jour));
+            l.put("method", v.moyen() == null || v.moyen().isBlank() ? "Moyen non précisé" : v.moyen());
+            l.put("receiptNumber", v.reference() == null || v.reference().isBlank() ? "—" : v.reference());
+            lignes.add(l);
+        }
+        if (s.versementsSansDetail() > 0) {
+            Map<String, Object> l = new LinkedHashMap<>();
+            l.put("label", "Versements enregistrés sans détail");
+            l.put("status", "Payé");
+            l.put("amount", s.versementsSansDetail());
+            l.put("date", s.dernierVersement() == null ? "—" : s.dernierVersement().format(jour));
+            l.put("method", "Moyen non précisé");
+            l.put("receiptNumber", "—");
+            lignes.add(l);
+        }
+        Map<String, Object> resume = new LinkedHashMap<>();
+        resume.put("classe", s.classe());
+        resume.put("totalDu", s.totalDu());
+        resume.put("paye", s.paye());
+        resume.put("resteDu", s.resteDu());
+        resume.put("statut", s.statut());
+        profile.put("payments", lignes);
+        profile.put("paymentsStatus", "disponible");
+        profile.put("situationFinanciere", resume);
+    }
+
+    /**
+     * Profil 360 : seules les données réellement saisies sont renvoyées (APP-BE-17) ; les rubriques sans
+     * source (notes, connexions, parcours) restent vides avec un statut explicite ; les paiements viennent du module Finances.
+     */
+    private Map<String, Object> profil(ProfilEleveJpaEntity p, String studentId) {
         Map<String, Object> profile = new LinkedHashMap<>();
-        profile.put("admissionDetails", Map.of(
-                "matricule", "MAT-2023-" + studentId,
-                "dateInscription", "15/09/2023",
-                "bacSerie", "S1 Scientifique",
-                "bacMention", "Très Bien (16.8/20)",
-                "lyceeOrigine", "Lycée Seydou Nourou Tall",
-                "commissionAdmission", "Commission Régionale Dakar",
-                "dateDecision", "05/09/2023",
-                "statut", "ADMIS"
-        ));
-        profile.put("ueList", List.of(
-                Map.of("ue", "UE Scientifique Fondamentale", "module", "Mathématiques & Analyse",
-                        "coefficient", 4, "grade", 16.5, "teacher", "Mme Sow", "status", "VALIDÉ"),
-                Map.of("ue", "UE Technique Professionnelle", "module", "Résistance des Matériaux (RDM)",
-                        "coefficient", 5, "grade", 17.8, "teacher", "Prof Diallo", "status", "VALIDÉ")
-        ));
-        profile.put("connectionLogs", List.of(
-                Map.of("date", "2026-07-17 08:15", "device", "Chrome Desktop", "location", "Dakar, Sénégal", "status", "RÉUSSI")
-        ));
-        profile.put("activityTrail", List.of(
-                Map.of("id", "log-1", "timestamp", "2026-07-17 08:35", "actor", "Étudiant",
-                        "module", "Planning", "action", "Consultation emploi du temps", "result", "SUCCÈS")
-        ));
-        profile.put("timeline", List.of(
-                Map.of("year", "2023-09", "title", "Candidature & Admission",
-                        "desc", "Dossier accepté", "status", "COMPLETED")
-        ));
-        profile.put("payments", List.of(
-                Map.of("label", "Inscription Administrative", "amount", "250,000 FCFA",
-                        "date", "15/09/2023", "method", "Orange Money", "status", "PAYÉ", "receiptNumber", "REC-2023-001")
-        ));
-        profile.put("extra", Map.of(
-                "sante", "O+,Aucune allergie connue",
-                "bourses", "Aucune bourse",
-                "messages", List.of(
-                        Map.of("sender", "Administration", "text", "Bienvenue sur la plateforme École 221.",
-                                "date", "10/07/2026 09:00")
-                )
-        ));
+        profile.put("donneesStatus", p == null ? "non_disponible" : "partiel");
+        profile.put("admissionDetails", new LinkedHashMap<String, Object>());
+        profile.put("ueList", List.of());
+        profile.put("connectionLogs", List.of());
+        profile.put("activityTrail", List.of());
+        profile.put("timeline", List.of());
+        paiements(profile, studentId);
+        Map<String, Object> extra = new LinkedHashMap<>();
+        extra.put("messages", List.of());
+        if (p != null) {
+            if (p.getGroupeSanguin() != null) extra.put("sante", p.getGroupeSanguin());
+            if (p.getAllergies() != null) extra.put("allergies", p.getAllergies());
+        }
+        profile.put("extra", extra);
         return profile;
+    }
+
+    private Map<String, Object> document(DocumentEleveJpaEntity d) {
+        Map<String, Object> m = new LinkedHashMap<>();
+        m.put("id", d.getId());
+        m.put("name", d.getName());
+        m.put("size", d.getSize());
+        m.put("url", d.getUrl());
+        m.put("date", d.getCreatedAt() == null ? null : d.getCreatedAt().toLocalDate().toString());
+        return m;
+    }
+
+    private static String texte(Object o) {
+        if (o == null) return null;
+        String s = String.valueOf(o).trim();
+        return s.isEmpty() ? null : s;
     }
 }

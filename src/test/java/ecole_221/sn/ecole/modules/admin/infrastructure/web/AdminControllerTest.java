@@ -1,19 +1,42 @@
 package ecole_221.sn.ecole.modules.admin.infrastructure.web;
 
-import ecole_221.sn.ecole.modules.admin.application.port.usecase.AdminUseCase;
 import ecole_221.sn.ecole.infrastructure.logging.ActionLogger;
+import ecole_221.sn.ecole.infrastructure.web.GlobalExceptionHandler;
+import ecole_221.sn.ecole.modules.admin.application.port.usecase.AdminUseCase;
+import ecole_221.sn.ecole.modules.admin.application.service.ComptesEcoleService;
+import ecole_221.sn.ecole.modules.admin.domain.port.repository.AdminRepositoryPort;
+import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaEntity;
+import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaRepository;
+import ecole_221.sn.ecole.modules.admin.infrastructure.persistence.PointagePersonnelJpaRepository;
+import ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaEntity;
+import ecole_221.sn.ecole.modules.auth.infrastructure.persistence.UserJpaEntity;
+import ecole_221.sn.ecole.modules.auth.infrastructure.persistence.UserJpaRepository;
+import ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository;
+import ecole_221.sn.ecole.modules.platform.organization.domain.model.Organization;
+import ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationFactory;
+import ecole_221.sn.ecole.modules.platform.organization.domain.valueobject.OrganizationType;
+import ecole_221.sn.ecole.modules.platform.organization.infrastructure.persistence.OrganizationUserJpaEntity;
+import ecole_221.sn.ecole.modules.platform.organization.infrastructure.persistence.OrganizationUserJpaRepository;
+import ecole_221.sn.ecole.modules.professor.infrastructure.persistence.ScheduleSessionJpaRepository;
+import ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.springframework.http.MediaType;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.util.Arrays;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
+import java.util.Optional;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
@@ -21,48 +44,74 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
+/**
+ * Administration d'une école : cloisonnement par école, comptes avec mot de passe, aucune donnée inventée.
+ */
 class AdminControllerTest {
 
     private AdminUseCase adminUseCase;
     private ActionLogger actionLogger;
-    private ecole_221.sn.ecole.modules.auth.infrastructure.persistence.UserJpaRepository userJpaRepository;
-    private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository classeJpaRepository;
-    private ecole_221.sn.ecole.modules.planning.infrastructure.persistence.RoomJpaRepository roomJpaRepository;
-    private ecole_221.sn.ecole.modules.professor.infrastructure.persistence.ScheduleSessionJpaRepository scheduleSessionJpaRepository;
+    private UserJpaRepository comptes;
+    private OrganizationUserJpaRepository appartenances;
+    private AdminRepositoryPort adminRepository;
+    private ClasseJpaRepository classes;
+    private ScheduleSessionJpaRepository seances;
+    private InscriptionClasseJpaRepository inscriptions;
+    private final PasswordEncoder encodeur = new BCryptPasswordEncoder(4);
+    private Organization ecole;
     private MockMvc mockMvc;
+    private AdminController controleur;
 
     @BeforeEach
     void setUp() {
         adminUseCase = Mockito.mock(AdminUseCase.class);
         actionLogger = Mockito.mock(ActionLogger.class);
-        userJpaRepository = Mockito.mock(ecole_221.sn.ecole.modules.auth.infrastructure.persistence.UserJpaRepository.class);
-        classeJpaRepository = Mockito.mock(ecole_221.sn.ecole.modules.planning.infrastructure.persistence.ClasseJpaRepository.class);
-        roomJpaRepository = Mockito.mock(ecole_221.sn.ecole.modules.planning.infrastructure.persistence.RoomJpaRepository.class);
-        scheduleSessionJpaRepository = Mockito.mock(ecole_221.sn.ecole.modules.professor.infrastructure.persistence.ScheduleSessionJpaRepository.class);
-        
-        AdminController controller = new AdminController(
-            adminUseCase, 
-            actionLogger,
-            userJpaRepository,
-            classeJpaRepository,
-            roomJpaRepository,
-            scheduleSessionJpaRepository
-        );
-        
-        mockMvc = MockMvcBuilders
-                .standaloneSetup(controller)
+        comptes = Mockito.mock(UserJpaRepository.class);
+        appartenances = Mockito.mock(OrganizationUserJpaRepository.class);
+        adminRepository = Mockito.mock(AdminRepositoryPort.class);
+        classes = Mockito.mock(ClasseJpaRepository.class);
+        seances = Mockito.mock(ScheduleSessionJpaRepository.class);
+        inscriptions = Mockito.mock(InscriptionClasseJpaRepository.class);
+        ComptesEcoleService comptesEcole = new ComptesEcoleService(comptes, appartenances, encodeur);
+
+        controleur = new AdminController(adminUseCase, actionLogger, comptesEcole, adminRepository,
+                classes, seances, Mockito.mock(PointagePersonnelJpaRepository.class), inscriptions);
+        mockMvc = MockMvcBuilders.standaloneSetup(controleur)
+                .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
+
+        ecole = OrganizationFactory.create("Lycée A", OrganizationType.ECOLE, "a@exemple.sn");
+        TenantContext.setCurrentOrganization(ecole);
+    }
+
+    @AfterEach
+    void tearDown() {
+        TenantContext.clear();
+    }
+
+    private OrganizationUserJpaEntity lien(String userId, String role, String statut) {
+        OrganizationUserJpaEntity l = new OrganizationUserJpaEntity();
+        l.setId("ou-" + userId);
+        l.setUserId(userId);
+        l.setOrganizationId(ecole.getId());
+        l.setRole(role);
+        l.setStatus(statut);
+        return l;
+    }
+
+    private UserJpaEntity compte(String id, String prenom, String nom, String email) {
+        UserJpaEntity u = new UserJpaEntity();
+        u.setId(id);
+        u.setPrenom(prenom);
+        u.setNom(nom);
+        u.setEmail(email);
+        u.setRole("ETUDIANT");
+        u.setMatricule("ETU-" + id);
+        return u;
     }
 
     @Test
     void testAssignGate() throws Exception {
-        Mockito.doNothing().when(adminUseCase).assignGate(anyString(), anyString());
-        Mockito.doNothing().when(actionLogger).logAdminAction(anyString(), anyString(), anyString(), anyString());
-
-        Map<String, String> body = new HashMap<>();
-        body.put("gate", "Gate A");
-        body.put("guard", "Guard 1");
-
         mockMvc.perform(post("/admin/gates/assign")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("{\"gate\":\"Gate A\",\"guard\":\"Guard 1\"}"))
@@ -70,118 +119,245 @@ class AdminControllerTest {
                 .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.gate").value("Gate A"))
                 .andExpect(jsonPath("$.assignedTo").value("Guard 1"));
-
-        Mockito.verify(adminUseCase, Mockito.times(1)).assignGate("Gate A", "Guard 1");
+        Mockito.verify(adminUseCase).assignGate("Gate A", "Guard 1");
     }
 
+    /**
+     * APP-TL-22 : le statut de frais saisi à la main (« En Règle / En Retard »), qui faisait refuser l'élève
+     * au portique, n'existe plus : la route n'est plus servie et rien n'est enregistré.
+     */
     @Test
-    void testUpdateStudentStatus() throws Exception {
-        Mockito.doNothing().when(adminUseCase).updateStudentStatus(anyString(), any());
-        Mockito.doNothing().when(actionLogger).logAdminAction(anyString(), anyString(), anyString(), anyString());
+    void statutFraisNePeutPlusEtreSaisiALaMain() throws Exception {
+        Mockito.when(comptes.findById("e1")).thenReturn(Optional.of(compte("e1", "Awa", "Fall", "awa@a.sn")));
+        Mockito.when(appartenances.findByUserIdAndOrganizationId("e1", ecole.getId()))
+                .thenReturn(Optional.of(lien("e1", "ETUDIANT", "ACTIVE")));
 
-        mockMvc.perform(patch("/admin/students/usr-001/status")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"statutFrais\":\"En Règle\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.status").exists());
-
-        Mockito.verify(adminUseCase, Mockito.times(1)).updateStudentStatus(eq("usr-001"), any());
+        mockMvc.perform(patch("/admin/students/e1/status").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"statutFrais\":\"En Retard\"}"))
+                // route retirée : aucun traitement (le code exact dépend du gestionnaire d'erreurs ; jamais un succès)
+                .andExpect(result -> org.junit.jupiter.api.Assertions.assertTrue(result.getResponse().getStatus() >= 400,
+                        "statut " + result.getResponse().getStatus()));
+        Mockito.verifyNoInteractions(adminUseCase);
     }
 
     @Test
     void testGetRealtimeLogs() throws Exception {
-        List<String> mockLogs = Arrays.asList("Log 1", "Log 2", "Log 3");
-        Mockito.when(adminUseCase.getRealtimeLogs()).thenReturn(mockLogs);
-
-        mockMvc.perform(get("/admin/realtime-logs")
-                .contentType(MediaType.APPLICATION_JSON))
+        Mockito.when(adminUseCase.getRealtimeLogs()).thenReturn(Arrays.asList("Log 1", "Log 2"));
+        mockMvc.perform(get("/admin/realtime-logs"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray())
                 .andExpect(jsonPath("$[0]").value("Log 1"));
-
-        Mockito.verify(adminUseCase, Mockito.times(1)).getRealtimeLogs();
     }
 
     @Test
     void testUpdateCandidaturesSettings() throws Exception {
         Mockito.doNothing().when(adminUseCase).updateCandidaturesSettings(anyBoolean());
-
-        mockMvc.perform(post("/admin/candidatures/settings")
-                .contentType(MediaType.APPLICATION_JSON)
+        mockMvc.perform(post("/admin/candidatures/settings").contentType(MediaType.APPLICATION_JSON)
                 .content("{\"enabled\":true}"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
                 .andExpect(jsonPath("$.candidaturesEnabled").value(true));
-
-        Mockito.verify(adminUseCase, Mockito.times(1)).updateCandidaturesSettings(true);
+        Mockito.verify(adminUseCase).updateCandidaturesSettings(true);
     }
 
     @Test
-    void testGetStats() throws Exception {
-        mockMvc.perform(get("/admin/stats")
-                .contentType(MediaType.APPLICATION_JSON))
+    void statistiquesDeLEcoleSansIndicateurInvente() throws Exception {
+        Mockito.when(appartenances.findByOrganizationIdAndRole(ecole.getId(), "ETUDIANT")).thenReturn(List.of(
+                lien("e1", "ETUDIANT", "ACTIVE"), lien("e2", "ETUDIANT", "ACTIVE"), lien("e3", "ETUDIANT", "SUSPENDED")));
+        Mockito.when(appartenances.findByOrganizationIdAndRole(ecole.getId(), "PROFESSEUR")).thenReturn(List.of(
+                lien("p1", "PROFESSEUR", "ACTIVE")));
+        Mockito.when(seances.count()).thenReturn(7L);
+        Mockito.when(classes.count()).thenReturn(4L);
+
+        mockMvc.perform(get("/admin/stats"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.studentsCount").value(150))
-                .andExpect(jsonPath("$.professorsCount").value(25))
-                .andExpect(jsonPath("$.coursesCount").value(30))
-                .andExpect(jsonPath("$.classesCount").value(8));
+                .andExpect(jsonPath("$.studentsCount").value(2))
+                .andExpect(jsonPath("$.professorsCount").value(1))
+                .andExpect(jsonPath("$.coursesCount").value(7))
+                .andExpect(jsonPath("$.classesCount").value(4))
+                .andExpect(jsonPath("$.salleOccupation").doesNotExist())
+                .andExpect(jsonPath("$.presentProfessors").doesNotExist());
+        // jamais de comptage global, toutes écoles confondues
+        Mockito.verify(comptes, Mockito.never()).findByRole(anyString());
     }
 
     @Test
-    void testGetUsers() throws Exception {
-        mockMvc.perform(get("/admin/users")
-                .contentType(MediaType.APPLICATION_JSON))
+    void listeDesElevesCloisonneeEtSansValeurInventee() throws Exception {
+        Mockito.when(appartenances.findByOrganizationIdAndRole(ecole.getId(), "ETUDIANT"))
+                .thenReturn(List.of(lien("e1", "ETUDIANT", "ACTIVE")));
+        Mockito.when(comptes.findAllById(List.of("e1"))).thenReturn(List.of(compte("e1", "Awa", "Fall", "awa@a.sn")));
+
+        mockMvc.perform(get("/admin/students"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.students").isArray())
-                .andExpect(jsonPath("$.professors").isArray())
-                .andExpect(jsonPath("$.promotions").isArray());
+                .andExpect(jsonPath("$.length()").value(1))
+                .andExpect(jsonPath("$[0].name").value("Awa Fall"))
+                .andExpect(jsonPath("$[0].matricule").value("ETU-e1"))
+                .andExpect(jsonPath("$[0].statutFrais").doesNotExist())   // APP-TL-22 : aucune donnée financière
+                .andExpect(jsonPath("$[0].financialStatus").doesNotExist())
+                .andExpect(jsonPath("$[0].qrStatus").value("AUTORISÉ"))
+                .andExpect(jsonPath("$[0].moyenne").doesNotExist())
+                .andExpect(jsonPath("$[0].presence").doesNotExist())
+                .andExpect(jsonPath("$[0].filiere").doesNotExist());
+        Mockito.verify(comptes, Mockito.never()).findByRole(anyString());
+
+        mockMvc.perform(get("/admin/users"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.students[0].id").value("e1"))
+                .andExpect(jsonPath("$.students[0].average").doesNotExist())
+                .andExpect(jsonPath("$.students[0].phoneParent").doesNotExist());
     }
 
     @Test
-    void testAddStudent() throws Exception {
-        Mockito.doNothing().when(actionLogger).logAdminAction(anyString(), anyString(), anyString(), anyString());
+    void eleveCreeAvecMotDePasseProvisoireEtRattacheALEcole() throws Exception {
+        Mockito.when(comptes.findFirstByMatricule(anyString())).thenReturn(Optional.empty());
 
-        mockMvc.perform(post("/admin/students")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Test Student\",\"matricule\":\"2026-TEST-001\",\"promotion_id\":\"L1-GL\"}"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.name").value("Test Student"))
+        mockMvc.perform(post("/admin/students").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Awa Fall\",\"email\":\"Awa.Fall@exemple.sn\",\"matricule\":\"2026-TEST-001\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.name").value("Awa Fall"))
+                .andExpect(jsonPath("$.email").value("awa.fall@exemple.sn"))
                 .andExpect(jsonPath("$.matricule").value("2026-TEST-001"))
-                .andExpect(jsonPath("$.promotion_id").value("L1-GL"));
+                .andExpect(jsonPath("$.motDePasseProvisoire").isString())
+                .andExpect(jsonPath("$.average").doesNotExist());
+
+        ArgumentCaptor<UserJpaEntity> saisi = ArgumentCaptor.forClass(UserJpaEntity.class);
+        Mockito.verify(comptes).save(saisi.capture());
+        assertNotNull(saisi.getValue().getPassword(), "un compte sans mot de passe ne peut pas se connecter");
+        assertTrue(saisi.getValue().getPassword().startsWith("$2"), "mot de passe haché (BCrypt)");
+        assertEquals("ETUDIANT", saisi.getValue().getRole());
+
+        ArgumentCaptor<OrganizationUserJpaEntity> lien = ArgumentCaptor.forClass(OrganizationUserJpaEntity.class);
+        Mockito.verify(appartenances).save(lien.capture());
+        assertEquals(ecole.getId(), lien.getValue().getOrganizationId());
+        assertEquals("ACTIVE", lien.getValue().getStatus());
     }
 
     @Test
-    void testDeleteStudent() throws Exception {
-        Mockito.doNothing().when(actionLogger).logAdminAction(anyString(), anyString(), anyString(), anyString());
-
-        mockMvc.perform(delete("/admin/students/usr-001")
-                .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.id").value("usr-001"));
+    void motDePasseSaisiEstUtiliseEtJamaisRenvoye() throws Exception {
+        Mockito.when(comptes.findFirstByMatricule(anyString())).thenReturn(Optional.empty());
+        mockMvc.perform(post("/admin/students").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Awa Fall\",\"email\":\"awa@exemple.sn\",\"password\":\"le baobab fleurit en mai\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.motDePasseProvisoire").doesNotExist())
+                .andExpect(jsonPath("$.matricule").isString());
+        ArgumentCaptor<UserJpaEntity> saisi = ArgumentCaptor.forClass(UserJpaEntity.class);
+        Mockito.verify(comptes).save(saisi.capture());
+        assertTrue(encodeur.matches("le baobab fleurit en mai", saisi.getValue().getPassword()));
     }
 
     @Test
-    void testAddProfessor() throws Exception {
-        Mockito.doNothing().when(actionLogger).logAdminAction(anyString(), anyString(), anyString(), anyString());
+    void creationSansEmailEnBooleenAccepteeAvecLaConfigurationJsonStricte() throws Exception {
+        // La fenêtre « Nouvel élève » envoie sansEmail: true (booléen). Avec un corps Map<String, String> et la
+        // configuration JSON stricte de l'application (JsonStrictConfig), la création serait refusée (400 « texte attendu »).
+        // Même réglage de coercition que JsonStrictConfig.
+        tools.jackson.databind.json.JsonMapper strict = tools.jackson.databind.json.JsonMapper.builder()
+                .withCoercionConfig(tools.jackson.databind.type.LogicalType.Textual, c -> c
+                        .setCoercion(tools.jackson.databind.cfg.CoercionInputShape.Integer, tools.jackson.databind.cfg.CoercionAction.Fail)
+                        .setCoercion(tools.jackson.databind.cfg.CoercionInputShape.Float, tools.jackson.databind.cfg.CoercionAction.Fail)
+                        .setCoercion(tools.jackson.databind.cfg.CoercionInputShape.Boolean, tools.jackson.databind.cfg.CoercionAction.Fail))
+                .build();
+        MockMvc mvcStrict = MockMvcBuilders.standaloneSetup(controleur)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .setMessageConverters(new org.springframework.http.converter.json.JacksonJsonHttpMessageConverter(strict))
+                .build();
+        Mockito.when(comptes.findFirstByMatricule(anyString())).thenReturn(Optional.empty());
 
-        mockMvc.perform(post("/admin/professors")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Test Professor\",\"email\":\"test@ecole221.sn\"}"))
+        mvcStrict.perform(post("/admin/students").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"prenom\":\"Fatou\",\"nom\":\"Diallo\",\"sansEmail\":true}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.identifiant").isString());
+    }
+
+    @Test
+    void creationRefuseeSansEmailOuSiEmailDejaPris() throws Exception {
+        mockMvc.perform(post("/admin/students").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Awa Fall\"}"))
+                .andExpect(status().isBadRequest());
+        Mockito.when(comptes.existsByEmail("pris@exemple.sn")).thenReturn(true);
+        mockMvc.perform(post("/admin/students").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Awa Fall\",\"email\":\"pris@exemple.sn\"}"))
+                .andExpect(status().isConflict());
+        Mockito.verify(comptes, Mockito.never()).save(any());
+    }
+
+    @Test
+    void retraitDUnEleveDUneAutreEcoleImpossible() throws Exception {
+        mockMvc.perform(delete("/admin/students/autre"))
+                .andExpect(status().isNotFound());
+        Mockito.verify(comptes, Mockito.never()).deleteById(anyString());
+    }
+
+    @Test
+    void retraitDUnEleveDeLEcole() throws Exception {
+        OrganizationUserJpaEntity l = lien("e1", "ETUDIANT", "ACTIVE");
+        Mockito.when(appartenances.findByUserIdAndOrganizationId("e1", ecole.getId())).thenReturn(Optional.of(l));
+        Mockito.when(appartenances.findByUserId("e1")).thenReturn(List.of());
+        mockMvc.perform(delete("/admin/students/e1"))
                 .andExpect(status().isOk())
+                .andExpect(jsonPath("$.id").value("e1"));
+        Mockito.verify(appartenances).delete(l);
+        Mockito.verify(comptes).deleteById("e1");
+    }
+
+    @Test
+    void professeurCreeAvecMotDePasse() throws Exception {
+        Mockito.when(comptes.findFirstByMatricule(anyString())).thenReturn(Optional.empty());
+        mockMvc.perform(post("/admin/professors").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Test Professor\",\"email\":\"test@exemple.sn\"}"))
+                .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.name").value("Test Professor"))
-                .andExpect(jsonPath("$.email").value("test@ecole221.sn"));
+                .andExpect(jsonPath("$.email").value("test@exemple.sn"))
+                .andExpect(jsonPath("$.motDePasseProvisoire").isString());
     }
 
     @Test
-    void testDeleteProfessor() throws Exception {
-        Mockito.doNothing().when(actionLogger).logAdminAction(anyString(), anyString(), anyString(), anyString());
-
-        mockMvc.perform(delete("/admin/professors/usr-002")
-                .contentType(MediaType.APPLICATION_JSON))
+    void suspensionDUnEleveReelle() throws Exception {
+        OrganizationUserJpaEntity l = lien("e1", "ETUDIANT", "ACTIVE");
+        Mockito.when(appartenances.findByUserIdAndOrganizationId("e1", ecole.getId())).thenReturn(Optional.of(l));
+        mockMvc.perform(patch("/admin/students/e1/toggle-status"))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$.success").value(true))
-                .andExpect(jsonPath("$.id").value("usr-002"));
+                .andExpect(jsonPath("$.status").value("Suspendu"))
+                .andExpect(jsonPath("$.qrStatus").value("SUSPENDU"));
+        assertEquals("SUSPENDED", l.getStatus());
+    }
+
+    @Test
+    void eleveCreeDansSaClasseEtListeAvecElle() throws Exception {
+        ClasseJpaEntity l1 = new ClasseJpaEntity();
+        l1.setId("cls-1");
+        l1.setName("L1 GL");
+        Mockito.when(classes.findById("cls-1")).thenReturn(Optional.of(l1));
+        Mockito.when(comptes.findFirstByMatricule(anyString())).thenReturn(Optional.empty());
+
+        mockMvc.perform(post("/admin/students").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Awa Fall\",\"email\":\"awa@exemple.sn\",\"classeId\":\"cls-1\"}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.classeId").value("cls-1"))
+                .andExpect(jsonPath("$.classe").value("L1 GL"));
+        ArgumentCaptor<InscriptionClasseJpaEntity> ins = ArgumentCaptor.forClass(InscriptionClasseJpaEntity.class);
+        Mockito.verify(inscriptions).save(ins.capture());
+        assertEquals("cls-1", ins.getValue().getClasseId());
+
+        // relecture : la classe persiste
+        Mockito.when(appartenances.findByOrganizationIdAndRole(ecole.getId(), "ETUDIANT"))
+                .thenReturn(List.of(lien("e1", "ETUDIANT", "ACTIVE")));
+        Mockito.when(comptes.findAllById(List.of("e1"))).thenReturn(List.of(compte("e1", "Awa", "Fall", "awa@a.sn")));
+        Mockito.when(classes.findAll()).thenReturn(List.of(l1));
+        Mockito.when(inscriptions.findAll()).thenReturn(List.of(new InscriptionClasseJpaEntity("i1", "e1", "cls-1")));
+        mockMvc.perform(get("/admin/students"))
+                .andExpect(jsonPath("$[0].classe").value("L1 GL"));
+    }
+
+    @Test
+    void classeDUneAutreEcoleRefuseeAvantCreation() throws Exception {
+        mockMvc.perform(post("/admin/students").contentType(MediaType.APPLICATION_JSON)
+                .content("{\"name\":\"Awa Fall\",\"email\":\"awa@exemple.sn\",\"classeId\":\"cls-autre\"}"))
+                .andExpect(status().isBadRequest());
+        Mockito.verify(comptes, Mockito.never()).save(any());
+    }
+
+    @Test
+    void sansEcoleIdentifieeAucuneListe() throws Exception {
+        TenantContext.clear();
+        mockMvc.perform(get("/admin/students"))
+                .andExpect(status().isBadRequest());
     }
 }

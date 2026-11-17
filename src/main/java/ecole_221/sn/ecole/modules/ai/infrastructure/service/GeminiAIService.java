@@ -41,7 +41,7 @@ public class GeminiAIService implements AIServicePort {
         }
         
         try {
-            logger.info("Génération de réponse avec Gemini pour: {}", message);
+            logger.info("Génération de réponse avec Gemini ({} caractères)", (message == null ? 0 : message.length()));   // APP-SEC-26 : jamais le texte
             
             // Pour l'instant, utiliser l'API REST Gemini directement
             return generateWithRestAPI(message, model, context);
@@ -69,9 +69,10 @@ public class GeminiAIService implements AIServicePort {
     }
     
     private String generateFallbackResponse(String message, Map<String, Object> context) {
-        logger.info("Utilisation de la réponse fallback pour: {}", message);
+        logger.info("Utilisation de la réponse fallback ({} caractères)", (message == null ? 0 : message.length()));
         
         // Réponse fallback simple qui simule une IA
-        return "Je suis votre assistant IA (mode développement). Je suis actuellement en mode simulation car le service Gemini n'est pas configuré. Votre message : \"" + message + "\" sera traité une fois le service IA activé avec une clé API valide.";
+        // Pas de réponse imitant l'IA
+        return "L'assistant IA n'est pas disponible : aucun service d'IA n'est configuré pour cet établissement.";
     }
 }

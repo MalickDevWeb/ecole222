@@ -11,6 +11,9 @@ import java.util.List;
 @Repository
 public interface UserJpaRepository extends JpaRepository<UserJpaEntity, String> {
     Optional<UserJpaEntity> findByEmail(String email);
+    Optional<UserJpaEntity> findFirstByMatricule(String matricule);
+    /** INE déjà attribué (casse ignorée, comme l'index unique uk_users_ine de V16). */
+    boolean existsByIneIgnoreCase(String ine);
     List<UserJpaEntity> findByRole(String role);
     boolean existsByEmail(String email);
     

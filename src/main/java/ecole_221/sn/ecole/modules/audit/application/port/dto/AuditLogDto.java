@@ -26,9 +26,17 @@ public record AuditLogDto(
     String ipAddress,
     
     @Schema(description = "User agent", example = "Mozilla/5.0")
-    String userAgent
+    String userAgent,
+
+    @Schema(description = "Nom de l'auteur au moment de l'action", example = "Awa Diop")
+    String actorName,
+
+    @Schema(description = "Rôle de l'auteur au moment de l'action", example = "SECRETAIRE")
+    String actorRole
 ) {
-    public AuditLogDto {
-        // Validation can be added here
+    /** Entrée sans nom ni rôle d'auteur (écriture explicite par POST /audit/logs). */
+    public AuditLogDto(String id, String userId, String action, String description, String timestamp, String ipAddress,
+                       String userAgent) {
+        this(id, userId, action, description, timestamp, ipAddress, userAgent, null, null);
     }
 }

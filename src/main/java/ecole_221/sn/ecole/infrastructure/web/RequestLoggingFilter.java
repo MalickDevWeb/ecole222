@@ -42,7 +42,25 @@ public class RequestLoggingFilter implements Filter {
         // Wrapper la requête pour permettre plusieurs lectures du corps
         HttpServletRequest wrappedRequest = httpRequest;
         if (shouldLogBody(httpRequest)) {
-            wrappedRequest = new CachedBodyHttpServletRequest(httpRequest);
+            // Corps démesuré refusé sans être lu en entier
+            if (httpRequest.getContentLengthLong() > CachedBodyHttpServletRequest.LIMITE_OCTETS) {
+                refuserTropVolumineux(httpResponse);
+                return;
+            }
+            try {
+                wrappedRequest = new CachedBodyHttpServletRequest(httpRequest);
+            } catch (CachedBodyHttpServletRequest.CorpsTropVolumineuxException e) {
+                refuserTropVolumineux(httpResponse);
+                return;
+            }
+            // Texte démesuré dans un champ JSON (copier-coller géant, robot) : refus 400 explicite, avant tout traitement
+            if (estJson(httpRequest) && ((CachedBodyHttpServletRequest) wrappedRequest).contientTexteTropLong(TEXTE_MAX)) {
+                httpResponse.setStatus(400);
+                httpResponse.setContentType("application/json;charset=UTF-8");
+                httpResponse.getWriter().write("{\"success\":false,\"code\":\"VALIDATION_ERROR\",\"status\":400,"
+                        + "\"message\":\"Un champ dépasse " + TEXTE_MAX + " caractères : raccourcissez le texte.\"}");
+                return;
+            }
         }
         
         // Lire et logger la requête entrante
@@ -70,7 +88,7 @@ public class RequestLoggingFilter implements Filter {
         logger.info("║   • Method:        {}                                                                     ║", method);
         logger.info("║   • Path:          {}                                                                     ║", uri);
         logger.info("║   • Query String:  {}                                                                     ║", queryString != null ? queryString : "N/A");
-        logger.info("║   • User/Auth:     {}                                                                     ║", user);
+        logger.info("║   • User/Auth:     {}                                                                     ║", ecole_221.sn.ecole.infrastructure.logging.LogMasker.masquer(user));
         logger.info("║   • Remote Addr:   {}                                                                     ║", request.getRemoteAddr());
         logger.info("║   • Content Type:  {}                                                                     ║", wrappedRequest.getContentType());
         logger.info("║   • Content Length:{}                                                                     ║", wrappedRequest.getContentLength());
@@ -80,8 +98,9 @@ public class RequestLoggingFilter implements Filter {
             String.format("%-40s", value.length() > 40 ? value.substring(0, 40) + "..." : value), "  ║"));
         logger.info("╠════════════════════════════════════════════════════════════════════════════════════════════════════════╣");
         if (requestBody != null && !requestBody.isEmpty()) {
-            logger.info("║ 📝 REQUEST BODY:                                                                            ║");
-            logger.info("║ {}                                                                                      ║", truncateBody(requestBody));
+            logger.debug("║ 📝 REQUEST BODY:                                                                            ║");
+            // APP-SEC-13 : corps en DEBUG seulement et masqué (mot de passe, email, téléphone, jetons)
+            logger.debug("║ {}                                                                                      ║", truncateBody(requestBody));
         } else {
             logger.info("║ 📝 REQUEST BODY: [EMPTY or GET request]                                                      ║");
         }
@@ -100,7 +119,7 @@ public class RequestLoggingFilter implements Filter {
         logger.info("║ 📋 DETAILS:                                                                                  ║");
         logger.info("║   • Status:        {} {}                                                                  ║", status, getStatusText(status));
         logger.info("║   • Duration:      {}ms                                                                    ║", duration);
-        logger.info("║   • User/Auth:     {}                                                                     ║", user);
+        logger.info("║   • User/Auth:     {}                                                                     ║", ecole_221.sn.ecole.infrastructure.logging.LogMasker.masquer(user));
         logger.info("║   • Content Type:  {}                                                                     ║", httpResponse.getContentType());
         logger.info("╠════════════════════════════════════════════════════════════════════════════════════════════════════════╣");
         logger.info("║ 📊 PERFORMANCE METRICS:                                                                      ║");
@@ -113,6 +132,21 @@ public class RequestLoggingFilter implements Filter {
             logger.info("║   ✓ Response time acceptable                                                                ║");
         }
         logger.info("╚════════════════════════════════════════════════════════════════════════════════════════════════════════╝");
+    }
+
+    /** Longueur maximale d'une valeur texte d'un corps JSON (≈ 25 pages : assez pour une page de wiki). */
+    static final int TEXTE_MAX = 50_000;
+
+    private static boolean estJson(HttpServletRequest requete) {
+        String type = requete.getContentType();
+        return type != null && type.toLowerCase(java.util.Locale.ROOT).contains("json");
+    }
+
+    private static void refuserTropVolumineux(HttpServletResponse reponse) throws IOException {
+        reponse.setStatus(413);
+        reponse.setContentType("application/json;charset=UTF-8");
+        reponse.getWriter().write("{\"success\":false,\"code\":\"VALIDATION_ERROR\",\"status\":413,"
+                + "\"message\":\"Requête trop volumineuse (2 Mo au maximum, fichiers à envoyer séparément).\"}");
     }
 
     private boolean shouldLogBody(HttpServletRequest request) {
@@ -172,6 +206,7 @@ public class RequestLoggingFilter implements Filter {
     }
 
     private String truncateBody(String body) {
+        body = ecole_221.sn.ecole.infrastructure.logging.LogMasker.masquer(body); // APP-SEC-13
         int maxLength = 2000; // Limiter la taille du body dans les logs
         if (body.length() > maxLength) {
             return body.substring(0, maxLength) + "... [TRUNCATED]";

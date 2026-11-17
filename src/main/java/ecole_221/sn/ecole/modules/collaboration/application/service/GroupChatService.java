@@ -31,9 +31,13 @@ public class GroupChatService implements GroupChatUseCase {
     private final MessageRepositoryPort messageRepository;
     private final MediaStoragePort mediaStoragePort;
     
+    private final ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService corbeille;
+
     public GroupChatService(GroupChatRepositoryPort groupChatRepository, 
                           MessageRepositoryPort messageRepository,
-                          MediaStoragePort mediaStoragePort) {
+                          MediaStoragePort mediaStoragePort,
+                          ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService corbeille) {
+        this.corbeille = corbeille;
         this.groupChatRepository = groupChatRepository;
         this.messageRepository = messageRepository;
         this.mediaStoragePort = mediaStoragePort;
@@ -96,7 +100,7 @@ public class GroupChatService implements GroupChatUseCase {
         try {
             return groupChatRepository.findById(chatId)
                     .map(GroupChatDto::fromDomain)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
         } catch (Exception e) {
             logger.error("Erreur lors de la récupération du chat: {}", chatId, e);
             throw new RuntimeException("Impossible de récupérer le chat", e);
@@ -133,7 +137,7 @@ public class GroupChatService implements GroupChatUseCase {
     public GroupChatDto updateGroupName(String chatId, String newName) {
         try {
             GroupChat groupChat = groupChatRepository.findById(chatId)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
             
             String oldName = groupChat.getName();
             groupChat.updateName(newName);
@@ -154,7 +158,7 @@ public class GroupChatService implements GroupChatUseCase {
     public GroupChatDto updateGroupAvatar(String chatId, byte[] avatarBytes) throws IOException {
         try {
             GroupChat groupChat = groupChatRepository.findById(chatId)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
             
             String avatarUrl = mediaStoragePort.uploadGroupAvatar(avatarBytes, chatId);
             groupChat.updateAvatar(avatarUrl);
@@ -171,7 +175,7 @@ public class GroupChatService implements GroupChatUseCase {
     public GroupChatDto updateGroupDescription(String chatId, String description) {
         try {
             GroupChat groupChat = groupChatRepository.findById(chatId)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
             
             groupChat.updateDescription(description);
             GroupChat updated = groupChatRepository.save(groupChat);
@@ -187,7 +191,7 @@ public class GroupChatService implements GroupChatUseCase {
     public void addParticipant(String chatId, String participantId) {
         try {
             GroupChat groupChat = groupChatRepository.findById(chatId)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
             
             groupChat.addParticipant(participantId);
             groupChatRepository.save(groupChat);
@@ -206,7 +210,7 @@ public class GroupChatService implements GroupChatUseCase {
     public void removeParticipant(String chatId, String participantId) {
         try {
             GroupChat groupChat = groupChatRepository.findById(chatId)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
             
             groupChat.removeParticipant(participantId);
             groupChatRepository.save(groupChat);
@@ -225,7 +229,7 @@ public class GroupChatService implements GroupChatUseCase {
     public void addAdmin(String chatId, String adminId) {
         try {
             GroupChat groupChat = groupChatRepository.findById(chatId)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
             
             groupChat.addAdmin(adminId);
             groupChatRepository.save(groupChat);
@@ -239,7 +243,7 @@ public class GroupChatService implements GroupChatUseCase {
     public void removeAdmin(String chatId, String adminId) {
         try {
             GroupChat groupChat = groupChatRepository.findById(chatId)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
             
             groupChat.removeAdmin(adminId);
             groupChatRepository.save(groupChat);
@@ -253,7 +257,7 @@ public class GroupChatService implements GroupChatUseCase {
     public void muteChat(String chatId, String userId, long durationMinutes) {
         try {
             GroupChat groupChat = groupChatRepository.findById(chatId)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
             
             LocalDateTime mutedUntil = LocalDateTime.now().plusMinutes(durationMinutes);
             groupChat.mute(mutedUntil);
@@ -268,7 +272,7 @@ public class GroupChatService implements GroupChatUseCase {
     public void unmuteChat(String chatId, String userId) {
         try {
             GroupChat groupChat = groupChatRepository.findById(chatId)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
             
             groupChat.unmute();
             groupChatRepository.save(groupChat);
@@ -282,7 +286,7 @@ public class GroupChatService implements GroupChatUseCase {
     public void archiveChat(String chatId, String userId) {
         try {
             GroupChat groupChat = groupChatRepository.findById(chatId)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
             
             groupChat.archive();
             groupChatRepository.save(groupChat);
@@ -296,7 +300,7 @@ public class GroupChatService implements GroupChatUseCase {
     public void unarchiveChat(String chatId, String userId) {
         try {
             GroupChat groupChat = groupChatRepository.findById(chatId)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
             
             groupChat.unarchive();
             groupChatRepository.save(groupChat);
@@ -310,7 +314,7 @@ public class GroupChatService implements GroupChatUseCase {
     public void pinMessage(String chatId, String messageId) {
         try {
             GroupChat groupChat = groupChatRepository.findById(chatId)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
             
             groupChat.pinMessage(messageId);
             groupChatRepository.save(groupChat);
@@ -324,7 +328,7 @@ public class GroupChatService implements GroupChatUseCase {
     public void unpinMessage(String chatId) {
         try {
             GroupChat groupChat = groupChatRepository.findById(chatId)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
             
             groupChat.unpinMessage();
             groupChatRepository.save(groupChat);
@@ -350,13 +354,19 @@ public class GroupChatService implements GroupChatUseCase {
     @Override
     public MessageDto sendTextMessage(String chatId, String senderId, String content) {
         try {
-            Message message = MessageFactory.createTextMessage(chatId, senderId, content);
-            // Message saved = messageRepository.save(message);
-            
+            if (content == null || content.isBlank()) {
+                throw new IllegalArgumentException("Le message est vide.");
+            }
+            if (content.length() > 4_000) {
+                throw new IllegalArgumentException("Message trop long (4 000 caractères au maximum).");
+            }
+            Message message = MessageFactory.createTextMessage(chatId, senderId, content.strip());
+            Message saved = messageRepository.save(message);
+
             // Mettre à jour le lastMessageTime du chat
             updateChatLastMessageTime(chatId);
-            
-            return MessageDto.fromDomain(message);
+
+            return MessageDto.fromDomain(saved);
         } catch (Exception e) {
             logger.error("Erreur lors de l'envoi du message texte: {}", chatId, e);
             throw new RuntimeException("Impossible d'envoyer le message", e);
@@ -481,6 +491,13 @@ public class GroupChatService implements GroupChatUseCase {
         }
     }
     
+    /** Messages d'une discussion, du plus ancien au plus récent. */
+    public List<MessageDto> getMessages(String chatId) {
+        return messageRepository.findByGroupId(chatId).stream()
+                .sorted(java.util.Comparator.comparing(Message::getTimestamp, java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                .map(MessageDto::fromDomain).toList();
+    }
+
     @Override
     public List<MessageDto> getMessagesAfter(String chatId, String lastMessageId) {
         try {
@@ -580,6 +597,26 @@ public class GroupChatService implements GroupChatUseCase {
         }
     }
     
+    /**
+     * Suppression d'un message par son auteur ou par un administrateur de la discussion.
+     */
+    public java.util.Map<String, Object> supprimerMessage(String messageId, String demandeurId) {
+        ecole_221.sn.ecole.modules.collaboration.domain.model.Message m = messageRepository.findById(messageId)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Message introuvable."));
+        boolean auteur = demandeurId != null && demandeurId.equals(m.getSenderId());
+        boolean adminGroupe = m.getGroupId() != null && groupChatRepository.findById(m.getGroupId())
+                .map(g -> g.getAdminIds() != null && g.getAdminIds().contains(demandeurId)).orElse(false);
+        if (!auteur && !adminGroupe) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN,
+                    "Seul l'auteur du message ou un administrateur de la discussion peut le supprimer.");
+        }
+        // corbeille (V21) : masqué pour tous, restaurable 30 jours par l'auteur de la suppression ou l'administration
+        var type = ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.MESSAGE;
+        return ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService.reponseSuppression(type, messageId,
+                corbeille.supprimer(type, messageId));
+    }
+
     @Override
     public void deleteMessageForEveryone(String messageId, String userId) {
         try {
@@ -623,7 +660,7 @@ public class GroupChatService implements GroupChatUseCase {
     private void updateChatLastMessageTime(String chatId) {
         try {
             GroupChat groupChat = groupChatRepository.findById(chatId)
-                    .orElseThrow(() -> new RuntimeException("Chat non trouvé: " + chatId));
+                    .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Discussion introuvable."));
             
             groupChat.updateLastMessageTime(LocalDateTime.now());
             groupChatRepository.save(groupChat);

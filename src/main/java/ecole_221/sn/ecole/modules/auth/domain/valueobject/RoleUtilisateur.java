@@ -17,7 +17,7 @@ public record RoleUtilisateur(String value) {
         String normalized = value.trim().toUpperCase(Locale.ROOT);
         if (!isValidRole(normalized)) {
             throw new IllegalArgumentException("Rôle invalide: " + value + 
-                ". Rôles autorisés: ADMIN, SUPER_ADMIN, PLATFORM_ADMIN, ETUDIANT, PROFESSEUR, SECRETAIRE, COMPTABLE, VIGIL, VISITEUR, PARENT");
+                ". Rôles autorisés: ADMIN, SUPER_ADMIN, PLATFORM_ADMIN, ETUDIANT, PROFESSEUR, SECRETAIRE, COMPTABLE, VIGIL, VISITEUR, PARENT, DIRECTEUR, SURVEILLANT, RH");
         }
     }
     
@@ -34,7 +34,12 @@ public record RoleUtilisateur(String value) {
                role.equals("COMPTABLE") || 
                role.equals("VIGIL") || 
                role.equals("VISITEUR") ||
-               role.equals("PARENT");
+               role.equals("PARENT") ||
+               // Rôles du personnel proposés par l'administration (AdminStaffService).
+               // Leurs droits : matrice RBAC de l'école.
+               role.equals("DIRECTEUR") ||
+               role.equals("SURVEILLANT") ||
+               role.equals("RH");
     }
     
     /**
@@ -56,6 +61,9 @@ public record RoleUtilisateur(String value) {
             case "SUPER_ADMIN", "SUPERADMIN", "SUPER-ADMIN" -> "SUPER_ADMIN";
             case "PLATFORM_ADMIN", "PLATFORMADMIN" -> "PLATFORM_ADMIN";
             case "PARENT" -> "PARENT";
+            case "DIRECTEUR", "DIRECTOR" -> "DIRECTEUR";
+            case "SURVEILLANT", "SUPERVISOR" -> "SURVEILLANT";
+            case "RH", "RESSOURCES HUMAINES", "HR" -> "RH";
             default -> normalized;
         };
 

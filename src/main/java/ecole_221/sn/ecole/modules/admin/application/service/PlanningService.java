@@ -20,23 +20,23 @@ public class PlanningService implements PlanningUseCase {
     public List<Room> getRooms() { return repositoryPort.getAllRooms(); }
 
     @Override
-    public void updateRooms(List<Room> rooms) { repositoryPort.saveRooms(rooms); }
+    public List<java.util.Map<String, Object>> updateRooms(List<Room> rooms) { return repositoryPort.saveRooms(rooms); }
 
     @Override
     public List<Filiere> getFilieres() { return repositoryPort.getAllFilieres(); }
 
     @Override
-    public void updateFilieres(List<Filiere> filieres) { repositoryPort.saveFilieres(filieres); }
+    public List<java.util.Map<String, Object>> updateFilieres(List<Filiere> filieres) { return repositoryPort.saveFilieres(filieres); }
 
     @Override
     public List<Classe> getClasses() { return repositoryPort.getAllClasses(); }
 
     @Override
-    public void updateClasses(List<Classe> classes) { repositoryPort.saveClasses(classes); }
+    public List<java.util.Map<String, Object>> updateClasses(List<Classe> classes) { return repositoryPort.saveClasses(classes); }
 
     @Override
     public List<TimeSlot> getSlots() { return repositoryPort.getAllSlots(); }
 
     @Override
-    public void updateSlots(List<TimeSlot> slots) { repositoryPort.saveSlots(slots); }
+    public List<java.util.Map<String, Object>> updateSlots(List<TimeSlot> slots) { return repositoryPort.saveSlots(slots); }
 }

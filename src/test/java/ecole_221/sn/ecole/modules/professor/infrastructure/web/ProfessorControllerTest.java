@@ -40,10 +40,10 @@ class ProfessorControllerTest {
 
     @Test
     void testGetCourseStudents() throws Exception {
+        // sans professeur authentifié : refusé
         mockMvc.perform(get("/professor/courses/course-001/students")
                 .contentType(MediaType.APPLICATION_JSON))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$").isArray());
+                .andExpect(status().isUnauthorized());
     }
 
     @Test
@@ -80,9 +80,19 @@ class ProfessorControllerTest {
 
         mockMvc.perform(post("/professor/courses/course-001/homeworks")
                 .contentType(MediaType.APPLICATION_JSON)
-                .content("{\"titre\":\"Devoir 1\",\"desc\":\"Description\",\"prio\":\"HIGH\",\"deadlineStr\":\"2024-12-31\"}"))
+                .content("{\"titre\":\"Devoir 1\",\"desc\":\"Description\",\"prio\":\"HIGH\",\"deadlineStr\":\"2099-12-31\"}"))
                 .andExpect(status().isOk());
 
         Mockito.verify(professorUseCase, Mockito.times(1)).saveHomework(anyString(), anyString(), anyString(), anyString(), anyString());
+    }
+
+    @Test
+    void annulationSansMotifRefusee() throws Exception {
+        // FEAT-003-BR-07 : annulation sans motif refusée sur cette route
+        mockMvc.perform(post("/professor/planning/ses-1/cancel").contentType(MediaType.APPLICATION_JSON).content("{}"))
+                .andExpect(status().isBadRequest());
+        mockMvc.perform(post("/professor/planning/ses-1/cancel").contentType(MediaType.APPLICATION_JSON).content("{\"reason\": \"   \"}"))
+                .andExpect(status().isBadRequest());
+        Mockito.verify(professorUseCase, Mockito.never()).cancelScheduleSession(Mockito.any(), Mockito.any());
     }
 }

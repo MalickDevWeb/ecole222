@@ -16,11 +16,26 @@ import java.nio.charset.StandardCharsets;
  */
 public class CachedBodyHttpServletRequest extends HttpServletRequestWrapper {
 
+    /** Taille maximale d'un corps JSON / texte (les fichiers passent par multipart, limité à part). */
+    public static final int LIMITE_OCTETS = 2 * 1024 * 1024;
+
+    /** Corps au-delà de la limite : la requête est refusée en 413. */
+    public static class CorpsTropVolumineuxException extends java.io.IOException {
+        public CorpsTropVolumineuxException() {
+            super("Corps de requête trop volumineux.");
+        }
+    }
+
     private final byte[] cachedBody;
 
     public CachedBodyHttpServletRequest(HttpServletRequest request) throws IOException {
         super(request);
-        this.cachedBody = request.getInputStream().readAllBytes();
+        // Lecture bornée : readAllBytes() chargerait en mémoire un corps de n'importe quelle taille.
+        byte[] lu = request.getInputStream().readNBytes(LIMITE_OCTETS + 1);
+        if (lu.length > LIMITE_OCTETS) {
+            throw new CorpsTropVolumineuxException();
+        }
+        this.cachedBody = lu;
     }
 
     @Override
@@ -60,5 +75,27 @@ public class CachedBodyHttpServletRequest extends HttpServletRequestWrapper {
         public int read() throws IOException {
             return inputStream.read();
         }
+    }
+
+    /**
+     * Vrai si une chaîne JSON du corps dépasse {@code max} caractères (parcours linéaire, sans analyse complète :
+     * guillemets échappés pris en compte).
+     */
+    public boolean contientTexteTropLong(int max) {
+        String texte = new String(cachedBody, java.nio.charset.StandardCharsets.UTF_8);
+        boolean dansChaine = false;
+        int longueur = 0;
+        for (int i = 0; i < texte.length(); i++) {
+            char c = texte.charAt(i);
+            if (dansChaine) {
+                if (c == '\\') { i++; longueur++; }
+                else if (c == '"') { dansChaine = false; }
+                else if (++longueur > max) { return true; }
+            } else if (c == '"') {
+                dansChaine = true;
+                longueur = 0;
+            }
+        }
+        return false;
     }
 }

@@ -8,6 +8,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "users")
+// SEC-003 : tout compte créé dans le contexte d'une école en devient membre
+@jakarta.persistence.EntityListeners(ecole_221.sn.ecole.shared.infrastructure.tenant.UserMembershipListener.class)
 public class UserJpaEntity {
 
     @Id
@@ -45,6 +47,17 @@ public class UserJpaEntity {
     
     @Column(name = "timezone")
     private String timezone = "Africa/Dakar";
+
+    /** Mot de passe provisoire (généré) à changer à la première connexion ; null (comptes existants) = false. */
+    @Column(name = "doit_changer_mot_de_passe")
+    private Boolean doitChangerMotDePasse;
+
+    /** Identifiant National de l'Élève (INE) : facultatif, saisi par l'école, jamais généré (V16). */
+    @Column(name = "ine", length = 30)
+    private String ine;
+
+    public String getIne() { return ine; }
+    public void setIne(String ine) { this.ine = ine; }
 
     public UserJpaEntity() {}
 
@@ -97,4 +110,36 @@ public class UserJpaEntity {
     
     public String getTimezone() { return timezone; }
     public void setTimezone(String timezone) { this.timezone = timezone; }
+
+    public Boolean getDoitChangerMotDePasse() { return doitChangerMotDePasse; }
+    public void setDoitChangerMotDePasse(Boolean doitChangerMotDePasse) { this.doitChangerMotDePasse = doitChangerMotDePasse; }
+
+    // ── V20 : date de la dernière modification du numéro de téléphone ──────────────────────────────────────────
+    /** Un lien d'accès n'est pas envoyé à un numéro modifié depuis moins de 24 h sans l'accord d'un second administrateur. */
+    @Column(name = "telephone_modifie_le")
+    private java.time.LocalDateTime telephoneModifieLe;
+
+    /** Numéro lu en base (comparé avant chaque mise à jour) ; null pour un compte pas encore enregistré. */
+    @jakarta.persistence.Transient
+    private String telephoneCharge;
+    @jakarta.persistence.Transient
+    private boolean charge;
+
+    public java.time.LocalDateTime getTelephoneModifieLe() { return telephoneModifieLe; }
+    public void setTelephoneModifieLe(java.time.LocalDateTime telephoneModifieLe) { this.telephoneModifieLe = telephoneModifieLe; }
+
+    @jakarta.persistence.PostLoad
+    void memoriserTelephone() {
+        this.telephoneCharge = this.telephone;
+        this.charge = true;
+    }
+
+    /** Toute modification du numéro d'un compte existant (ajout compris) est datée ; la création ne l'est pas. */
+    @jakarta.persistence.PreUpdate
+    void daterChangementTelephone() {
+        if (charge && !java.util.Objects.equals(telephoneCharge, telephone)) {
+            this.telephoneModifieLe = java.time.LocalDateTime.now();
+            this.telephoneCharge = this.telephone;
+        }
+    }
 }

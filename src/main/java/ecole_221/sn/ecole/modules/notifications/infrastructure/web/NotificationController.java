@@ -15,7 +15,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping({"/v1/notifications", "/api/v1/notifications"})
-@CrossOrigin(origins = "*")
 @Tag(name = "Notifications", description = "Centre de notifications - envoi, templates, hub")
 public class NotificationController {
     
@@ -53,7 +52,23 @@ public class NotificationController {
     @Operation(summary = "Créer notification", description = "Crée une nouvelle notification")
     public ResponseEntity<NotificationDto> createNotification(@RequestBody NotificationDto notification) {
         logger.info("POST /notifications - Création notification");
-        return ResponseEntity.ok(notificationUseCase.createNotification(notification));
+        // APP-QA-04 : destinataire, titre et contenu obligatoires et bornés ; identifiant toujours attribué par le serveur
+        // (un id fourni ne remplace pas une notification existante)
+        if (notification == null) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Aucune donnée reçue.");
+        }
+        java.util.Map<String, Object> champs = new java.util.HashMap<>();
+        champs.put("recipientId", notification.recipientId());
+        champs.put("title", notification.title());
+        champs.put("content", notification.content());
+        champs.put("type", notification.type());
+        NotificationDto propre = new NotificationDto(null,
+                ecole_221.sn.ecole.partage.ChampsRequete.texte(champs, "recipientId", "Le destinataire", 255),
+                ecole_221.sn.ecole.partage.ChampsRequete.texte(champs, "title", "Le titre", 200),
+                ecole_221.sn.ecole.partage.ChampsRequete.texte(champs, "content", "Le contenu", 5_000),
+                ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(champs, "type", "Le type", 30),
+                null, null);
+        return ResponseEntity.ok(notificationUseCase.createNotification(propre));
     }
     
     @PatchMapping("/{id}/read")
@@ -118,15 +133,16 @@ public class NotificationController {
     
     @PostMapping("/send")
     @Operation(summary = "Envoyer notification", description = "Envoie une notification à un destinataire")
-    public ResponseEntity<NotificationJpaEntity> sendNotification(@RequestBody Map<String, String> body) {
+    public ResponseEntity<NotificationJpaEntity> sendNotification(@RequestBody Map<String, Object> body) {
         logger.info("POST /notifications/send - Envoi notification");
+        // APP-QA-04 : destinataire, titre et message obligatoires
         return ResponseEntity.ok(notificationUseCase.sendNotification(
-            body.get("recipientId"),
-            body.get("recipientRole"),
-            body.get("title"),
-            body.get("message"),
-            body.get("category"),
-            body.get("priority")
+            texteObligatoire(body, "recipientId"),
+            ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(body, "recipientRole", "Le rôle du destinataire", 30),
+            texteObligatoire(body, "title"),
+            texteObligatoire(body, "message"),
+            ecole_221.sn.ecole.partage.ChampsRequete.texteOptionnel(body, "category", "La catégorie", 50),
+            ecole_221.sn.ecole.partage.ChampsRequete.choix(body, "priority", "La priorité", List.of("low", "normal", "high", "urgent"), "normal")
         ));
     }
     
@@ -134,11 +150,16 @@ public class NotificationController {
     @Operation(summary = "Envoyer depuis template", description = "Envoie une notification basée sur un template")
     public ResponseEntity<NotificationJpaEntity> sendFromTemplate(@RequestBody Map<String, Object> body) {
         logger.info("POST /notifications/send-template - Envoi depuis template");
+        Object vars = body == null ? null : body.get("variables");
+        if (vars != null && !(vars instanceof Map<?, ?>)) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Champ « variables » : un objet est attendu.");
+        }
         @SuppressWarnings("unchecked")
-        Map<String, Object> variables = (Map<String, Object>) body.get("variables");
+        Map<String, Object> variables = vars == null ? Map.of() : (Map<String, Object>) vars;
         return ResponseEntity.ok(notificationUseCase.sendFromTemplate(
-            body.get("templateKey").toString(),
-            body.get("recipientId").toString(),
+            texteObligatoire(body, "templateKey"),
+            texteObligatoire(body, "recipientId"),
             variables
         ));
     }
@@ -147,13 +168,18 @@ public class NotificationController {
     @Operation(summary = "Envoi groupé", description = "Envoie une notification à plusieurs destinataires")
     public ResponseEntity<Map<String, Object>> sendBulkNotification(@RequestBody Map<String, Object> body) {
         logger.info("POST /notifications/send-bulk - Envoi groupé");
-        @SuppressWarnings("unchecked")
-        List<String> recipientIds = (List<String>) body.get("recipientIds");
+        Object ids = body == null ? null : body.get("recipientIds");
+        if (!(ids instanceof List<?> liste) || liste.isEmpty() || liste.size() > 5_000
+                || liste.stream().anyMatch(x -> !(x instanceof String t) || t.isBlank())) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Champ « recipientIds » : une liste d'identifiants (texte) de 1 à 5 000 éléments est attendue.");
+        }
+        List<String> recipientIds = liste.stream().map(String::valueOf).toList();
         notificationUseCase.sendBulkNotification(
             recipientIds,
-            body.get("title").toString(),
-            body.get("message").toString(),
-            body.get("category").toString()
+            texteObligatoire(body, "title"),
+            texteObligatoire(body, "message"),
+            texteObligatoire(body, "category")
         );
         return ResponseEntity.ok(Map.of("success", true, "count", recipientIds.size()));
     }
@@ -179,5 +205,21 @@ public class NotificationController {
     public ResponseEntity<List<NotificationJpaEntity>> getNotificationsByCategory(@PathVariable String category) {
         logger.info("GET /notifications/category/{} - Récupération notifications par catégorie", category);
         return ResponseEntity.ok(notificationUseCase.getNotificationsByCategory(category));
+    }
+
+    /**
+     * Champ absent, vide ou d'un autre type : refus 400 précis.
+     */
+    private static String texteObligatoire(Map<String, Object> body, String cle) {
+        Object v = body == null ? null : body.get(cle);
+        if (!(v instanceof String t) || t.isBlank()) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Champ « " + cle + " » obligatoire (texte).");
+        }
+        if (t.length() > 5_000) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Champ « " + cle + " » trop long (5 000 caractères au maximum).");
+        }
+        return t.trim();
     }
 }

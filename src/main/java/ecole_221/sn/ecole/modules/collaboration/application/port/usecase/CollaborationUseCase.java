@@ -77,6 +77,12 @@ public interface CollaborationUseCase {
      * Ajoute une tâche (compatibilité).
      */
     void addTask(String groupId, String title, String status, String assignedTo);
+
+    /** Crée la tâche, ou met à jour celle qui porte cet id dans ce groupe ; renvoie l'id enregistré. */
+    default String enregistrerTache(String groupId, String id, String title, String status, String assignedTo) {
+        addTask(groupId, title, status, assignedTo);
+        return id;
+    }
     
     /**
      * Récupère les messages d'un groupe (compatibilité).
@@ -97,4 +103,9 @@ public interface CollaborationUseCase {
      * Crée une réunion (compatibilité).
      */
     void createMeet(String title, String link, String time);
+
+    /** APP-BE-14 : création complète d'une classe virtuelle (tous les champs envoyés par le frontend). */
+    default void createMeet(Map<String, Object> details) {
+        createMeet((String) details.get("title"), (String) details.get("link"), (String) details.get("time"));
+    }
 }

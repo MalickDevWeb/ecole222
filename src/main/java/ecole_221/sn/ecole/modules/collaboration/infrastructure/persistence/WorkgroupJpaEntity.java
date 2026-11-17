@@ -21,6 +21,9 @@ public class WorkgroupJpaEntity {
     private String description;
     private String creatorId;
     private int membersCount;
+    /** Classe concernée (V10, facultative). */
+    @jakarta.persistence.Column(name = "classe_id")
+    private String classeId;
 
     public WorkgroupJpaEntity() {}
 
@@ -42,4 +45,6 @@ public class WorkgroupJpaEntity {
     public void setCreatorId(String creatorId) { this.creatorId = creatorId; }
     public int getMembersCount() { return membersCount; }
     public void setMembersCount(int membersCount) { this.membersCount = membersCount; }
+    public String getClasseId() { return classeId; }
+    public void setClasseId(String classeId) { this.classeId = classeId; }
 }

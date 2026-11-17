@@ -28,7 +28,7 @@ function test_endpoint {
 echo "============================================"
 echo "   🎓 TEST ÉTUDIANT (student@ecole221.sn)"
 echo "============================================"
-curl -s -c cookies_student.txt -X POST -H "Content-Type: application/json" -d '{"email":"etudiant221@gmail.com","password":"ecole221"}' $BASE/auth/login > /dev/null
+curl -s -c cookies_student.txt -X POST -H "Content-Type: application/json" -d '{"email":"etudiant221@gmail.com","password":"'"${DEMO_ACCOUNTS_PASSWORD:?Exportez DEMO_ACCOUNTS_PASSWORD}"'"}' $BASE/auth/login > /dev/null
 test_endpoint GET "/student/profile" cookies_student.txt
 test_endpoint GET "/student/dashboard" cookies_student.txt
 test_endpoint GET "/student/digital-badge" cookies_student.txt
@@ -48,7 +48,7 @@ echo ""
 echo "============================================"
 echo "   👨‍🏫 TEST PROFESSEUR (prof@ecole221.sn)"
 echo "============================================"
-curl -s -c cookies_prof.txt -X POST -H "Content-Type: application/json" -d '{"email":"professeur221@gmail.com","password":"ecole221"}' $BASE/auth/login > /dev/null
+curl -s -c cookies_prof.txt -X POST -H "Content-Type: application/json" -d '{"email":"professeur221@gmail.com","password":"'"${DEMO_ACCOUNTS_PASSWORD:?Exportez DEMO_ACCOUNTS_PASSWORD}"'"}' $BASE/auth/login > /dev/null
 test_endpoint GET "/professor/courses?page=0&size=10" cookies_prof.txt
 test_endpoint GET "/professor/courses/course-1/homeworks?page=0&size=10" cookies_prof.txt
 test_endpoint POST "/professor/courses/course-1/homeworks" cookies_prof.txt '{"title":"DM1","description":"Exercices chapitre 3","priority":"HIGH","deadline":"2026-07-30"}'
@@ -71,7 +71,7 @@ echo ""
 echo "============================================"
 echo "   🔒 TEST ADMIN (admin@ecole221.sn)"
 echo "============================================"
-curl -s -c cookies_admin.txt -X POST -H "Content-Type: application/json" -d '{"email":"admin221@gmail.com","password":"ecole221"}' $BASE/auth/login > /dev/null
+curl -s -c cookies_admin.txt -X POST -H "Content-Type: application/json" -d '{"email":"admin221@gmail.com","password":"'"${DEMO_ACCOUNTS_PASSWORD:?Exportez DEMO_ACCOUNTS_PASSWORD}"'"}' $BASE/auth/login > /dev/null
 test_endpoint GET "/planning/rooms" cookies_admin.txt
 test_endpoint GET "/planning/filieres" cookies_admin.txt
 test_endpoint GET "/planning/classes" cookies_admin.txt
@@ -90,7 +90,7 @@ echo ""
 echo "============================================"
 echo "   👮 TEST VIGIL (vigil@ecole221.sn)"
 echo "============================================"
-curl -s -c cookies_vigil.txt -X POST -H "Content-Type: application/json" -d '{"email":"vigile221@gmail.com","password":"ecole221"}' $BASE/auth/login > /dev/null
+curl -s -c cookies_vigil.txt -X POST -H "Content-Type: application/json" -d '{"email":"vigile221@gmail.com","password":"'"${DEMO_ACCOUNTS_PASSWORD:?Exportez DEMO_ACCOUNTS_PASSWORD}"'"}' $BASE/auth/login > /dev/null
 test_endpoint GET "/security/checkpoint-status" cookies_vigil.txt
 test_endpoint GET "/vigil/check-ins" cookies_vigil.txt
 test_endpoint POST "/security/scan-logs" cookies_vigil.txt '{"studentId":"usr-001","checkpointId":"gate-A","timestamp":"2026-07-20T08:00:00"}'

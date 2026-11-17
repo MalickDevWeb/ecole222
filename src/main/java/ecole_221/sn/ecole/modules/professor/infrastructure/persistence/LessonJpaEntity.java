@@ -6,7 +6,8 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "lessons")
-public class LessonJpaEntity {
+@org.hibernate.annotations.SQLRestriction("supprime_le is null")   // corbeille (V21) : ligne supprimée invisible partout
+public class LessonJpaEntity extends ecole_221.sn.ecole.partage.ColonnesCorbeille {
     @org.hibernate.annotations.TenantId
     @jakarta.persistence.Column(name = "organization_id")
     private String organizationId;
@@ -21,6 +22,15 @@ public class LessonJpaEntity {
     private String title;
     private int duration;
     private String date;
+    // Support de cours tel que saisi à l'écran
+    @jakarta.persistence.Column(length = 4000)
+    private String description;
+    @jakarta.persistence.Column(name = "module_id")
+    private String moduleId;
+    @jakarta.persistence.Column(name = "attachment_name")
+    private String attachmentName;
+    @jakarta.persistence.Column(name = "attachment_url", length = 2000)
+    private String attachmentUrl;
 
     public LessonJpaEntity() {}
 
@@ -34,4 +44,13 @@ public class LessonJpaEntity {
     public void setDuration(int duration) { this.duration = duration; }
     public String getDate() { return date; }
     public void setDate(String date) { this.date = date; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public String getModuleId() { return moduleId; }
+    public void setModuleId(String moduleId) { this.moduleId = moduleId; }
+    public String getAttachmentName() { return attachmentName; }
+    public void setAttachmentName(String attachmentName) { this.attachmentName = attachmentName; }
+    public String getAttachmentUrl() { return attachmentUrl; }
+    public void setAttachmentUrl(String attachmentUrl) { this.attachmentUrl = attachmentUrl; }
 }

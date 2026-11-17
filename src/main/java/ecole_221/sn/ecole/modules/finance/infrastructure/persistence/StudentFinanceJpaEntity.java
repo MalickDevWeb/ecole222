@@ -30,7 +30,7 @@ public class StudentFinanceJpaEntity {
     private String classe;
     
     @Column(name = "status")
-    private String status; // 'En Règle', 'En Avance', 'En Retard'
+    private String status; // 'En Règle', 'En Avance', 'Non soldé' — toujours calculé (EcolagesService.statut)
     
     @Column(name = "debt")
     private Long debt; // in FCFA

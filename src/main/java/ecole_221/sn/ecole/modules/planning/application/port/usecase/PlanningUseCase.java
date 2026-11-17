@@ -31,7 +31,8 @@ public interface PlanningUseCase {
     /**
      * Supprime une salle.
      */
-    void deleteRoom(String roomId);
+    /** @return le libellé conservé dans la corbeille (V21) */
+    String deleteRoom(String roomId);
     
     // ==================== GESTION DES CRÉNEAUX HORAIRES ====================
     
@@ -53,7 +54,8 @@ public interface PlanningUseCase {
     /**
      * Supprime un créneau horaire.
      */
-    void deleteSlot(String slotId);
+    /** @return le libellé conservé dans la corbeille (V21) */
+    String deleteSlot(String slotId);
     
     // ==================== GESTION DES FILIÈRES ====================
     
@@ -75,7 +77,8 @@ public interface PlanningUseCase {
     /**
      * Supprime une filière.
      */
-    void deleteFiliere(String filiereId);
+    /** @return le libellé conservé dans la corbeille (V21) */
+    String deleteFiliere(String filiereId);
     
     // ==================== GESTION DES CLASSES ====================
     
@@ -97,7 +100,8 @@ public interface PlanningUseCase {
     /**
      * Supprime une classe.
      */
-    void deleteClasse(String classeId);
+    /** @return le libellé conservé dans la corbeille (V21) */
+    String deleteClasse(String classeId);
     
     /**
      * Récupère les classes d'une filière.

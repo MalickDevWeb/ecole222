@@ -12,6 +12,8 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import org.springframework.http.HttpStatus;
+import org.springframework.web.server.ResponseStatusException;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -72,6 +74,11 @@ public class DashboardUseCaseImpl implements DashboardUseCase {
     @Override
     public DashboardKpiDto updateKpi(String id, DashboardKpiDto kpi) {
         logger.info("Mise à jour du KPI: {}", id);
+        // APP-QA-04 : KPI inexistant → 404
+        if (id == null || !kpiRepository.existsById(id)) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Indicateur introuvable.");
+        }
+        verifierKpi(kpi);
         DashboardKpi dashboardKpi = DashboardKpiFactory.reconstitute(
             id,
             kpi.name(),
@@ -85,10 +92,11 @@ public class DashboardUseCaseImpl implements DashboardUseCase {
     
     @Override
     public DashboardKpiDto createKpi(DashboardKpiDto kpi) {
-        logger.info("Création d'un KPI: {}", kpi.name());
+        logger.info("Création d'un KPI: {}", kpi == null ? null : kpi.name());
+        verifierKpi(kpi);
         DashboardKpi dashboardKpi = DashboardKpiFactory.createDefault(
-            kpi.name(),
-            kpi.value(),
+            kpi.name().strip(),
+            kpi.value().strip(),
             kpi.unit()
         );
         DashboardKpi savedKpi = dashboardRepositoryPort.saveKpi(dashboardKpi);
@@ -114,23 +122,37 @@ public class DashboardUseCaseImpl implements DashboardUseCase {
     
     @Override
     public DashboardAlertJpaEntity createAlert(DashboardAlertJpaEntity alert) {
-        logger.info("Création alerte: {}", alert.getTitle());
-        return alertRepository.save(alert);
+        logger.info("Création alerte: {}", alert == null ? null : alert.getTitle());
+        DashboardAlertJpaEntity nouvelle = new DashboardAlertJpaEntity();
+        nouvelle.setId(UUID.randomUUID().toString());
+        copierAlerte(alert, nouvelle);
+        nouvelle.setIsActive(alert.getIsActive() == null || alert.getIsActive());
+        nouvelle.setExpiresAt(alert.getExpiresAt());
+        return alertRepository.save(nouvelle);
     }
     
     @Override
     public DashboardAlertJpaEntity updateAlert(String id, DashboardAlertJpaEntity alert) {
-        alert.setId(id);
-        return alertRepository.save(alert);
+        // APP-QA-04 : alerte inexistante → 404 ; seuls les champs éditables sont copiés
+        DashboardAlertJpaEntity existante = alertRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Alerte introuvable."));
+        copierAlerte(alert, existante);
+        if (alert.getIsActive() != null) {
+            existante.setIsActive(alert.getIsActive());
+        }
+        if (alert.getExpiresAt() != null) {
+            existante.setExpiresAt(alert.getExpiresAt());
+        }
+        return alertRepository.save(existante);
     }
     
     @Override
     public void deactivateAlert(String id) {
-        DashboardAlertJpaEntity alert = alertRepository.findById(id).orElse(null);
-        if (alert != null) {
-            alert.setIsActive(false);
-            alertRepository.save(alert);
-        }
+        // APP-QA-04 : alerte inexistante → 404
+        DashboardAlertJpaEntity alert = alertRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Alerte introuvable."));
+        alert.setIsActive(false);
+        alertRepository.save(alert);
     }
     
     // ==================== GESTION DES ACTIVITÉS (compatibilité JPA) ====================
@@ -166,8 +188,25 @@ public class DashboardUseCaseImpl implements DashboardUseCase {
     
     @Override
     public RegionalStatsJpaEntity updateRegionalStats(String id, RegionalStatsJpaEntity stats) {
-        stats.setId(id);
-        return regionalStatsRepository.save(stats);
+        // APP-QA-04 : statistique inexistante → 404 ; valeurs bornées
+        RegionalStatsJpaEntity existante = regionalStatsRepository.findById(id)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Statistique régionale introuvable."));
+        if (stats == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Aucune donnée reçue.");
+        }
+        existante.setRegionName(texteBorne(stats.getRegionName(), "Le nom de la région", 100, true));
+        if (stats.getPercentage() != null && (stats.getPercentage() < 0 || stats.getPercentage() > 100 || stats.getPercentage().isNaN())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le pourcentage doit être entre 0 et 100.");
+        }
+        if (stats.getStudentCount() != null && stats.getStudentCount() < 0) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le nombre d'élèves ne peut pas être négatif.");
+        }
+        existante.setPercentage(stats.getPercentage());
+        existante.setStudentCount(stats.getStudentCount());
+        existante.setColorCode(texteBorne(stats.getColorCode(), "La couleur", 20, false));
+        existante.setAcademicYear(texteBorne(stats.getAcademicYear(), "L'année scolaire", 20, false));
+        existante.setLastUpdated(LocalDateTime.now());
+        return regionalStatsRepository.save(existante);
     }
     
     // ==================== AGRÉGATION DASHBOARD ====================
@@ -250,17 +289,23 @@ public class DashboardUseCaseImpl implements DashboardUseCase {
     
     @Override
     public void updateKpiValue(String kpiKey, String value) {
-        DashboardKpiJpaEntity kpi = kpiRepository.findByKpiKey(kpiKey).orElse(null);
-        if (kpi != null) {
-            kpi.setValue(value);
-            kpi.setLastUpdated(LocalDateTime.now());
-            kpiRepository.save(kpi);
-            logger.info("KPI mis à jour: {} = {}", kpiKey, value);
-        }
+        // APP-QA-04 : indicateur inconnu → 404, valeur vide ou démesurée → 400
+        String v = texteBorne(value, "La valeur", 50, true);
+        DashboardKpiJpaEntity kpi = kpiRepository.findByKpiKey(kpiKey)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Indicateur introuvable."));
+        kpi.setValue(v);
+        kpi.setLastUpdated(LocalDateTime.now());
+        kpiRepository.save(kpi);
+        logger.info("KPI mis à jour: {} = {}", kpiKey, v);
     }
     
     @Override
     public void createSystemAlert(String alertType, String title, String message, String severity) {
+        // APP-QA-04 : titre et message obligatoires, gravité dans la liste connue
+        alertType = texteBorne(alertType, "Le type d'alerte", 50, false);
+        title = texteBorne(title, "Le titre", 200, true);
+        message = texteBorne(message, "Le message", 2_000, true);
+        severity = gravite(severity);
         DashboardAlertJpaEntity alert = new DashboardAlertJpaEntity(
             UUID.randomUUID().toString(),
             alertType,
@@ -295,5 +340,53 @@ public class DashboardUseCaseImpl implements DashboardUseCase {
             entity.getCurrency() != null ? entity.getCurrency() : entity.getValueType(),
             entity.getTrend()
         );
+    }
+
+    // ==================== CONTRÔLES DES CHAMPS (APP-QA-04) ====================
+
+    private static final java.util.List<String> GRAVITES = java.util.List.of("info", "warning", "urgent", "critical");
+
+    private static String gravite(String g) {
+        if (g == null || g.isBlank()) {
+            return "info";
+        }
+        if (!GRAVITES.contains(g.strip())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "La gravité doit être l'une des valeurs : " + String.join(", ", GRAVITES) + ".");
+        }
+        return g.strip();
+    }
+
+    private static String texteBorne(String v, String libelle, int max, boolean obligatoire) {
+        if (v == null || v.isBlank()) {
+            if (obligatoire) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, libelle + " est obligatoire.");
+            }
+            return null;
+        }
+        if (v.strip().length() > max) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, libelle + " ne doit pas dépasser " + max + " caractères.");
+        }
+        return v.strip();
+    }
+
+    private static void verifierKpi(DashboardKpiDto kpi) {
+        if (kpi == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Aucune donnée reçue.");
+        }
+        texteBorne(kpi.name(), "Le nom de l'indicateur", 100, true);
+        texteBorne(kpi.value(), "La valeur", 50, true);
+        texteBorne(kpi.unit(), "L'unité", 20, false);
+        texteBorne(kpi.trend(), "La tendance", 20, false);
+    }
+
+    private static void copierAlerte(DashboardAlertJpaEntity depuis, DashboardAlertJpaEntity vers) {
+        if (depuis == null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Aucune donnée reçue.");
+        }
+        vers.setAlertType(texteBorne(depuis.getAlertType(), "Le type d'alerte", 50, false));
+        vers.setTitle(texteBorne(depuis.getTitle(), "Le titre", 200, true));
+        vers.setMessage(texteBorne(depuis.getMessage(), "Le message", 2_000, true));
+        vers.setSeverity(gravite(depuis.getSeverity()));
+        vers.setAdditionalData(texteBorne(depuis.getAdditionalData(), "Les données complémentaires", 5_000, false));
     }
 }

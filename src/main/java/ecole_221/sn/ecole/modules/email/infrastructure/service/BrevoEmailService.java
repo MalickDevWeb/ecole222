@@ -116,9 +116,8 @@ public class BrevoEmailService implements EmailServicePort {
     }
     
     private boolean sendFallbackEmail(String to, String subject, String content, Map<String, Object> metadata) {
-        logger.info("Utilisation de l'email fallback (simulation) pour: {}", to);
-        // Simulation d'envoi d'email en mode développement
-        logger.info("EMAIL FALLBACK - À: {} | Sujet: {} | Contenu: {}", to, subject, content.substring(0, Math.min(50, content.length())));
-        return true;
+        // Aucun canal d'envoi configuré : l'e-mail N'EST PAS envoyé — on le dit.
+        logger.warn("E-mail NON envoyé (aucun canal Brevo configuré) — sujet : {}", subject);
+        return false;
     }
 }

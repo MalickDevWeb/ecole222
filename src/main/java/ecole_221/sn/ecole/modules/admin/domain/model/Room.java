@@ -11,13 +11,15 @@ public class Room {
     private final String id;
     private String name;
     private final int capacity;
+    /** Équipements déclarés par l'école (vide si rien n'a été saisi — aucun équipement présumé). */
+    private java.util.List<String> equipment = java.util.List.of();
     
     // Constructeur package-private (accessible par Factory dans le même package)
     Room(String id, String name, int capacity) {
         this.id = Objects.requireNonNull(id, "L'ID ne peut pas être null");
         this.name = Objects.requireNonNull(name, "Le nom ne peut pas être null");
-        if (capacity <= 0) {
-            throw new IllegalArgumentException("La capacité doit être positive");
+        if (capacity < 0) {   // 0 = capacité non renseignée
+            throw new IllegalArgumentException("La capacité ne peut pas être négative");
         }
         this.capacity = capacity;
     }
@@ -26,6 +28,8 @@ public class Room {
     public String getId() { return id; }
     public String getName() { return name; }
     public int getCapacity() { return capacity; }
+    public java.util.List<String> getEquipment() { return equipment; }
+    void setEquipment(java.util.List<String> equipment) { this.equipment = equipment == null ? java.util.List.of() : java.util.List.copyOf(equipment); }
     
     // Comportements métier
     public void updateName(String newName) {

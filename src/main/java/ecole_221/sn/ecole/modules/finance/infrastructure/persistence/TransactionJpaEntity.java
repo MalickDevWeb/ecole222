@@ -50,6 +50,14 @@ public class TransactionJpaEntity {
     @Column(name = "created_at")
     private LocalDateTime createdAt;
 
+    /** V19 : compte qui a saisi le versement (nouveaux versements seulement ; null pour les anciens). */
+    @Column(name = "saisi_par_id")
+    private String saisiParId;
+
+    /** V19 : prénom et nom de l'auteur de la saisie, au moment de la saisie. */
+    @Column(name = "saisi_par")
+    private String saisiPar;
+
     public TransactionJpaEntity() {
         this.createdAt = LocalDateTime.now();
         this.transactionDate = LocalDateTime.now();
@@ -103,4 +111,9 @@ public class TransactionJpaEntity {
     
     public LocalDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(LocalDateTime createdAt) { this.createdAt = createdAt; }
+
+    public String getSaisiParId() { return saisiParId; }
+    public void setSaisiParId(String saisiParId) { this.saisiParId = saisiParId; }
+    public String getSaisiPar() { return saisiPar; }
+    public void setSaisiPar(String saisiPar) { this.saisiPar = saisiPar; }
 }

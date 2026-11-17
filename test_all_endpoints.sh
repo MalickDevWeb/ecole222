@@ -57,7 +57,7 @@ failed=0
 
 # AUTH
 echo "=== AUTHENTICATION ==="
-test_endpoint "POST" "/auth/login" '{"email":"professeur221@gmail.com","password":"password123"}' "Login" && ((passed++)) || ((failed++))
+test_endpoint "POST" "/auth/login" '{"email":"professeur221@gmail.com","password":"'"${DEMO_ACCOUNTS_PASSWORD:?Exportez DEMO_ACCOUNTS_PASSWORD}"'"}' "Login" && ((passed++)) || ((failed++))
 ((total++))
 test_endpoint "POST" "/auth/logout" '{}' "Logout" && ((passed++)) || ((failed++))
 ((total++))

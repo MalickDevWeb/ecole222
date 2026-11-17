@@ -5,14 +5,18 @@ import java.util.List;
 
 public interface PlanningUseCase {
     List<Room> getRooms();
-    void updateRooms(List<Room> rooms);
+    /** @return les lignes absentes de la liste, mises à la corbeille : {type, id, libelle} */
+    List<java.util.Map<String, Object>> updateRooms(List<Room> rooms);
 
     List<Filiere> getFilieres();
-    void updateFilieres(List<Filiere> filieres);
+    /** @return les lignes absentes de la liste, mises à la corbeille : {type, id, libelle} */
+    List<java.util.Map<String, Object>> updateFilieres(List<Filiere> filieres);
 
     List<Classe> getClasses();
-    void updateClasses(List<Classe> classes);
+    /** @return les lignes absentes de la liste, mises à la corbeille : {type, id, libelle} */
+    List<java.util.Map<String, Object>> updateClasses(List<Classe> classes);
 
     List<TimeSlot> getSlots();
-    void updateSlots(List<TimeSlot> slots);
+    /** @return les lignes absentes de la liste, mises à la corbeille : {type, id, libelle} */
+    List<java.util.Map<String, Object>> updateSlots(List<TimeSlot> slots);
 }

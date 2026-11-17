@@ -23,12 +23,49 @@ public class ParentRepositoryAdapter implements ParentRepositoryPort {
 
     private final ParentJpaRepository parentJpaRepository;
     private final ParentEnfantJpaRepository parentEnfantJpaRepository;
+    private final ecole_221.sn.ecole.modules.professor.infrastructure.persistence.GradeJpaRepository gradeJpaRepository;
+    private final ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaRepository courseJpaRepository;
+    private final ecole_221.sn.ecole.modules.student.infrastructure.persistence.AttendanceJpaRepository attendanceJpaRepository;
 
     public ParentRepositoryAdapter(
             ParentJpaRepository parentJpaRepository,
-            ParentEnfantJpaRepository parentEnfantJpaRepository) {
+            ParentEnfantJpaRepository parentEnfantJpaRepository,
+            ecole_221.sn.ecole.modules.professor.infrastructure.persistence.GradeJpaRepository gradeJpaRepository,
+            ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaRepository courseJpaRepository,
+            ecole_221.sn.ecole.modules.student.infrastructure.persistence.AttendanceJpaRepository attendanceJpaRepository) {
+        this.attendanceJpaRepository = attendanceJpaRepository;
         this.parentJpaRepository = parentJpaRepository;
         this.parentEnfantJpaRepository = parentEnfantJpaRepository;
+        this.gradeJpaRepository = gradeJpaRepository;
+        this.courseJpaRepository = courseJpaRepository;
+    }
+
+    // ==================== Présences réelles (APP-BE-19) ====================
+
+    @Override
+    public List<ecole_221.sn.ecole.modules.parent.domain.model.PresenceEnfant> findPresencesByEnfantId(String enfantId) {
+        return attendanceJpaRepository.findByStudentId(enfantId).stream().map(a -> {
+            var cours = a.getCourseId() == null ? java.util.Optional.<ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaEntity>empty()
+                    : courseJpaRepository.findById(a.getCourseId());
+            return new ecole_221.sn.ecole.modules.parent.domain.model.PresenceEnfant(
+                    a.getId(), a.getDate(), a.getStatus(), a.getCourseId(),
+                    cours.map(c -> c.getName()).orElse(null), cours.map(c -> c.getProfId()).orElse(null));
+        }).toList();
+    }
+
+    // ==================== Notes réelles (APP-BE-19) ====================
+
+    @Override
+    public List<ecole_221.sn.ecole.modules.parent.domain.model.NoteEnfant> findNotesByEnfantId(String enfantId) {
+        return gradeJpaRepository.findByStudentId(enfantId).stream().map(g -> {
+            var cours = g.getCourseId() == null ? java.util.Optional.<ecole_221.sn.ecole.modules.professor.infrastructure.persistence.CourseJpaEntity>empty()
+                    : courseJpaRepository.findById(g.getCourseId());
+            return new ecole_221.sn.ecole.modules.parent.domain.model.NoteEnfant(
+                    g.getId(), g.getCourseId(),
+                    cours.map(c -> c.getName()).orElse(null),
+                    cours.map(c -> c.getProfId()).orElse(null),
+                    g.getCc(), g.getExamen());
+        }).toList();
     }
 
     // ==================== Parent operations ====================

@@ -23,7 +23,6 @@ public interface FinanceUseCase {
     StudentFinanceJpaEntity createStudentFinance(StudentFinanceJpaEntity studentFinance);
     StudentFinanceJpaEntity updateStudentFinance(String id, StudentFinanceJpaEntity studentFinance);
     void deleteStudentFinance(String id);
-    StudentFinanceJpaEntity updateStudentStatus(String id, String status);
     
     // ==================== GESTION DES DÉPENSES (compatibilité JPA) ====================
     
@@ -64,10 +63,5 @@ public interface FinanceUseCase {
     Long getTotalCollected();
     Map<String, Long> getExpensesByCategory();
     List<Map<String, Object>> getPaymentTrends();
-    
-    // ==================== AUTOMATION (compatibilité JPA) ====================
-    
-    void triggerPaymentReminders();
-    void blockDebtors();
     Map<String, Object> getFinancialReport(String period);
 }

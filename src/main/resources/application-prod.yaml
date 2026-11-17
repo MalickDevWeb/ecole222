@@ -21,3 +21,20 @@ logging:
     org.springframework.jdbc: WARN
   file:
     name: /var/log/ecole/application.log
+
+# I12 (audit DevSecOps du 15/11) : ni Swagger UI ni spécification OpenAPI en production (avant : cartographie complète
+# de l'API publiée, routes publiques en tête). Hors prod (profil par défaut des backends 8090/8091/8092), elles restent
+# actives : generer_contrat_routes.py lit /api/v3/api-docs du backend de QA.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+
+# Archivage des écoles (16/11) : en production les archives vont dans le cloud (Cloudinary, fichiers bruts privés
+# découpés en morceaux de moins de 10 Mo). Sans Cloudinary configuré ou sans ARCHIVES_CLE : archivage REFUSÉ avec un
+# message clair, jamais de repli sur le disque (effacé à chaque déploiement sur Render).
+ecole:
+  archivage:
+    stockage: cloudinary
+    production: true

@@ -1,5 +1,6 @@
 package ecole_221.sn.ecole.modules.platform.organization.application;
 
+import ecole_221.sn.ecole.modules.platform.organization.domain.model.SlugEcole;
 import ecole_221.sn.ecole.modules.auth.domain.model.User;
 import ecole_221.sn.ecole.modules.auth.domain.model.UserFactory;
 import ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort;
@@ -72,7 +73,10 @@ public class OrganizationApplicationService {
     @Transactional(readOnly = true)
     public boolean isSlugAvailable(String slug) {
         if (slug == null || slug.isBlank()) return true;
-        return !organizationRepositoryPort.existsBySlug(slug.trim().toLowerCase());
+        String s = slug.trim().toLowerCase(java.util.Locale.ROOT);
+        // Un identifiant invalide ou réservé n'est pas disponible (l'inscription le refuserait en 400)
+        if (SlugEcole.erreur(s) != null) return false;
+        return !organizationRepositoryPort.existsBySlug(s);
     }
 
     @Transactional
@@ -134,16 +138,24 @@ public class OrganizationApplicationService {
         }
 
         // 3. Calcul et vérification d'unicité du slug
+        // Défaut F3 : le slug fourni est validé côté serveur (3 à 50 caractères, ^[a-z0-9]+(-[a-z0-9]+)*$,
+        // nom non réservé) → 400 précis ; déjà pris → 409. Le slug devient le sous-domaine <slug>.<domaine-plateforme>.
         String slug = request.getSlug();
         if (slug == null || slug.trim().isEmpty()) {
-            slug = request.getSchoolName().toLowerCase()
-                    .replaceAll("[^a-z0-9]+", "-")
-                    .replaceAll("^-+|-+$", "");
-            if (slug.isEmpty()) {
-                slug = "ecole-" + System.currentTimeMillis();
+            // Pas de slug fourni : fabriqué depuis le nom (accents retirés), premier libre (-2, -3…)
+            try {
+                slug = SlugEcole.libre(SlugEcole.depuisNom(request.getSchoolName()), organizationRepositoryPort::existsBySlug);
+            } catch (SlugEcole.BaseReservee e) {   // B4 : jamais « ecole-221-2 »
+                throw new ecole_221.sn.ecole.shared.error.AppException(
+                    ecole_221.sn.ecole.shared.error.ErrorCode.VALIDATION_ERROR, e.getMessage());
             }
         }
-        slug = slug.trim().toLowerCase();
+        slug = slug.trim().toLowerCase(java.util.Locale.ROOT);
+        String erreurSlug = SlugEcole.erreur(slug);
+        if (erreurSlug != null) {
+            throw new ecole_221.sn.ecole.shared.error.AppException(
+                ecole_221.sn.ecole.shared.error.ErrorCode.VALIDATION_ERROR, erreurSlug);
+        }
 
         if (organizationRepositoryPort.existsBySlug(slug)) {
             throw new ecole_221.sn.ecole.shared.error.AppException(
@@ -156,6 +168,10 @@ public class OrganizationApplicationService {
         Map<String, Object> settings = new java.util.HashMap<>();
         if (request.getPrimaryColor() != null && !request.getPrimaryColor().isBlank()) {
             settings.put("primaryColor", request.getPrimaryColor().trim());
+        }
+        // APP-BE-32 : consentement à être contacté par l'équipe My School (date enregistrée)
+        if (Boolean.TRUE.equals(request.getConsentementContact())) {
+            settings.put("consentementContactLe", java.time.LocalDateTime.now().toString());
         }
 
         // 5. Création et sauvegarde de l'Organization
@@ -179,18 +195,30 @@ public class OrganizationApplicationService {
 
         // 6. Création du compte administrateur initial de l'école
         String matricule = "ADM-" + System.currentTimeMillis();
-        String rawPassword;
-        if (request.getAdminPassword() != null && !request.getAdminPassword().isBlank()) {
-            if (request.getAdminPassword().length() < 8) {
-                throw new IllegalArgumentException("Le mot de passe administrateur doit comporter au moins 8 caractères.");
-            }
-            if (request.getAdminPasswordConfirm() != null && !request.getAdminPasswordConfirm().isBlank()
-                    && !request.getAdminPassword().equals(request.getAdminPasswordConfirm())) {
-                throw new IllegalArgumentException("Les deux mots de passe saisis ne correspondent pas.");
-            }
-            rawPassword = request.getAdminPassword();
-        } else {
-            rawPassword = cleanEmail + "221!";
+        // APP-BE-32 + politique unique : mot de passe OBLIGATOIRE, règle de l'administration d'école, sans le nom
+        // ni l'identifiant de l'école ni le nom de l'administrateur.
+        String rawPassword = request.getAdminPassword();
+        if (rawPassword == null || rawPassword.isBlank()) {
+            throw new IllegalArgumentException("Le mot de passe de l'administrateur est obligatoire.");
+        }
+        if (request.getAdminPasswordConfirm() != null && !request.getAdminPasswordConfirm().isBlank()
+                && !rawPassword.equals(request.getAdminPasswordConfirm())) {
+            throw new IllegalArgumentException("Les deux mots de passe saisis ne correspondent pas.");
+        }
+        // Chaque mot interdit dit ce qu'il représente → refus précis (« contient votre prénom et votre nom »)
+        String regle = ecole_221.sn.ecole.modules.auth.application.service.ChangementMotDePasseService.erreurReglesDetaillee(rawPassword, null,
+                java.util.List.of(
+                        new ecole_221.sn.ecole.modules.auth.application.service.PolitiqueMotDePasse.MotInterdit(request.getSchoolName(), "le nom de l'école"),
+                        new ecole_221.sn.ecole.modules.auth.application.service.PolitiqueMotDePasse.MotInterdit(slug, "l'identifiant de l'école"),
+                        new ecole_221.sn.ecole.modules.auth.application.service.PolitiqueMotDePasse.MotInterdit(request.getAdminFirstName(), "votre prénom"),
+                        new ecole_221.sn.ecole.modules.auth.application.service.PolitiqueMotDePasse.MotInterdit(request.getAdminLastName(), "votre nom"),
+                        new ecole_221.sn.ecole.modules.auth.application.service.PolitiqueMotDePasse.MotInterdit(
+                                cleanEmail.substring(0, cleanEmail.indexOf('@')), "votre adresse e-mail"),
+                        new ecole_221.sn.ecole.modules.auth.application.service.PolitiqueMotDePasse.MotInterdit(
+                                ecole_221.sn.ecole.modules.auth.application.service.PolitiqueMotDePasse.chiffresTelephone(cleanPhone),
+                                "votre numéro de téléphone")));
+        if (regle != null) {
+            throw new ecole_221.sn.ecole.shared.error.AppException(ecole_221.sn.ecole.shared.error.ErrorCode.VALIDATION_ERROR, regle);
         }
         String finalPassword = passwordEncoder.encode(rawPassword);
         String nom = request.getAdminLastName() != null && !request.getAdminLastName().isBlank()

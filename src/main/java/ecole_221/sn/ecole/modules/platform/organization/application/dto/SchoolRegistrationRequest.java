@@ -56,6 +56,9 @@ public class SchoolRegistrationRequest {
 
     public String getAdminPasswordConfirm() { return adminPasswordConfirm; }
     public void setAdminPasswordConfirm(String adminPasswordConfirm) { this.adminPasswordConfirm = adminPasswordConfirm; }
+
+    /** APP-BE-32 : l'administrateur accepte d'être contacté par l'équipe My School (date enregistrée). */
+    private Boolean consentementContact;
+    public Boolean getConsentementContact() { return consentementContact; }
+    public void setConsentementContact(Boolean consentementContact) { this.consentementContact = consentementContact; }
 }
-
-

@@ -1,33 +1,19 @@
 package ecole_221.sn.ecole.modules.finance.domain.valueobject;
 
 /**
- * Value Object représentant la catégorie d'une dépense.
- * Immutabilité garantie par le mot-clé record.
+ * Value Object : code de la catégorie d'une dépense (ex. MATERIEL).
+ *
+ * <p>La liste des catégories n'est plus écrite dans le code : elle est paramétrable dans le
+ * référentiel {@code expense-category} (plateforme + surcharges par école). La validation se fait
+ * à la CRÉATION via {@link ecole_221.sn.ecole.modules.finance.domain.port.ExpenseCategoryCatalog} ;
+ * à la relecture, une catégorie depuis renommée ou désactivée reste lisible.</p>
  */
 public record ExpenseCategory(String value) {
-    
+
     public ExpenseCategory {
         if (value == null || value.trim().isEmpty()) {
             throw new IllegalArgumentException("La catégorie ne peut pas être vide");
         }
-        
-        // Validation des catégories autorisées
-        if (!isValidCategory(value)) {
-            throw new IllegalArgumentException("Catégorie invalide: " + value + 
-                ". Catégories autorisées: RH, Loyer/Charges, Matériel, Autre");
-        }
+        value = value.trim();
     }
-    
-    private boolean isValidCategory(String category) {
-        return category.equals("RH") || 
-               category.equals("Loyer/Charges") || 
-               category.equals("Matériel") || 
-               category.equals("Autre");
-    }
-    
-    // Catégories prédéfinies
-    public static final ExpenseCategory RH = new ExpenseCategory("RH");
-    public static final ExpenseCategory LOYER_CHARGES = new ExpenseCategory("Loyer/Charges");
-    public static final ExpenseCategory MATERIEL = new ExpenseCategory("Matériel");
-    public static final ExpenseCategory AUTRE = new ExpenseCategory("Autre");
 }

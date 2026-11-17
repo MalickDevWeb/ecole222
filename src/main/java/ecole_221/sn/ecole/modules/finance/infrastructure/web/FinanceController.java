@@ -15,7 +15,6 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/finance")
-@CrossOrigin(origins = "*")
 @Tag(name = "Finance", description = "Gestion financière - écolages, dépenses, transactions")
 public class FinanceController {
     
@@ -24,6 +23,27 @@ public class FinanceController {
     
     public FinanceController(FinanceUseCase financeUseCase) {
         this.financeUseCase = financeUseCase;
+    }
+
+    /** Suivi des soldes en lecture seule (APP-TL-22) ; injecté par Spring. */
+    private ecole_221.sn.ecole.modules.finance.application.service.SuiviSoldesService suiviSoldes;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setSuiviSoldes(ecole_221.sn.ecole.modules.finance.application.service.SuiviSoldesService suiviSoldes) {
+        this.suiviSoldes = suiviSoldes;
+    }
+
+    // APP-TL-22 : LECTURE SEULE. Dossiers « Non soldé » de l'école avec un retard ESTIMÉ (paiement régulier
+    // d'octobre à juin supposé, aucun échéancier n'étant enregistré) et les parents liés, pour que la comptabilité les
+    // appelle. Aucune mesure n'est prise contre l'élève ; aucun message n'est envoyé. Permission : finances.lire.
+    @GetMapping("/recouvrement")
+    @Operation(summary = "Suivi des soldes (lecture seule)", description = "Dossiers non soldés, retard estimé, parents liés ; aucune mesure contre l'élève")
+    public ResponseEntity<List<Map<String, Object>>> suiviDesSoldes() {
+        if (suiviSoldes == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                    "Suivi des soldes indisponible.");
+        }
+        return ResponseEntity.ok(suiviSoldes.soldes());
     }
     
     // ==================== ENDPOINTS FINANCES ÉTUDIANTS (compatibilité JPA) ====================
@@ -75,14 +95,9 @@ public class FinanceController {
         return ResponseEntity.ok(financeUseCase.updateStudentFinance(id, studentFinance));
     }
     
-    @PatchMapping("/students/{id}/status")
-    @Operation(summary = "Mettre à jour statut étudiant", description = "Met à jour le statut de paiement d'un étudiant")
-    public ResponseEntity<StudentFinanceJpaEntity> updateStudentStatus(@PathVariable String id, 
-                                                                        @RequestBody Map<String, String> body) {
-        logger.info("PATCH /finance/students/{}/status - Mise à jour statut", id);
-        return ResponseEntity.ok(financeUseCase.updateStudentStatus(id, body.get("status")));
-    }
-    
+    // APP-TL-22 : PATCH /finance/students/{id}/status SUPPRIMÉ. Le statut d'un dossier (« En Règle »,
+    // « En Avance », « Non soldé ») n'est plus saisi à la main : il est recalculé à partir du montant dû et du payé.
+
     @DeleteMapping("/students/{id}")
     @Operation(summary = "Supprimer finance étudiant", description = "Supprime le dossier financier d'un étudiant")
     public ResponseEntity<Void> deleteStudentFinance(@PathVariable String id) {
@@ -160,20 +175,16 @@ public class FinanceController {
     
     // ==================== ENDPOINTS AUTOMATION (compatibilité JPA) ====================
     
+    // APP-BE-23 : aucun échéancier par élève n'est enregistré ; aucune relance ne peut être fondée sur des données
+    // réelles. Réponse explicite 501.
+    // APP-TL-22 : POST /finance/block-debtors est SUPPRIMÉ. Aucun élève n'est bloqué pour des frais
+    // impayés (ni portique, ni application, ni bulletin) : un suivi des soldes avec message au parent est prévu.
+
     @PostMapping("/payment-reminders")
-    @Operation(summary = "Rappels de paiement", description = "Déclenche les rappels de paiement")
+    @Operation(summary = "Rappels de paiement (non disponible)", description = "501 : aucun échéancier par élève n'est encore enregistré")
     public ResponseEntity<Map<String, Object>> triggerPaymentReminders() {
-        logger.info("POST /finance/payment-reminders - Déclenchement rappels de paiement");
-        financeUseCase.triggerPaymentReminders();
-        return ResponseEntity.ok(Map.of("success", true));
-    }
-    
-    @PostMapping("/block-debtors")
-    @Operation(summary = "Bloquer débiteurs", description = "Bloque les débiteurs")
-    public ResponseEntity<Map<String, Object>> blockDebtors() {
-        logger.info("POST /finance/block-debtors - Blocage débiteurs");
-        financeUseCase.blockDebtors();
-        return ResponseEntity.ok(Map.of("success", true));
+        throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_IMPLEMENTED,
+                "Rappels de paiement non disponibles : aucun échéancier par élève n'est encore enregistré. Aucun rappel n'a été envoyé.");
     }
     
     @GetMapping("/financial-report/{period}")

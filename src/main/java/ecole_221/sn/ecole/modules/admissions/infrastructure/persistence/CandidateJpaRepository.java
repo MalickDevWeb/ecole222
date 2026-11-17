@@ -7,12 +7,25 @@ import java.util.List;
 import java.util.Optional;
 
 public interface CandidateJpaRepository extends JpaRepository<CandidateJpaEntity, String> {
+    /** Dossiers déposés par un parent, du plus récent au plus ancien (école courante, @TenantId). */
+    List<CandidateJpaEntity> findByParentIdOrderBySubmittedAtDesc(String parentId);
+
+    boolean existsByEmailIgnoreCase(String email);
+    boolean existsByEleveId(String eleveId);
+    Optional<CandidateJpaEntity> findFirstByEleveId(String eleveId);
+
+    /** Dossier verrouillé jusqu'à la fin de la transaction : deux inscriptions simultanées ne peuvent pas passer (APP-TL-23). */
+    @org.springframework.data.jpa.repository.Lock(jakarta.persistence.LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT c FROM CandidateJpaEntity c WHERE c.id = :id")
+    Optional<CandidateJpaEntity> findPourInscription(@Param("id") String id);
+    List<CandidateJpaEntity> findByEmailIgnoreCase(String email);
+
     Optional<CandidateJpaEntity> findByEmail(String email);
     List<CandidateJpaEntity> findByCourseChoice(String courseChoice);
     List<CandidateJpaEntity> findByCurrentStep(String currentStep);
     List<CandidateJpaEntity> findByAdmissionStatus(String admissionStatus);
     
-    @Query("SELECT c FROM CandidateJpaEntity c WHERE c.registrationFeePaid = true AND c.admissionStatus = 'pending'")
+    @Query("SELECT c FROM CandidateJpaEntity c WHERE c.registrationFeePaid = true AND c.admissionStatus = 'EN_ATTENTE'")
     List<CandidateJpaEntity> findPaidPendingCandidates();
     
     @Query("SELECT c FROM CandidateJpaEntity c WHERE c.currentStep = :step ORDER BY c.submittedAt DESC")

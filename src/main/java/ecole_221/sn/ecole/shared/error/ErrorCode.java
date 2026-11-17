@@ -15,6 +15,7 @@ public enum ErrorCode {
     TENANT_NOT_FOUND(HttpStatus.NOT_FOUND, "Établissement introuvable."),
     TENANT_SUSPENDED(HttpStatus.FORBIDDEN, "Cet établissement est temporairement suspendu."),
     TENANT_EXPIRED(HttpStatus.FORBIDDEN, "L'abonnement de cet établissement a expiré."),
+    TENANT_NOT_ACTIVE(HttpStatus.FORBIDDEN, "Cet établissement n'est plus actif."),
 
     // Utilisateurs & Comptes
     USER_EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "Cette adresse email est déjà associée à un compte utilisateur."),
@@ -32,6 +33,7 @@ public enum ErrorCode {
     VALIDATION_ERROR(HttpStatus.BAD_REQUEST, "Données de formulaire invalides."),
     RESOURCE_NOT_FOUND(HttpStatus.NOT_FOUND, "Ressource demandée introuvable."),
     OPERATION_NOT_ALLOWED(HttpStatus.BAD_REQUEST, "Opération non autorisée dans l'état actuel."),
+    STORAGE_UNAVAILABLE(HttpStatus.SERVICE_UNAVAILABLE, "Stockage des fichiers indisponible."),
     INTERNAL_SERVER_ERROR(HttpStatus.INTERNAL_SERVER_ERROR, "Une erreur inattendue est survenue sur le serveur.");
 
     private final HttpStatus httpStatus;

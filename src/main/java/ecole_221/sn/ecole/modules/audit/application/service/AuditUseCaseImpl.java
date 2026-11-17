@@ -43,8 +43,12 @@ public class AuditUseCaseImpl implements AuditUseCase {
     @Override
     public List<AuditLogDto> getAllAuditLogs() {
         logger.info("Récupération de tous les logs d'audit");
-        return auditRepositoryPort.findAllAuditLogs().stream()
-            .map(this::toAuditLogDto)
+        // ENF-07 : lecture directe des entrées, comme /recent et /actor : nom et rôle de l'auteur, plus
+        // récentes d'abord ; les entrées anonymes (candidature sans compte) n'ont pas d'auteur et casseraient la
+        // reconstruction de l'objet métier AuditLog (NullPointerException).
+        return auditLogJpaRepository.findAll(org.springframework.data.domain.Sort.by(
+                org.springframework.data.domain.Sort.Direction.DESC, "actionTimestamp")).stream()
+            .map(this::toAuditLogDtoFromEntity)
             .collect(Collectors.toList());
     }
     
@@ -191,7 +195,20 @@ public class AuditUseCaseImpl implements AuditUseCase {
     @Override
     public void resolveSecurityEvent(String id, String resolutionNotes) {
         logger.info("Résolution de l'événement de sécurité: {}", id);
-        // Logique de résolution à implémenter
+        // APP-QA-04 : événement inexistant → 404
+        SecurityEventJpaEntity evenement = securityEventJpaRepository.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Événement de sécurité introuvable."));
+        String notes = resolutionNotes == null ? null : resolutionNotes.strip();
+        if (notes != null && notes.length() > 2_000) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Les notes de résolution ne doivent pas dépasser 2000 caractères.");
+        }
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        if (auth != null && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u) {
+            evenement.setResolvedBy(u.getId());
+        }
+        evenement.setInvestigationStatus("resolved");
+        evenement.setResolutionNotes(notes == null || notes.isEmpty() ? null : notes);
+        securityEventJpaRepository.save(evenement);
     }
     
     // ==================== ANALYTIQUES ====================
@@ -312,7 +329,9 @@ public class AuditUseCaseImpl implements AuditUseCase {
             entity.getActionDescription(),
             entity.getActionTimestamp() != null ? entity.getActionTimestamp().toString() : null,
             entity.getIpAddress(),
-            entity.getUserAgent()
+            entity.getUserAgent(),
+            entity.getActorName(),
+            entity.getActorRole()
         );
     }
     

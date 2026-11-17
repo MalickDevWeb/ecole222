@@ -89,6 +89,8 @@ public class FinanceRepositoryAdapter implements FinanceRepositoryPort {
         if (transaction.getTransactionDate() != null) {
             entity.setTransactionDate(java.time.LocalDateTime.parse(transaction.getTransactionDate()));
         }
+        entity.setSaisiParId(ecole_221.sn.ecole.partage.CompteCourant.id());   // V19 : auteur de la saisie
+        entity.setSaisiPar(ecole_221.sn.ecole.partage.CompteCourant.nomComplet());
         return entity;
     }
 }

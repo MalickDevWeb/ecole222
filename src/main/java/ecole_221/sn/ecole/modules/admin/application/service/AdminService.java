@@ -3,7 +3,6 @@ package ecole_221.sn.ecole.modules.admin.application.service;
 import org.springframework.stereotype.Service;
 import ecole_221.sn.ecole.modules.admin.application.port.usecase.AdminUseCase;
 import ecole_221.sn.ecole.modules.admin.domain.port.repository.AdminRepositoryPort;
-import ecole_221.sn.ecole.modules.admin.domain.valueobject.StatutFrais;
 
 import java.util.List;
 import java.util.Map;
@@ -12,9 +11,11 @@ import java.util.Map;
 public class AdminService implements AdminUseCase {
 
     private final AdminRepositoryPort repositoryPort;
+    private final ParametresCandidaturesService parametresCandidatures;
 
-    public AdminService(AdminRepositoryPort repositoryPort) {
+    public AdminService(AdminRepositoryPort repositoryPort, ParametresCandidaturesService parametresCandidatures) {
         this.repositoryPort = repositoryPort;
+        this.parametresCandidatures = parametresCandidatures;
     }
 
     @Override
@@ -29,12 +30,6 @@ public class AdminService implements AdminUseCase {
     }
 
     @Override
-    public void updateStudentStatus(String studentId, StatutFrais status) {
-        repositoryPort.updateStudentStatus(studentId, status);
-        repositoryPort.addRealtimeLog("Statut financier de l'étudiant '" + studentId + "' mis à jour à '" + status + "'");
-    }
-
-    @Override
     public List<String> getRealtimeLogs() {
         return repositoryPort.getRealtimeLogs();
     }
@@ -46,6 +41,8 @@ public class AdminService implements AdminUseCase {
 
     @Override
     public void updateCandidaturesSettings(boolean enabled) {
+        // Même table que /candidatures/settings, pour l'école courante.
+        parametresCandidatures.definirOuverture(enabled);
         repositoryPort.addRealtimeLog("Paramètres de candidature mis à jour: " + (enabled ? "activé" : "désactivé"));
     }
 }

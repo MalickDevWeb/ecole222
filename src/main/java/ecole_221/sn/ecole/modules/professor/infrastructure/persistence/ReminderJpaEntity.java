@@ -8,7 +8,8 @@ import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "reminders")
-public class ReminderJpaEntity {
+@org.hibernate.annotations.SQLRestriction("supprime_le is null")   // corbeille (V21) : ligne supprimée invisible partout
+public class ReminderJpaEntity extends ecole_221.sn.ecole.partage.ColonnesCorbeille {
     @org.hibernate.annotations.TenantId
     @jakarta.persistence.Column(name = "organization_id")
     private String organizationId;

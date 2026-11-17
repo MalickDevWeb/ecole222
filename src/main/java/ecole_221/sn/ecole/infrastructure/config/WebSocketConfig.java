@@ -1,6 +1,8 @@
 package ecole_221.sn.ecole.infrastructure.config;
 
+import ecole_221.sn.ecole.infrastructure.security.WebSocketAuthInterceptor;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.messaging.simp.config.ChannelRegistration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
@@ -9,6 +11,18 @@ import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerCo
 @Configuration
 @EnableWebSocketMessageBroker
 public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
+
+    private final WebSocketAuthInterceptor authentification;
+
+    public WebSocketConfig(WebSocketAuthInterceptor authentification) {
+        this.authentification = authentification;
+    }
+
+    /** APP-QA-02 : toute trame STOMP passe par le contrôle d'authentification (JWT au CONNECT). */
+    @Override
+    public void configureClientInboundChannel(ChannelRegistration registration) {
+        registration.interceptors(authentification);
+    }
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
@@ -21,6 +35,9 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
         // Register the "/ws" endpoint, enabling SockJS fallback options so that alternate transports can be used if WebSocket is not available.
-        registry.addEndpoint("/ws").setAllowedOriginPatterns("*").withSockJS();
+        // APP-SEC-01 : mêmes origines que le CORS REST (source unique AllowedOrigins), plus de joker "*".
+        registry.addEndpoint("/ws")
+                .setAllowedOriginPatterns(AllowedOrigins.PATTERNS.toArray(String[]::new))
+                .withSockJS();
     }
 }

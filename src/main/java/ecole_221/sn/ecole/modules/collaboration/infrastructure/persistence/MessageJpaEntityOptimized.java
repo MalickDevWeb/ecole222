@@ -12,7 +12,8 @@ import java.time.LocalDateTime;
            @Index(name = "idx_messages_group_timestamp", columnList = "group_id, timestamp"),
            @Index(name = "idx_messages_sender_timestamp", columnList = "sender_id, timestamp")
        })
-public class MessageJpaEntityOptimized {
+@org.hibernate.annotations.SQLRestriction("supprime_le is null")   // corbeille (V21) : ligne supprimée invisible partout
+public class MessageJpaEntityOptimized extends ecole_221.sn.ecole.partage.ColonnesCorbeille {
     @org.hibernate.annotations.TenantId
     @jakarta.persistence.Column(name = "organization_id")
     private String organizationId;

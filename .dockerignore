@@ -3,3 +3,7 @@ target
 *.log
 .mvn/wrapper/maven-wrapper.jar
 test_*.sh
+# Secrets et configurations locales : jamais copiés dans le contexte de construction (2026-11-13)
+.env
+.env.*
+!.env.example

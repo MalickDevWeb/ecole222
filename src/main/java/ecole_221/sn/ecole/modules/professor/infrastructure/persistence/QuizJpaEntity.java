@@ -6,7 +6,8 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "quizzes")
-public class QuizJpaEntity {
+@org.hibernate.annotations.SQLRestriction("supprime_le is null")   // corbeille (V21) : ligne supprimée invisible partout
+public class QuizJpaEntity extends ecole_221.sn.ecole.partage.ColonnesCorbeille {
     @org.hibernate.annotations.TenantId
     @jakarta.persistence.Column(name = "organization_id")
     private String organizationId;
@@ -20,6 +21,16 @@ public class QuizJpaEntity {
     private String courseId;
     private String title;
     private int duration;
+    // Quiz QCM complet
+    @jakarta.persistence.Column(name = "module_id")
+    private String moduleId;
+    @jakarta.persistence.Column(length = 2000)
+    private String description;
+    @jakarta.persistence.Column(name = "questions_json", columnDefinition = "TEXT")
+    private String questionsJson;
+    /** Nombre maximal de tentatives par élève (null = 1). Lot D : quiz passés par les élèves. */
+    @jakarta.persistence.Column(name = "max_tentatives")
+    private Integer maxTentatives;
 
     public QuizJpaEntity() {}
 
@@ -31,4 +42,13 @@ public class QuizJpaEntity {
     public void setTitle(String title) { this.title = title; }
     public int getDuration() { return duration; }
     public void setDuration(int duration) { this.duration = duration; }
+
+    public String getModuleId() { return moduleId; }
+    public void setModuleId(String moduleId) { this.moduleId = moduleId; }
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+    public String getQuestionsJson() { return questionsJson; }
+    public void setQuestionsJson(String questionsJson) { this.questionsJson = questionsJson; }
+    public Integer getMaxTentatives() { return maxTentatives; }
+    public void setMaxTentatives(Integer maxTentatives) { this.maxTentatives = maxTentatives; }
 }

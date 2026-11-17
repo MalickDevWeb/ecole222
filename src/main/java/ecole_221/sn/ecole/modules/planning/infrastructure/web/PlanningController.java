@@ -19,9 +19,10 @@ import java.util.Map;
  */
 @RestController
 @RequestMapping("/planning")
-@CrossOrigin(origins = "*")
 @Tag(name = "Planning", description = "Gestion du planning - salles, créneaux, filières, classes")
 public class PlanningController {
+    // Pas de PUT « en lot » ici : les écrans utilisent PUT /admin/planning/… (validé et enregistré).
+
     
     private static final Logger logger = LoggerFactory.getLogger(PlanningController.class);
     private final PlanningUseCase planningUseCase;
@@ -58,20 +59,16 @@ public class PlanningController {
         return ResponseEntity.ok(planningUseCase.saveRoom(roomDto));
     }
 
-    @PutMapping("/rooms")
-    @Operation(summary = "Mettre à jour les salles (batch)", description = "Met à jour la liste des salles.")
-    public ResponseEntity<Void> updateRoomsBatch(@RequestBody List<Map<String, Object>> rooms) {
-        logger.info("PUT /planning/rooms - Mise à jour de {} salles", rooms != null ? rooms.size() : 0);
-        return ResponseEntity.ok().build();
-    }
     
     @DeleteMapping("/rooms/{roomId}")
     @Operation(summary = "Supprimer une salle", description = "Supprime une salle par son identifiant.")
-    public ResponseEntity<Void> deleteRoom(
+    public ResponseEntity<java.util.Map<String, Object>> deleteRoom(
             @Parameter(description = "Identifiant de la salle") @PathVariable("roomId") String roomId) {
         logger.info("DELETE /planning/rooms/{} - Suppression salle", roomId);
-        planningUseCase.deleteRoom(roomId);
-        return ResponseEntity.noContent().build();
+        // 200 avec {"corbeille": true, "message"} : l'élément reste restaurable depuis la corbeille
+        String libelle = planningUseCase.deleteRoom(roomId);
+        return ResponseEntity.ok(ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService.reponseSuppression(
+                ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.SALLE, roomId, libelle));
     }
     
     // ==================== ENDPOINTS CRÉNEAUX HORAIRES ====================
@@ -102,20 +99,16 @@ public class PlanningController {
         return ResponseEntity.ok(planningUseCase.saveSlot(slotDto));
     }
 
-    @PutMapping("/slots")
-    @Operation(summary = "Mettre à jour les créneaux (batch)", description = "Met à jour la liste des créneaux horaires.")
-    public ResponseEntity<Void> updateSlotsBatch(@RequestBody List<Map<String, Object>> slots) {
-        logger.info("PUT /planning/slots - Mise à jour de {} créneaux", slots != null ? slots.size() : 0);
-        return ResponseEntity.ok().build();
-    }
     
     @DeleteMapping("/slots/{slotId}")
     @Operation(summary = "Supprimer un créneau horaire", description = "Supprime un créneau horaire.")
-    public ResponseEntity<Void> deleteSlot(
+    public ResponseEntity<java.util.Map<String, Object>> deleteSlot(
             @Parameter(description = "Identifiant du créneau") @PathVariable("slotId") String slotId) {
         logger.info("DELETE /planning/slots/{} - Suppression créneau", slotId);
-        planningUseCase.deleteSlot(slotId);
-        return ResponseEntity.noContent().build();
+        // 200 avec {"corbeille": true, "message"} : l'élément reste restaurable depuis la corbeille
+        String libelle = planningUseCase.deleteSlot(slotId);
+        return ResponseEntity.ok(ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService.reponseSuppression(
+                ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.CRENEAU_HORAIRE, slotId, libelle));
     }
     
     // ==================== ENDPOINTS FILIÈRES ====================
@@ -142,20 +135,16 @@ public class PlanningController {
         return ResponseEntity.ok(planningUseCase.saveFiliere(filiereDto));
     }
 
-    @PutMapping("/filieres")
-    @Operation(summary = "Mettre à jour les filières (batch)", description = "Met à jour la liste des filières.")
-    public ResponseEntity<Void> updateFilieresBatch(@RequestBody List<Map<String, Object>> filieres) {
-        logger.info("PUT /planning/filieres - Mise à jour de {} filières", filieres != null ? filieres.size() : 0);
-        return ResponseEntity.ok().build();
-    }
     
     @DeleteMapping("/filieres/{filiereId}")
     @Operation(summary = "Supprimer une filière", description = "Supprime une filière.")
-    public ResponseEntity<Void> deleteFiliere(
+    public ResponseEntity<java.util.Map<String, Object>> deleteFiliere(
             @Parameter(description = "Identifiant de la filière") @PathVariable("filiereId") String filiereId) {
         logger.info("DELETE /planning/filieres/{} - Suppression filière", filiereId);
-        planningUseCase.deleteFiliere(filiereId);
-        return ResponseEntity.noContent().build();
+        // 200 avec {"corbeille": true, "message"} : l'élément reste restaurable depuis la corbeille
+        String libelle = planningUseCase.deleteFiliere(filiereId);
+        return ResponseEntity.ok(ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService.reponseSuppression(
+                ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.FILIERE, filiereId, libelle));
     }
     
     // ==================== ENDPOINTS CLASSES ====================
@@ -174,7 +163,13 @@ public class PlanningController {
     public ResponseEntity<ClasseDto> getClasseById(
             @Parameter(description = "Identifiant de la classe") @PathVariable("classeId") String classeId) {
         logger.info("GET /planning/classes/{} - Détails classe", classeId);
-        return ResponseEntity.ok(planningUseCase.getClasseById(classeId));
+        // APP-TL-05 : classe inconnue ou d'une autre école → 404
+        ClasseDto c = planningUseCase.getClasseById(classeId);
+        if (c == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.NOT_FOUND, "Classe introuvable dans cet établissement.");
+        }
+        return ResponseEntity.ok(c);
     }
     
     @PostMapping("/classes")
@@ -184,20 +179,16 @@ public class PlanningController {
         return ResponseEntity.ok(planningUseCase.saveClasse(classeDto));
     }
 
-    @PutMapping("/classes")
-    @Operation(summary = "Mettre à jour les classes (batch)", description = "Met à jour la liste des classes.")
-    public ResponseEntity<Void> updateClassesBatch(@RequestBody List<Map<String, Object>> classes) {
-        logger.info("PUT /planning/classes - Mise à jour de {} classes", classes != null ? classes.size() : 0);
-        return ResponseEntity.ok().build();
-    }
     
     @DeleteMapping("/classes/{classeId}")
     @Operation(summary = "Supprimer une classe", description = "Supprime une classe.")
-    public ResponseEntity<Void> deleteClasse(
+    public ResponseEntity<java.util.Map<String, Object>> deleteClasse(
             @Parameter(description = "Identifiant de la classe") @PathVariable("classeId") String classeId) {
         logger.info("DELETE /planning/classes/{} - Suppression classe", classeId);
-        planningUseCase.deleteClasse(classeId);
-        return ResponseEntity.noContent().build();
+        // 200 avec {"corbeille": true, "message"} : l'élément reste restaurable depuis la corbeille
+        String libelle = planningUseCase.deleteClasse(classeId);
+        return ResponseEntity.ok(ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService.reponseSuppression(
+                ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.CLASSE, classeId, libelle));
     }
     
     @GetMapping("/filieres/{filiereId}/classes")

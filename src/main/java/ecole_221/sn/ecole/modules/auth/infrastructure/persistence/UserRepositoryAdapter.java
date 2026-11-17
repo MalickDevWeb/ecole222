@@ -32,6 +32,11 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     public User save(User user) {
         logger.debug("Sauvegarde de l'utilisateur: {}", user.getEmail());
         UserJpaEntity entity = toUserEntity(user);
+        // V20 : le modèle du domaine ne porte pas la date de modification du téléphone ; elle est conservée ici (sinon la
+        // fusion l'effacerait), et un changement de numéro est daté par l'entité (@PreUpdate)
+        if (user.getId() != null) {
+            jpaRepository.findById(user.getId()).ifPresent(existant -> entity.setTelephoneModifieLe(existant.getTelephoneModifieLe()));
+        }
         UserJpaEntity savedEntity = jpaRepository.save(entity);
         return toUser(savedEntity);
     }
@@ -48,6 +53,14 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
         logger.debug("Récupération de l'utilisateur par ID: {}", id);
         return jpaRepository.findById(id)
                 .map(this::toUser);
+    }
+
+    @Override
+    public Optional<User> findByMatricule(String matricule) {
+        if (matricule == null || matricule.isBlank()) {
+            return Optional.empty();
+        }
+        return jpaRepository.findFirstByMatricule(matricule.trim()).map(this::toUser);
     }
     
     @Override
@@ -98,7 +111,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     // ==================== MAPPERS JPA ↔ DOMAIN ====================
     
     private User toUser(UserJpaEntity entity) {
-        return UserFactory.reconstruct(
+        User user = UserFactory.reconstruct(
             entity.getId(),
             entity.getNom(),
             entity.getPrenom(),
@@ -115,6 +128,8 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
             entity.getLanguage(),
             entity.getTimezone()
         );
+        user.setDoitChangerMotDePasse(Boolean.TRUE.equals(entity.getDoitChangerMotDePasse()));
+        return user;
     }
     
     private UserJpaEntity toUserEntity(User user) {
@@ -136,6 +151,7 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
         entity.setLastLoginAt(user.getLastLoginAt());
         entity.setLanguage(user.getLanguage());
         entity.setTimezone(user.getTimezone());
+        entity.setDoitChangerMotDePasse(user.isDoitChangerMotDePasse() ? Boolean.TRUE : null);
         
         return entity;
     }

@@ -36,13 +36,10 @@ public class ActionLoggingAspect {
         // Logger l'entrée
         logger.info("→ CALL  [{}.{}]  pkg={}", className, methodName, pkg);
 
-        // Logger les paramètres (masque les mots de passe)
+        // APP-SEC-13 : paramètres en DEBUG seulement, et masqués (emails, téléphones, jetons, mots de passe)
         Object[] args = joinPoint.getArgs();
-        if (args != null && args.length > 0) {
-            String argsStr = Arrays.toString(args);
-            // Masquer les mots de passe dans les logs
-            argsStr = argsStr.replaceAll("(?i)(password|motDePasse|mdp)[^,\\]]*", "$1=***");
-            logger.info("   args: {}", argsStr);
+        if (logger.isDebugEnabled() && args != null && args.length > 0) {
+            logger.debug("   args: {}", ecole_221.sn.ecole.infrastructure.logging.LogMasker.masquer(Arrays.toString(args)));
         }
 
         try {

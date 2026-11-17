@@ -11,10 +11,10 @@ import ecole_221.sn.ecole.modules.admin.application.port.usecase.PlanningUseCase
 import ecole_221.sn.ecole.modules.admin.domain.model.*;
 
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/admin/planning")
-@CrossOrigin(origins = "*")
 @Tag(name = "Admin Planning", description = "Planification Admin — salles, filieres, classes, crenaux horaires")
 public class AdminPlanningController {
 
@@ -23,6 +23,17 @@ public class AdminPlanningController {
 
     public AdminPlanningController(PlanningUseCase planningUseCase) {
         this.planningUseCase = planningUseCase;
+    }
+
+    /**
+     * Chaque enregistrement de l'emploi du temps crée ou met à jour les séances des professeurs.
+     * Facultatif pour les tests construits sans contexte Spring.
+     */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.admin.application.service.SeancesEmploiDuTempsService seancesEmploiDuTemps;
+
+    void setSeancesEmploiDuTemps(ecole_221.sn.ecole.modules.admin.application.service.SeancesEmploiDuTempsService s) {
+        this.seancesEmploiDuTemps = s;
     }
 
     @GetMapping("/rooms")
@@ -34,10 +45,10 @@ public class AdminPlanningController {
 
     @PutMapping("/rooms")
     @Operation(summary = "Mettre a jour les salles", description = "Met a jour la liste complete des salles.")
-    public ResponseEntity<Void> updateRooms(@RequestBody List<Room> rooms) {
+    public ResponseEntity<Map<String, Object>> updateRooms(@RequestBody List<Map<String, Object>> corps) {
+        List<Room> rooms = PlanningPayloads.salles(corps);
         logger.info("PUT /admin/planning/rooms - Mise a jour des salles: {} salles", rooms.size());
-        planningUseCase.updateRooms(rooms);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(bilanCorbeille(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.SALLE, planningUseCase.updateRooms(rooms)));
     }
 
     @GetMapping("/filieres")
@@ -49,10 +60,10 @@ public class AdminPlanningController {
 
     @PutMapping("/filieres")
     @Operation(summary = "Mettre a jour les filieres", description = "Met a jour la liste complete des filieres.")
-    public ResponseEntity<Void> updateFilieres(@RequestBody List<Filiere> filieres) {
+    public ResponseEntity<Map<String, Object>> updateFilieres(@RequestBody List<Map<String, Object>> corps) {
+        List<Filiere> filieres = PlanningPayloads.filieres(corps);
         logger.info("PUT /admin/planning/filieres - Mise a jour des filieres: {} filieres", filieres.size());
-        planningUseCase.updateFilieres(filieres);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(bilanCorbeille(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.FILIERE, planningUseCase.updateFilieres(filieres)));
     }
 
     @GetMapping("/classes")
@@ -64,10 +75,10 @@ public class AdminPlanningController {
 
     @PutMapping("/classes")
     @Operation(summary = "Mettre a jour les classes", description = "Met a jour la liste complete des classes.")
-    public ResponseEntity<Void> updateClasses(@RequestBody List<Classe> classes) {
+    public ResponseEntity<Map<String, Object>> updateClasses(@RequestBody List<Map<String, Object>> corps) {
+        List<Classe> classes = PlanningPayloads.classes(corps);
         logger.info("PUT /admin/planning/classes - Mise a jour des classes: {} classes", classes.size());
-        planningUseCase.updateClasses(classes);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(bilanCorbeille(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.CLASSE, planningUseCase.updateClasses(classes)));
     }
 
     @GetMapping("/slots")
@@ -78,10 +89,52 @@ public class AdminPlanningController {
     }
 
     @PutMapping("/slots")
-    @Operation(summary = "Mettre a jour les crenaux", description = "Met a jour la liste complete des crenaux horaires.")
-    public ResponseEntity<Void> updateSlots(@RequestBody List<TimeSlot> slots) {
+    @Operation(summary = "Mettre a jour les crenaux", description = "Met a jour la liste complete des crenaux horaires, "
+            + "puis les séances des professeurs (une par créneau rattaché à une classe). Réponse : nombre de séances, "
+            + "séances retirées, créneaux sans cours de même intitulé dans la classe (appel impossible) ou sans professeur.")
+    @org.springframework.transaction.annotation.Transactional   // créneaux et séances enregistrés ensemble ou pas du tout
+    public ResponseEntity<Map<String, Object>> updateSlots(@RequestBody List<Map<String, Object>> corps) {
+        List<TimeSlot> slots = PlanningPayloads.creneaux(corps);
         logger.info("PUT /admin/planning/slots - Mise a jour des crenaux: {} crenaux", slots.size());
-        planningUseCase.updateSlots(slots);
-        return ResponseEntity.ok().build();
+        // Doubles réservations refusées par le SERVEUR
+        Map<String, String> nomsClasses = new java.util.HashMap<>();
+        for (Classe c : planningUseCase.getClasses()) {
+            if (c.getId() != null && c.getName() != null) nomsClasses.put(c.getId(), c.getName());
+        }
+        List<String> conflits = ConflitsPlanning.detecter(slots, nomsClasses);
+        if (!conflits.isEmpty()) {
+            String detail = String.join(" ; ", conflits.subList(0, Math.min(5, conflits.size())))
+                    + (conflits.size() > 5 ? " ; et " + (conflits.size() - 5) + " autre(s)." : ".");
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
+                    "Emploi du temps non enregistré : " + conflits.size() + " conflit" + (conflits.size() > 1 ? "s" : "") + ". " + detail);
+        }
+        var retires = planningUseCase.updateSlots(slots);
+        Map<String, Object> rep = new java.util.LinkedHashMap<>();
+        rep.put("creneaux", slots.size());
+        if (seancesEmploiDuTemps != null) {
+            var bilan = seancesEmploiDuTemps.synchroniser(slots);
+            rep.put("seances", bilan.seances());
+            rep.put("seancesRetirees", bilan.retirees());
+            rep.put("sansCours", bilan.sansCours());
+            rep.put("sansProfesseur", bilan.sansProfesseur());
+        }
+        rep.putAll(bilanCorbeille(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.CRENEAU, retires));
+        return ResponseEntity.ok(rep);
+    }
+
+    /**
+     * Les lignes absentes de la liste envoyée sont mises à la corbeille (restaurables 30 jours) ; la réponse le dit.
+     * {@code {"corbeille": bool, "misALaCorbeille": [{type, id, libelle}], "message"?}} — « message » seulement
+     * si au moins une ligne a été mise à la corbeille.
+     */
+    static Map<String, Object> bilanCorbeille(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille type, List<Map<String, Object>> retirees) {
+        List<Map<String, Object>> liste = retirees == null ? List.of() : retirees;
+        Map<String, Object> r = new java.util.LinkedHashMap<>();
+        r.put("corbeille", !liste.isEmpty());
+        r.put("misALaCorbeille", liste);
+        if (!liste.isEmpty()) {
+            r.put("message", type.messageMiseALaCorbeille(liste.stream().map(e -> String.valueOf(e.get("libelle"))).toList()));
+        }
+        return r;
     }
 }

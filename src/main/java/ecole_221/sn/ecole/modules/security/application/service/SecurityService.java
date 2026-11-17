@@ -1,7 +1,6 @@
 package ecole_221.sn.ecole.modules.security.application.service;
 
 import ecole_221.sn.ecole.modules.admin.domain.port.repository.AdminRepositoryPort;
-import ecole_221.sn.ecole.modules.admin.domain.valueobject.StatutFrais;
 import ecole_221.sn.ecole.modules.security.application.port.dto.VigilProfileDto;
 import ecole_221.sn.ecole.modules.security.application.port.usecase.SecurityUseCase;
 import ecole_221.sn.ecole.modules.security.domain.model.VigilProfile;
@@ -26,25 +25,37 @@ public class SecurityService implements SecurityUseCase {
     private final AdminRepositoryPort adminRepository;
     private final SecurityRepositoryPort securityRepositoryPort;
     private final VigilProfileJpaRepository vigilProfileRepository;
-    private final List<Map<String, Object>> scanLogs = new CopyOnWriteArrayList<>();
+    private final Map<String, List<Map<String, Object>>> passagesParEcole = new java.util.concurrent.ConcurrentHashMap<>();
 
+    private final ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort comptes;
+    private final ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances;
+
+    @org.springframework.beans.factory.annotation.Autowired
     public SecurityService(AdminRepositoryPort adminRepository,
                           SecurityRepositoryPort securityRepositoryPort,
-                          VigilProfileJpaRepository vigilProfileRepository) {
+                          VigilProfileJpaRepository vigilProfileRepository,
+                          ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort comptes,
+                          ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances) {
         this.adminRepository = adminRepository;
         this.securityRepositoryPort = securityRepositoryPort;
         this.vigilProfileRepository = vigilProfileRepository;
-        
-        // Seed default scan log
-        Map<String, Object> log = new HashMap<>();
-        log.put("id", "scan-1");
-        log.put("studentName", "Mamadou Sall");
-        log.put("status", "ENTREE");
-        log.put("timestamp", LocalDateTime.now().minusMinutes(10).toString());
-        log.put("statutFrais", "En Règle");
-        log.put("accessGranted", true);
-        log.put("message", "Accès autorisé. Bienvenue à l'École 221.");
-        scanLogs.add(log);
+        this.comptes = comptes;
+        this.appartenances = appartenances;
+        // APP-SEC-18 : plus de passage « Mamadou Sall » inventé au démarrage
+    }
+
+    /** Vérification des badges QR dynamiques. Clé aléatoire si le composant n'est pas injecté (tests). */
+    private ecole_221.sn.ecole.partage.JetonBadge jetonBadge = ecole_221.sn.ecole.partage.JetonBadge.aleatoire();
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setJetonBadge(ecole_221.sn.ecole.partage.JetonBadge jetonBadge) {
+        if (jetonBadge != null) this.jetonBadge = jetonBadge;
+    }
+
+    /** Journal des passages de l'école courante (APP-SEC-18). */
+    private List<Map<String, Object>> journalEcole() {
+        String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse("sans-ecole");
+        return passagesParEcole.computeIfAbsent(ecole, k -> new CopyOnWriteArrayList<>());
     }
 
     // ==================== GESTION DES PROFILS DE VIGILANCE ====================
@@ -92,14 +103,25 @@ public class SecurityService implements SecurityUseCase {
     @Override
     public VigilProfileDto updateVigilProfile(String id, VigilProfileDto vigilProfileDto) {
         logger.info("Mise à jour du profil de vigilance: {}", id);
-        VigilProfile vigilProfile = toVigilProfile(vigilProfileDto);
+        // APP-QA-04 : profil inexistant → 404 ; nom obligatoire, champs bornés
+        VigilProfile actuel = securityRepositoryPort.findVigilProfileById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Profil de vigile introuvable."));
+        if (vigilProfileDto == null || vigilProfileDto.name() == null || vigilProfileDto.name().isBlank()) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Le nom est obligatoire.");
+        }
+        for (String[] c : new String[][]{{vigilProfileDto.name(), "Le nom", "200"}, {vigilProfileDto.role(), "Le rôle", "50"},
+                {vigilProfileDto.status(), "Le statut", "30"}}) {
+            if (c[0] != null && c[0].strip().length() > Integer.parseInt(c[2])) {
+                throw ecole_221.sn.ecole.partage.ChampsRequete.refus(c[1] + " ne doit pas dépasser " + c[2] + " caractères.");
+            }
+        }
         // Reconstruction avec l'ID existant via Factory
         VigilProfile updatedProfile = securityRepositoryPort.saveVigilProfile(
             ecole_221.sn.ecole.modules.security.domain.model.VigilProfileFactory.reconstitute(
                 id,
                 vigilProfileDto.name(),
                 vigilProfileDto.role(),
-                vigilProfileDto.userId(),
+                actuel.getUserId(),   // rattachement au compte : jamais modifié par ce formulaire
                 vigilProfileDto.status(),
                 vigilProfileDto.createdAt()
             )
@@ -119,49 +141,199 @@ public class SecurityService implements SecurityUseCase {
     public Map<String, Object> getCheckpointStatus() {
         Map<String, String> assignment = adminRepository.getGateAssignment();
         Map<String, Object> status = new HashMap<>();
-        status.put("gate", assignment.getOrDefault("gate", "Porte Principale"));
-        status.put("guard", assignment.getOrDefault("guard", "Agent Mamadou Diallo"));
-        status.put("totalScansToday", scanLogs.size());
+        status.put("gate", assignment.getOrDefault("gate", "Non configuré"));   // plus de portail inventé
+        status.put("guard", assignment.getOrDefault("guard", "Non assigné"));   // plus de gardien inventé
+        status.put("totalScansToday", journalEcole().size());
         status.put("status", "ACTIVE");
         return status;
     }
 
     @Override
     public Map<String, Object> processBadgeScan(String badgeId) {
-        // Resolve student details based on badgeId
-        String studentId = "std-001";
-        String studentName = "Mamadou Sall";
-        
-        if (badgeId.contains("002") || badgeId.equals("badge-std-002")) {
-            studentId = "std-002";
-            studentName = "Awa Diop";
+        Decision d = decider(badgeId, null);
+        return journaliser(d.nom(), d.autorise(), d.message());
+    }
+
+    /** Décision d'accès pour un contenu scanné ; fraîcheur du QR jugée à la minute {@code minuteDuScan} (null = maintenant). */
+    Decision decider(String badgeId, Long minuteDuScan) {
+        // APP-SEC-18 : le badge est rattaché à un compte RÉEL (identifiant ou matricule), membre ACTIF de
+        // l'école courante.
+        String lu = badgeId == null ? "" : badgeId.trim();
+        // Badge QR dynamique (STU_SECURE:…) vérifié ICI pour toutes les routes de scan ; un élève n'entre
+        // pas avec son seul matricule (tapé, photocopié ou deviné) : seul le QR signé par le serveur, valable
+        // ± 1 minute, est accepté pour lui. Les badges du personnel restent des identifiants simples.
+        var dynamique = jetonBadge.lire(lu, minuteDuScan);
+        boolean jetonVerifie = dynamique.map(ecole_221.sn.ecole.partage.JetonBadge.Lecture::valide).orElse(false);
+        if (dynamique.isPresent() && !jetonVerifie) {
+            return new Decision("Inconnu", false, "Accès refusé : QR expiré ou invalide. Faites actualiser le badge dans l'application.");
+        }
+        String brut = dynamique.map(ecole_221.sn.ecole.partage.JetonBadge.Lecture::matricule).orElse(lu);
+        String sansPrefixe = brut.startsWith("badge-") ? brut.substring(6) : brut;
+        Optional<ecole_221.sn.ecole.modules.auth.domain.model.User> titulaire = comptes.findById(brut)
+                .or(() -> comptes.findById(sansPrefixe))
+                .or(() -> comptes.findByMatricule(brut))
+                .or(() -> comptes.findByMatricule(sansPrefixe));
+        String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse(null);
+
+        // I8 : la recherche du titulaire porte sur TOUTE la plateforme (matricules uniques).
+        // L'appartenance à l'école courante est donc vérifiée AVANT de lire quoi que ce soit du compte : un titulaire
+        // absent ou étranger à l'école reste « Inconnu » dans la réponse comme dans les journaux, pour qu'aucune école
+        // ne puisse obtenir, en énumérant des matricules, les noms des élèves (mineurs) des autres écoles.
+        var appartenance = titulaire.flatMap(u -> ecole == null ? Optional.empty()
+                : appartenances.findByUserIdAndOrganizationId(u.getId(), ecole).filter(m -> m.isActive() && !m.isExpired()));
+
+        boolean accessGranted;
+        String nom;
+        String msg;
+        if (appartenance.isEmpty()) {
+            accessGranted = false;
+            nom = "Inconnu";
+            // Identifiant ou matricule saisi : même réponse que pour un badge inexistant (pas d'oracle « ce matricule
+            // existe dans une autre école »). QR signé par le serveur : il ne peut être fabriqué pour un matricule
+            // choisi et porte déjà son matricule en clair ; le vigile peut donc savoir qu'il vient d'une autre école.
+            msg = titulaire.isPresent() && jetonVerifie
+                    ? "Accès refusé : ce badge n'appartient pas à cet établissement."
+                    : "Accès refusé : badge non reconnu.";
+        } else {
+            var u = titulaire.get();
+            nom = ((u.getPrenom() == null ? "" : u.getPrenom() + " ") + (u.getNom() == null ? "" : u.getNom())).trim();
+            Categorie categorie = categorie(u, appartenance.get());
+            if (categorie == Categorie.ELEVE && !jetonVerifie) {
+                accessGranted = false;
+                msg = "Accès refusé : présentez le badge QR de l'application (le matricule seul ne suffit pas).";
+            } else if (categorie == Categorie.ELEVE) {
+                // APP-TL-22 : l'accès au campus ne dépend JAMAIS des frais de scolarité (aucun enfant laissé dehors,
+                // rien de la situation financière de la famille montré au vigile). Badge QR valide + élève actif de
+                // l'école = accès.
+                accessGranted = true;
+                msg = "Accès autorisé.";
+            } else if (categorie == Categorie.PERSONNEL) {
+                accessGranted = true;
+                msg = "Accès autorisé (personnel).";
+            } else {
+                // B5 : REFUS PAR DÉFAUT (PARENT et VISITEUR sont aussi rattachés comme membres par
+                // UserMembershipListener).
+                accessGranted = false;
+                msg = "Accès refusé : ce compte n'est pas un badge du personnel ni d'un élève.";
+            }
         }
 
-        StatutFrais feesStatus = adminRepository.getStudentStatus(studentId);
-        boolean accessGranted = feesStatus == StatutFrais.EN_REGLE;
-        String statusText = accessGranted ? "ENTREE" : "BLOQUE";
-        String msg = accessGranted 
-            ? "Accès autorisé. Bienvenue à l'École 221." 
-            : "Accès refusé. Veuillez régulariser votre situation financière auprès de la comptabilité.";
+        return new Decision(nom, accessGranted, msg);
+    }
 
+    /** Résultat d'une décision d'accès (avant journalisation). Aucune donnée financière (APP-TL-22). */
+    record Decision(String nom, boolean autorise, String message) {
+    }
+
+    /**
+     * B5 : rôles d'APPARTENANCE à l'école admis au portique comme personnel. Liste explicite (refus par défaut) :
+     * administration, professeurs, vigiles et rôles du personnel de la matrice RBAC (CataloguePermissions.ROLES_PERSONNEL :
+     * DIRECTEUR, SECRETAIRE, COMPTABLE, SURVEILLANT, RH). PARENT, VISITEUR, rôles de la plateforme ou inconnus : refusés.
+     */
+    static final Set<String> ROLES_PERSONNEL_PORTIQUE = java.util.stream.Stream.concat(
+            java.util.stream.Stream.of("ADMIN", "ADMINISTRATOR", "PROFESSEUR", "VIGIL"),
+            ecole_221.sn.ecole.modules.admin.rbac.CataloguePermissions.ROLES_PERSONNEL.stream())
+            .collect(Collectors.toUnmodifiableSet());
+
+    enum Categorie { ELEVE, PERSONNEL, AUCUNE }
+
+    /**
+     * Catégorie d'un membre au portique, d'après le rôle de son appartenance à l'école (alias TEACHER, STUDENT…
+     * normalisés). Un compte élève reste élève quel que soit le rôle de l'appartenance : il lui faut le badge QR.
+     */
+    static Categorie categorie(ecole_221.sn.ecole.modules.auth.domain.model.User u,
+                               ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationUser m) {
+        String role = roleNormalise(m.getRole());
+        boolean compteEleve = u.getRole() != null && "ETUDIANT".equals(roleNormalise(u.getRole().value()));
+        if ("ETUDIANT".equals(role) || compteEleve) return Categorie.ELEVE;
+        return ROLES_PERSONNEL_PORTIQUE.contains(role) ? Categorie.PERSONNEL : Categorie.AUCUNE;
+    }
+
+    private static String roleNormalise(String role) {
+        if (role == null || role.isBlank()) return "";
+        try {
+            return ecole_221.sn.ecole.modules.auth.domain.valueobject.RoleUtilisateur.fromString(role).value();
+        } catch (IllegalArgumentException inconnu) {
+            return role.trim().toUpperCase(java.util.Locale.ROOT);   // rôle hors catalogue : jamais dans la liste
+        }
+    }
+
+    /**
+     * Liste d'accès pour la décision HORS LIGNE du terminal du vigile (EF-10) : clé publique des badges
+     * (vérification de la signature sans pouvoir en fabriquer), élèves actifs de l'école (matricule et nom seulement :
+     * aucune donnée financière, APP-TL-22) et membres du personnel (ROLES_PERSONNEL_PORTIQUE seulement : ni parents ni visiteurs, B5). Valable 24 h ; le terminal la retélécharge dès que le réseau revient.
+     */
+    @Override
+    public Map<String, Object> listeAccesHorsLigne() {
+        String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId()
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "École inconnue : précisez l'école (X-Tenant-Slug)."));
+        List<Map<String, Object>> eleves = new java.util.ArrayList<>();
+        List<Map<String, Object>> personnel = new java.util.ArrayList<>();
+        for (var m : appartenances.findByOrganizationId(ecole)) {
+            if (!m.isActive() || m.isExpired()) continue;
+            var u = comptes.findById(m.getUserId()).orElse(null);
+            if (u == null) continue;
+            String nom = ((u.getPrenom() == null ? "" : u.getPrenom() + " ") + (u.getNom() == null ? "" : u.getNom())).trim();
+            Categorie categorie = categorie(u, m);
+            if (categorie == Categorie.ELEVE) {
+                if (u.getMatricule() == null || u.getMatricule().isBlank()) continue;   // pas de badge sans matricule
+                Map<String, Object> e = new HashMap<>();
+                e.put("matricule", u.getMatricule());
+                e.put("nom", nom);
+                eleves.add(e);
+            } else if (categorie == Categorie.PERSONNEL) {   // B5 : PARENT, VISITEUR… absents de la liste
+                Map<String, Object> p = new HashMap<>();
+                p.put("id", u.getId());
+                p.put("matricule", u.getMatricule());
+                p.put("nom", nom);
+                personnel.add(p);
+            }
+        }
+        Map<String, Object> r = new HashMap<>();
+        r.put("clePublique", jetonBadge.clePubliqueBase64());
+        r.put("algorithme", "Ed25519");
+        r.put("genereLe", java.time.Instant.now().toString());
+        r.put("valideJusquA", java.time.Instant.now().plus(java.time.Duration.ofHours(24)).toString());
+        r.put("eleves", eleves);
+        r.put("personnel", personnel);
+        return r;
+    }
+
+    /**
+     * Scan effectué HORS LIGNE puis transmis au retour du réseau (EF-10) : le serveur refait le contrôle à la minute
+     * du scan et inscrit au journal ce qui s'est réellement passé (la décision du terminal), en signalant toute
+     * décision contestée.
+     */
+    @Override
+    public Map<String, Object> enregistrerScanHorsLigne(String badgeId, java.time.Instant scanneLe, boolean autoriseParLeTerminal) {
+        Decision d = decider(badgeId, scanneLe.toEpochMilli() / 60_000L);
+        boolean conteste = d.autorise() != autoriseParLeTerminal;
+        String msg = "Scan hors ligne du " + scanneLe + " : terminal « " + (autoriseParLeTerminal ? "Autorisé" : "Refusé")
+                + " » ; contrôle du serveur : " + d.message() + (conteste ? " — DÉCISION CONTESTÉE" : "");
+        Map<String, Object> log = journaliser(d.nom(), autoriseParLeTerminal, msg);
+        log.put("horsLigne", true);
+        log.put("conteste", conteste);
+        log.put("scanneLe", scanneLe.toString());
+        return log;
+    }
+
+    private Map<String, Object> journaliser(String nom, boolean accessGranted, String msg) {
         Map<String, Object> log = new HashMap<>();
-        log.put("id", "scan-" + UUID.randomUUID().toString().substring(0, 5));
-        log.put("studentName", studentName);
-        log.put("status", statusText);
+        log.put("id", "scan-" + UUID.randomUUID().toString().substring(0, 8));
+        log.put("studentName", nom);
+        log.put("status", accessGranted ? "ENTREE" : "BLOQUE");
         log.put("timestamp", LocalDateTime.now().toString());
-        log.put("statutFrais", feesStatus.getDisplayName());
         log.put("accessGranted", accessGranted);
         log.put("message", msg);
-        
-        scanLogs.add(0, log);
-        adminRepository.addRealtimeLog("Scannage de badge '" + badgeId + "' pour '" + studentName + "' -> " + (accessGranted ? "AUTORISÉ" : "REFUSÉ"));
-
+        journalEcole().add(0, log);
+        adminRepository.addRealtimeLog("Scannage de badge pour '" + nom + "' -> " + (accessGranted ? "AUTORISÉ" : "REFUSÉ"));
         return log;
     }
 
     @Override
     public List<Map<String, Object>> getVigilCheckIns() {
-        return scanLogs;
+        return journalEcole();
     }
 
     @Override
@@ -181,17 +353,11 @@ public class SecurityService implements SecurityUseCase {
             return map;
         }
         
-        // Return default profile if not found
-        Map<String, Object> defaultProfile = new HashMap<>();
-        defaultProfile.put("id", "VIG-221");
-        defaultProfile.put("nom", "Diallo");
-        defaultProfile.put("prenom", "Mamadou");
-        defaultProfile.put("badgeId", "BADGE-VIG-001");
-        defaultProfile.put("equipe", "Jour");
-        defaultProfile.put("derniereConnexion", LocalDateTime.now().toString());
-        defaultProfile.put("statut", "Opérationnel");
-        defaultProfile.put("zone", "Portail Principal");
-        return defaultProfile;
+        // Profil non configuré : réponse explicite
+        Map<String, Object> nonConfigure = new HashMap<>();
+        nonConfigure.put("id", vigilId);
+        nonConfigure.put("statut", "non_configuré");
+        return nonConfigure;
     }
 
     // ==================== MAPPERS ====================

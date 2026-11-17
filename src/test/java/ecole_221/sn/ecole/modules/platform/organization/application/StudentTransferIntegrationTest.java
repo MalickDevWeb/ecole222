@@ -82,6 +82,15 @@ public class StudentTransferIntegrationTest {
 
     @Test
     @Transactional
+    void inscriptionEnDoubleDansLaMemeEcoleDonneUnMessageExact() {
+        studentEnrollmentService.enrollStudent(student.getId(), schoolA.getId());
+        IllegalStateException e = assertThrows(IllegalStateException.class,
+                () -> studentEnrollmentService.enrollStudent(student.getId(), schoolA.getId()));
+        assertEquals("Cet élève est déjà inscrit dans cette école.", e.getMessage());
+    }
+
+    @Test
+    @Transactional
     void testTransferProcess_Success() {
         // 1. Setup: Enroll student in School A
         studentEnrollmentService.enrollStudent(student.getId(), schoolA.getId());

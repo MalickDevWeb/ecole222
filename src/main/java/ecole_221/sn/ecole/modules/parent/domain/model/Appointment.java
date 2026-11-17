@@ -31,10 +31,13 @@ public class Appointment {
     public static Appointment create(String parentId, String professeurId, String professeurNom,
                                      String dateSouhaitee, String motif) {
         String id = "rdv-" + UUID.randomUUID().toString().substring(0, 8);
-        String meetUrl = "https://meet.google.com/rdv-" + UUID.randomUUID().toString().substring(0, 8);
+        // Demande en attente, sans lien ; elle est transmise au professeur par la messagerie parents ↔ école,
+        // où il répond.
         return new Appointment(id, parentId, professeurId, professeurNom, dateSouhaitee, motif,
-                "CONFIRME", meetUrl, LocalDateTime.now());
+                STATUT_EN_ATTENTE, null, LocalDateTime.now());
     }
+
+    public static final String STATUT_EN_ATTENTE = "EN_ATTENTE";
 
     public String getId() { return id; }
     public String getParentId() { return parentId; }

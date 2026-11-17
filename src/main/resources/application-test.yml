@@ -10,3 +10,19 @@ spring:
       ddl-auto: update
   flyway:
     enabled: false
+
+# 2026-11-14 : pas de purge planifiée du journal d'audit pendant les tests (table créée par Flyway, absente ici)
+ecole:
+  audit:
+    purge:
+      active: false
+  # 15/11 : pas de revérification planifiée des domaines propres pendant les tests (aucun accès DNS)
+  domaines:
+    verification:
+      active: false
+  # 16/11 : ni archivage automatique ni reprise au démarrage pendant les tests (tables Flyway absentes de H2)
+  archivage:
+    automatique:
+      active: false
+    reprise:
+      active: false

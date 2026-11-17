@@ -50,7 +50,8 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     
     @Override
     public StudentFinanceJpaEntity getStudentFinanceByStudentId(String studentId) {
-        return studentFinanceRepository.findByStudentId(studentId).orElse(null);
+        // Dossier le plus récent (findByStudentId échoue si l'élève en a plusieurs)
+        return studentFinanceRepository.findAllByStudentIdOrderByCreatedAtDesc(studentId).stream().findFirst().orElse(null);
     }
     
     @Override
@@ -66,31 +67,53 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     @Override
     public StudentFinanceJpaEntity createStudentFinance(StudentFinanceJpaEntity studentFinance) {
         logger.info("Création finance étudiant: {}", studentFinance.getStudentName());
+        // APP-TL-22 : statut jamais saisi à la main, recalculé à partir du dû et du payé
+        studentFinance.setStatus(EcolagesService.statut(nul0(studentFinance.getTotalRequired()), nul0(studentFinance.getPaid())));
         return studentFinanceRepository.save(studentFinance);
     }
     
     @Override
     public StudentFinanceJpaEntity updateStudentFinance(String id, StudentFinanceJpaEntity studentFinance) {
         logger.info("Mise à jour finance étudiant: {}", id);
-        studentFinance.setId(id);
-        return studentFinanceRepository.save(studentFinance);
+        // APP-QA-04 : fiche inexistante → 404 ; seuls les champs éditables, bornés
+        StudentFinanceJpaEntity existante = studentFinanceRepository.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Fiche financière introuvable."));
+        if (studentFinance == null) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Aucune donnée reçue.");
+        }
+        if (studentFinance.getStudentName() != null) {
+            existante.setStudentName(texteBorne(studentFinance.getStudentName(), "Le nom de l'élève", 200));
+        }
+        if (studentFinance.getClasse() != null) {
+            existante.setClasse(texteBorne(studentFinance.getClasse(), "La classe", 100));
+        }
+        if (studentFinance.getStatus() != null && !studentFinance.getStatus().strip().equals(existante.getStatus())) {
+            // APP-TL-22 : le statut n'est pas saisissable
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus(
+                    "Le statut n'est pas modifiable : il est calculé à partir du montant dû et des versements enregistrés.");
+        }
+        existante.setDebt(montant(studentFinance.getDebt(), "La dette", existante.getDebt()));
+        existante.setPaid(montant(studentFinance.getPaid(), "Le montant payé", existante.getPaid()));
+        existante.setTotalRequired(montant(studentFinance.getTotalRequired(), "Le montant total", existante.getTotalRequired()));
+        existante.setStatus(EcolagesService.statut(nul0(existante.getTotalRequired()), nul0(existante.getPaid())));
+        return studentFinanceRepository.save(existante);
     }
     
     @Override
     public void deleteStudentFinance(String id) {
         logger.info("Suppression finance étudiant: {}", id);
-        studentFinanceRepository.deleteById(id);
-    }
-    
-    @Override
-    public StudentFinanceJpaEntity updateStudentStatus(String id, String status) {
-        logger.info("Mise à jour statut étudiant: {} -> {}", id, status);
-        StudentFinanceJpaEntity studentFinance = studentFinanceRepository.findById(id).orElse(null);
-        if (studentFinance != null) {
-            studentFinance.setStatus(status);
-            return studentFinanceRepository.save(studentFinance);
+        // APP-TL-05 : dossier inexistant ou d'une autre école → 404 ; un dossier qui porte des versements n'est pas
+        // supprimé (409) : ce serait effacer l'historique comptable de l'élève.
+        StudentFinanceJpaEntity d = studentFinanceRepository.findById(id)   // @TenantId : école courante
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.NOT_FOUND, "Dossier financier introuvable dans cet établissement."));
+        boolean versements = (d.getPaid() != null && d.getPaid() > 0) || transactionRepository.findByStudentId(d.getStudentId()).stream()
+                .anyMatch(t -> id.equals(t.getStudentFinanceId()));
+        if (versements) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.CONFLICT,
+                    "Ce dossier porte des versements enregistrés : il ne peut pas être supprimé (historique comptable).");
         }
-        return null;
+        studentFinanceRepository.delete(d);
     }
     
     // ==================== GESTION DES DÉPENSES (compatibilité JPA) ====================
@@ -140,25 +163,21 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     @Override
     public List<TransactionDto> getAllTransactions() {
         logger.info("Récupération de toutes les transactions");
-        return financeRepositoryPort.findAllTransactions().stream()
-            .map(this::toTransactionDto)
-            .collect(Collectors.toList());
+        // Lu directement sur l'entité (école courante, @TenantId) pour rendre moyen, référence, élève, classe,
+        // dossier et auteur de la saisie (le modèle Transaction du domaine ne les porte pas)
+        return versDto(transactionRepository.findAll());
     }
     
     @Override
     public List<TransactionDto> getTransactionsByStudentId(String studentId) {
         logger.info("Récupération des transactions par étudiant: {}", studentId);
-        return financeRepositoryPort.findTransactionsByStudentId(studentId).stream()
-            .map(this::toTransactionDto)
-            .collect(Collectors.toList());
+        return versDto(transactionRepository.findByStudentId(studentId));
     }
     
     @Override
     public List<TransactionDto> getRecentTransactions() {
         logger.info("Récupération des transactions récentes");
-        return transactionRepository.findRecentTransactions(LocalDateTime.now().minusDays(30)).stream()
-            .map(this::toTransactionDtoFromEntity)
-            .collect(Collectors.toList());
+        return versDto(transactionRepository.findRecentTransactions(LocalDateTime.now().minusDays(30)));
     }
     
     @Override
@@ -169,7 +188,9 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
         
         // Mettre à jour la finance étudiante si c'est un paiement (compatibilité)
         if ("PAYMENT".equals(transactionDto.type()) && transactionDto.studentId() != null) {
-            StudentFinanceJpaEntity studentFinance = studentFinanceRepository.findByStudentId(transactionDto.studentId()).orElse(null);
+            // Dossier le plus récent (findByStudentId échoue si l'élève en a plusieurs)
+            StudentFinanceJpaEntity studentFinance = studentFinanceRepository.findAllByStudentIdOrderByCreatedAtDesc(transactionDto.studentId())
+                    .stream().findFirst().orElse(null);
             if (studentFinance != null) {
                 try {
                     long amount = Long.parseLong(transactionDto.amount());
@@ -177,12 +198,8 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
                     studentFinance.setDebt(Math.max(0, studentFinance.getDebt() - amount));
                     studentFinance.setLastPaymentDate(LocalDateTime.now());
                     
-                    // Mettre à jour le statut si nécessaire
-                    if (studentFinance.getDebt() == 0) {
-                        studentFinance.setStatus("En Règle");
-                    } else if (studentFinance.getPaid() > studentFinance.getTotalRequired()) {
-                        studentFinance.setStatus("En Avance");
-                    }
+                    // APP-TL-22 : statut recalculé comme pour un encaissement (En Règle, En Avance ou Non soldé)
+                    studentFinance.setStatus(EcolagesService.statut(nul0(studentFinance.getTotalRequired()), nul0(studentFinance.getPaid())));
                     
                     studentFinanceRepository.save(studentFinance);
                 } catch (NumberFormatException e) {
@@ -255,18 +272,7 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     
     // ==================== AUTOMATION (compatibilité JPA) ====================
     
-    @Override
-    public void triggerPaymentReminders() {
-        logger.info("Déclenchement des rappels de paiement");
-        // Logique de rappel à implémenter
-    }
-    
-    @Override
-    public void blockDebtors() {
-        logger.info("Blocage des débiteurs");
-        // Logique de blocage à implémenter
-    }
-    
+
     @Override
     public Map<String, Object> getFinancialReport(String period) {
         logger.info("Génération du rapport financier pour la période: {}", period);
@@ -286,7 +292,8 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
             transaction.getAmount(),
             transaction.getCurrency(),
             transaction.getStatus(),
-            transaction.getTransactionDate()
+            transaction.getTransactionDate(),
+            null, null, null, null, null, null, null   // champs non portés par le modèle du domaine
         );
     }
     
@@ -302,15 +309,66 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
         );
     }
     
-    private TransactionDto toTransactionDtoFromEntity(TransactionJpaEntity entity) {
+    /** Transactions → réponse, avec la classe lue dans le dossier financier (une seule lecture des dossiers). */
+    private List<TransactionDto> versDto(List<TransactionJpaEntity> liste) {
+        java.util.Set<String> ids = liste.stream().map(TransactionJpaEntity::getStudentFinanceId)
+                .filter(java.util.Objects::nonNull).collect(Collectors.toSet());
+        Map<String, StudentFinanceJpaEntity> dossiers = ids.isEmpty() ? Map.of()
+                : studentFinanceRepository.findAllById(ids).stream()
+                    .collect(Collectors.toMap(StudentFinanceJpaEntity::getId, d -> d, (a, b) -> a));
+        return liste.stream().map(t -> toTransactionDtoFromEntity(t, dossiers.get(t.getStudentFinanceId()))).toList();
+    }
+
+    /**
+     * Devise et statut : aucune colonne ne les stocke. « FCFA » est l'unité unique des montants enregistrés ;
+     * « COMPLETED » : chaque ligne de transactions est un mouvement déjà effectué (aucune transaction en attente
+     * n'est enregistrée). Les autres champs viennent de la base, null s'ils n'y sont pas (jamais inventés).
+     */
+    static TransactionDto toTransactionDtoFromEntity(TransactionJpaEntity entity, StudentFinanceJpaEntity dossier) {
+        String nom = entity.getStudentName() != null && !entity.getStudentName().isBlank() ? entity.getStudentName()
+                : dossier == null ? null : dossier.getStudentName();
         return new TransactionDto(
             entity.getId(),
             entity.getStudentId(),
             entity.getTransactionType(),
             entity.getAmount() != null ? entity.getAmount().toString() : "0",
-            "FCFA", // Devise par défaut
-            "COMPLETED", // Statut par défaut
-            entity.getTransactionDate() != null ? entity.getTransactionDate().toString() : null
+            "FCFA",
+            "COMPLETED",
+            entity.getTransactionDate() != null ? entity.getTransactionDate().toString() : null,
+            entity.getPaymentMethod(),
+            entity.getReference(),
+            nom,
+            dossier == null ? null : dossier.getClasse(),
+            entity.getStudentFinanceId(),
+            entity.getSaisiPar(),
+            entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null
         );
+    }
+
+    // ==================== CONTRÔLES DES CHAMPS (APP-QA-04) ====================
+    // APP-TL-22 : statuts d'un dossier tous calculés par EcolagesService.statut (En Règle, En Avance, Non soldé) ;
+    // « En Retard » saisi à la main est supprimé.
+    private static long nul0(Long v) {
+        return v == null ? 0 : v;
+    }
+
+    private static String texteBorne(String v, String libelle, int max) {
+        if (v.isBlank()) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus(libelle + " ne peut pas être vide.");
+        }
+        if (v.strip().length() > max) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus(libelle + " ne doit pas dépasser " + max + " caractères.");
+        }
+        return v.strip();
+    }
+
+    private static Long montant(Long v, String libelle, Long actuel) {
+        if (v == null) {
+            return actuel;
+        }
+        if (v < 0 || v > 1_000_000_000_000L) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus(libelle + " doit être un montant positif (FCFA).");
+        }
+        return v;
     }
 }

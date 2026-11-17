@@ -1,7 +1,8 @@
 package ecole_221.sn.ecole.modules.admissions.infrastructure.web;
 
+import ecole_221.sn.ecole.modules.admissions.application.service.EtatsCandidature;
+
 import ecole_221.sn.ecole.modules.admissions.application.port.dto.CandidateDto;
-import ecole_221.sn.ecole.modules.admissions.application.port.dto.AdmissionSettingsDto;
 import ecole_221.sn.ecole.modules.admissions.application.port.usecase.AdmissionUseCase;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -10,6 +11,8 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.ElementPortailAdmissionJpaEntity;
+import ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.ElementPortailAdmissionJpaRepository;
 import java.util.List;
 import java.util.Map;
 
@@ -19,18 +22,39 @@ import java.util.Map;
 public class AdmissionController {
     
     private static final Logger logger = LoggerFactory.getLogger(AdmissionController.class);
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
     private final AdmissionUseCase admissionUseCase;
     private final ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository;
+    private ecole_221.sn.ecole.modules.admissions.application.service.EspaceCandidatService espace;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setEspace(ecole_221.sn.ecole.modules.admissions.application.service.EspaceCandidatService espace) {
+        this.espace = espace;
+    }
     
+    private final ElementPortailAdmissionJpaRepository elementsPortail;
+    /** Source UNIQUE des réglages de candidature (table parametres_candidatures) — APP-BE-15. */
+    private final ecole_221.sn.ecole.modules.admin.application.service.ParametresCandidaturesService parametres;
+
     public AdmissionController(AdmissionUseCase admissionUseCase) {
-        this(admissionUseCase, null);
+        this(admissionUseCase, null, null, null);
+    }
+
+    public AdmissionController(AdmissionUseCase admissionUseCase,
+                               ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository,
+                               ElementPortailAdmissionJpaRepository elementsPortail) {
+        this(admissionUseCase, candidateJpaRepository, elementsPortail, null);
     }
 
     @org.springframework.beans.factory.annotation.Autowired
     public AdmissionController(AdmissionUseCase admissionUseCase, 
-                               ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository) {
+                               ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaRepository candidateJpaRepository,
+                               ElementPortailAdmissionJpaRepository elementsPortail,
+                               ecole_221.sn.ecole.modules.admin.application.service.ParametresCandidaturesService parametres) {
         this.admissionUseCase = admissionUseCase;
         this.candidateJpaRepository = candidateJpaRepository;
+        this.elementsPortail = elementsPortail;
+        this.parametres = parametres;
     }
     
     // ==================== ENDPOINTS CANDIDATS ====================
@@ -108,30 +132,40 @@ public class AdmissionController {
     
     // ==================== ENDPOINTS PARAMÈTRES ====================
     
+    // APP-BE-15 : ces trois routes lisent et écrivent la MÊME source que /candidatures/settings (table
+    // parametres_candidatures).
+
     @GetMapping("/settings")
-    @Operation(summary = "Paramètres admissions", description = "Retourne les paramètres des admissions")
-    public ResponseEntity<AdmissionSettingsDto> getAdmissionSettings() {
-        logger.info("GET /admissions/settings - Récupération paramètres admissions");
-        AdmissionSettingsDto settings = admissionUseCase.getAdmissionSettings();
-        if (settings == null) {
-            return ResponseEntity.notFound().build();
-        }
-        return ResponseEntity.ok(settings);
+    @Operation(summary = "Paramètres admissions", description = "Mêmes réglages que GET /candidatures/settings (source unique)")
+    public ResponseEntity<Map<String, Object>> getAdmissionSettings() {
+        return ResponseEntity.ok(reglages().lire());
     }
-    
+
     @PutMapping("/settings")
-    @Operation(summary = "Mettre à jour paramètres", description = "Met à jour les paramètres des admissions")
-    public ResponseEntity<AdmissionSettingsDto> updateAdmissionSettings(@RequestBody AdmissionSettingsDto settings) {
-        logger.info("PUT /admissions/settings - Mise à jour paramètres admissions");
-        return ResponseEntity.ok(admissionUseCase.updateAdmissionSettings(settings));
+    @Operation(summary = "Mettre à jour paramètres", description = "Mêmes réglages que POST /candidatures/settings (source unique)")
+    public ResponseEntity<Map<String, Object>> updateAdmissionSettings(@RequestBody Map<String, Object> corps) {
+        return ResponseEntity.ok(reglages().enregistrer(corps));
     }
-    
+
     @PatchMapping("/settings/toggle")
-    @Operation(summary = "Ouvrir/Fermer candidatures", description = "Active ou désactive le système de candidature")
-    public ResponseEntity<Map<String, Object>> toggleAdmissions(@RequestBody Map<String, Boolean> body) {
-        logger.info("PATCH /admissions/settings/toggle - Toggle candidatures");
-        admissionUseCase.toggleAdmissions(body.get("isOpen"));
-        return ResponseEntity.ok(Map.of("success", true, "isOpen", body.get("isOpen")));
+    @Operation(summary = "Ouvrir/Fermer candidatures", description = "Corps {isOpen} ; même source que /candidatures/settings")
+    public ResponseEntity<Map<String, Object>> toggleAdmissions(@RequestBody(required = false) Map<String, Object> body) {
+        // APP-QA-04 : isOpen obligatoire (true / false).
+        Boolean choix = ecole_221.sn.ecole.partage.ChampsRequete.booleenOptionnel(body, "isOpen", "« isOpen »");
+        if (choix == null) {
+            throw ecole_221.sn.ecole.partage.ChampsRequete.refus("Indiquez isOpen : true pour ouvrir les candidatures, false pour les fermer.");
+        }
+        boolean ouvert = choix;
+        reglages().definirOuverture(ouvert);
+        return ResponseEntity.ok(Map.of("success", true, "isOpen", ouvert));
+    }
+
+    private ecole_221.sn.ecole.modules.admin.application.service.ParametresCandidaturesService reglages() {
+        if (parametres == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Réglages de candidature indisponibles.");
+        }
+        return parametres;
     }
     
     // ==================== ENDPOINTS WORKFLOW ====================
@@ -171,155 +205,324 @@ public class AdmissionController {
     @Operation(summary = "Envoyer invitations entretien", description = "Envoie les invitations d'entretien")
     public ResponseEntity<Map<String, Object>> sendInterviewInvitations() {
         logger.info("POST /admissions/automation/interviews - Envoi invitations entretien");
-        admissionUseCase.sendInterviewInvitations();
-        return ResponseEntity.ok(Map.of("success", true, "message", "Invitations d'entretien envoyées avec succès"));
+        int passes = admissionUseCase.sendInterviewInvitations();
+        return ResponseEntity.ok(Map.of("success", true, "dossiersPassesEnEntretien", passes,
+                "message", passes + " dossier(s) passé(s) à l'étape « entretien ». Aucune invitation n'est envoyée automatiquement : prévenez les candidats."));
     }
     
-    @PostMapping("/automation/matricules")
-    @Operation(summary = "Générer matricules", description = "Génère les matricules pour les candidats acceptés")
-    public ResponseEntity<Map<String, Object>> generateMatricules() {
-        logger.info("POST /admissions/automation/matricules - Génération matricules");
-        admissionUseCase.generateMatricules();
-        return ResponseEntity.ok(Map.of("success", true, "message", "Matricules générées avec succès"));
+    // APP-TL-23 : POST /automation/matricules est retiré (il calculait des matricules sans rien enregistrer, puis
+    // répondait 501). L'inscription d'un admis se fait dossier par dossier : POST /candidates/{id}/inscription.
+
+    /** Inscription d'un admis en élève (APP-TL-23) ; absente des tests qui construisent le contrôleur à la main. */
+    private ecole_221.sn.ecole.modules.admin.application.service.InscriptionAdmisService inscription;
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    void setInscription(ecole_221.sn.ecole.modules.admin.application.service.InscriptionAdmisService inscription) {
+        this.inscription = inscription;
+    }
+
+    @PostMapping("/candidates/{id}/inscription")
+    @Operation(summary = "Inscrire un candidat admis",
+            description = "Crée le compte élève d'un dossier admis dont les frais de dossier sont confirmés par l'école "
+                    + "(matricule, connexion par e-mail ou par matricule), lie le parent qui a déposé le dossier, et, si demandé, "
+                    + "affecte une classe et ouvre le dossier financier. Une seule transaction ; un dossier n'est inscrit qu'une fois. "
+                    + "Corps : {emailEleve?, sansEmail?, ine?, classeId?, relationParent?, lierGarant?, fraisDossier?: {moyen, reference?}, "
+                    + "dossierFinancier?: {montantDu}, eleveExistantId?}. Mots de passe provisoires renvoyés une seule fois.")
+    public ResponseEntity<Map<String, Object>> inscrire(@PathVariable String id,
+                                                        @RequestBody(required = false) Map<String, Object> body) {
+        if (inscription == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Inscription des admis indisponible.");
+        }
+        logger.info("POST /admissions/candidates/{}/inscription", id);
+        return ResponseEntity.status(org.springframework.http.HttpStatus.CREATED)
+                .body(inscription.inscrire(id, body == null ? Map.of() : body));
     }
 
     // ==================== ENDPOINT CANDIDATURE PORTAL DB ====================
-    private static final List<Map<String, Object>> portalCandidates = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private static final List<Map<String, Object>> portalCampaigns = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private static final List<Map<String, Object>> portalAuditLogs = new java.util.concurrent.CopyOnWriteArrayList<>();
-    private static final List<Map<String, Object>> portalMessages = new java.util.concurrent.CopyOnWriteArrayList<>();
+    // Candidats = table candidates, campagnes / messages / journal = table admissions_portail_elements ; tout est
+    // cloisonné par école (@TenantId).
 
-    static {
-        portalCampaigns.add(Map.of(
-            "id", "camp-1",
-            "title", "Licence Informatique & Génie Logiciel (L1/L2/L3)",
-            "code", "LICENCE",
-            "state", "Ouverte",
-            "deadline", "30 Octobre 2026",
-            "fees", 25000,
-            "requirements", List.of("Baccalauréat Scientifique ou Technique", "Bulletins de Terminale"),
-            "imageUrl", "https://images.unsplash.com/photo-1522202176988-66273c2fd55f?auto=format&fit=crop&w=600&q=80"
-        ));
-        portalCampaigns.add(Map.of(
-            "id", "camp-2",
-            "title", "Master Cloud Computing & DevOps (M1/M2)",
-            "code", "MASTER",
-            "state", "Ouverte",
-            "deadline", "15 Novembre 2026",
-            "fees", 35000,
-            "requirements", List.of("Licence Informatique ou équivalent", "Relevés de notes universitaires"),
-            "imageUrl", "https://images.unsplash.com/photo-1531482615713-2afd69097998?auto=format&fit=crop&w=600&q=80"
-        ));
+    private void exigerStockage() {
+        if (candidateJpaRepository == null || elementsPortail == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE, "Stockage des admissions indisponible.");
+        }
+    }
+
+    private List<Map<String, Object>> lireElements(String nature) {
+        List<Map<String, Object>> res = new java.util.ArrayList<>();
+        for (ElementPortailAdmissionJpaEntity e : elementsPortail.findByNatureOrderByPositionAsc(nature)) {
+            try {
+                res.add(JSON.readValue(e.getContenuJson(), new com.fasterxml.jackson.core.type.TypeReference<Map<String, Object>>() {}));
+            } catch (Exception ex) {
+                logger.warn("Élément {} du portail illisible, ignoré", e.getId());
+            }
+        }
+        return res;
+    }
+
+    /** Remplace la liste (campagnes, messages ou journal) de l'école courante. */
+    private void remplacerElements(String nature, List<?> liste) {
+        elementsPortail.deleteAll(elementsPortail.findByNatureOrderByPositionAsc(nature));
+        int position = 0;
+        for (Object item : liste) {
+            ElementPortailAdmissionJpaEntity e = new ElementPortailAdmissionJpaEntity();
+            e.setId(java.util.UUID.randomUUID().toString());
+            e.setNature(nature);
+            e.setPosition(position++);
+            try {
+                e.setContenuJson(JSON.writeValueAsString(item));
+            } catch (Exception ex) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "Élément illisible dans la liste « " + nature + " ».");
+            }
+            e.setUpdatedAt(java.time.LocalDateTime.now());
+            elementsPortail.save(e);
+        }
+    }
+
+    private static List<?> listeDeMaps(Map<String, Object> body, String cle) {
+        Object v = body.get(cle);
+        if (v == null) return null;
+        if (!(v instanceof List<?> l)) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "« " + cle + " » doit être une liste.");
+        }
+        for (Object o : l) {
+            if (!(o instanceof Map<?, ?>)) {
+                throw new org.springframework.web.server.ResponseStatusException(
+                        org.springframework.http.HttpStatus.BAD_REQUEST, "« " + cle + " » ne doit contenir que des objets.");
+            }
+        }
+        return l;
     }
 
     @GetMapping("/db")
     @Operation(summary = "Base admissions globale", description = "Retourne les campagnes, candidats, messages et audits synchronisés avec PostgreSQL")
     public ResponseEntity<Map<String, Object>> getAdmissionsDb() {
         java.util.List<Map<String, Object>> candidatesList = new java.util.ArrayList<>();
+        // Messages des candidats pas encore lus par l'école (badge sur le dossier)
+        Map<String, Long> nonLus = espace == null ? Map.of() : espace.nonLusParEcole();
         java.util.List<ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity> entities = 
-            candidateJpaRepository != null ? candidateJpaRepository.findAll() : null;
+            candidateJpaRepository != null ? candidateJpaRepository.findAll() : List.of();
 
-        if (entities != null && !entities.isEmpty()) {
+        {
             for (ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity e : entities) {
                 Map<String, Object> c = new java.util.HashMap<>();
                 c.put("id", e.getId());
                 c.put("name", e.getFullName() != null ? e.getFullName() : (e.getFirstName() + " " + e.getLastName()).trim());
                 c.put("email", e.getEmail() != null ? e.getEmail() : "");
-                c.put("course", e.getCourseChoice() != null ? e.getCourseChoice() : "Licence Informatique");
-                c.put("type", (e.getCourseChoice() != null && e.getCourseChoice().contains("Master")) ? "MASTER" : "LICENCE");
+                c.put("phone", blankToNull(e.getPhone()));   // « Prévenir par WhatsApp » depuis le dossier
+                // plus de formation « Licence Informatique » par défaut : null si le candidat n'en a pas choisi
+                c.put("course", blankToNull(e.getCourseChoice()));
+                c.put("type", e.getCourseChoice() == null || e.getCourseChoice().isBlank() ? null
+                        : (e.getCourseChoice().contains("Master") ? "MASTER" : "LICENCE"));
                 c.put("step", e.getCurrentStep() != null ? e.getCurrentStep() : "new");
                 c.put("registrationFeePaid", Boolean.TRUE.equals(e.getRegistrationFeePaid()));
+                // APP-TL-23 : dossier inscrit (élève créé) → l'écran n'affiche plus le bouton « Inscrire »
+                c.put("inscrit", e.estInscrit());
+                c.put("eleveId", e.getEleveId());
+                c.put("parentDeposant", e.getParentId() != null);
                 c.put("docs", Map.of(
                     "idCard", Boolean.TRUE.equals(e.getIdCardUploaded()),
                     "diploma", Boolean.TRUE.equals(e.getDiplomaUploaded()),
-                    "transcripts", true
+                    // APP-BE-04 : jamais « true » en dur ; vrai seulement si un relevé a réellement été envoyé
+                    "transcripts", lireInfo(e.getAdditionalInfo(), "relevesNotesUrl") != null
                 ));
                 Map<String, Object> details = new java.util.HashMap<>();
-                details.put("cniNumber", "CNI-" + e.getId());
-                details.put("cniUrl", "https://res.cloudinary.com/qudmvipg/image/upload/v1792170944/file-f82d806f.png");
-                details.put("cniStatus", "verified");
-                details.put("paymentMethod", "WAVE");
-                details.put("paymentTransactionRef", e.getRegistrationFeeReference() != null ? e.getRegistrationFeeReference() : "WAVE-SN-7382");
+                // APP-BE-17 / APP-BE-04 : numéro et pièce saisis par le candidat uniquement (jamais inventés), sinon null
+                details.put("cniNumber", lireInfo(e.getAdditionalInfo(), "numeroPiece"));
+                details.put("cniUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "pieceIdentiteUrl")));
+                details.put("cniStatus", "unknown");
+                // APP-BE-04 : moyen et référence de paiement réels uniquement, sinon null (jamais de fausse transaction)
+                details.put("paymentMethod", readPaymentMethod(e.getAdditionalInfo()));
+                // Pièces réellement envoyées (dossier déposé par un parent) : liens à ouvrir, sinon null
+                details.put("photoUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "photoIdentiteUrl")));
+                details.put("transcriptsUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "relevesNotesUrl")));
+                details.put("diplomaUrl", lienHttp(lireInfo(e.getAdditionalInfo(), "diplomeUrl")));
+                // Informations saisies au dépôt (identité, garant, cursus)
+                details.put("dossier", lireDossier(e.getAdditionalInfo()));
+                // Règles d'admission appliquées au dépôt (avertissements, pièces exigées en plus, session)
+                details.put("alertesRegles", List.copyOf(lirePrefixe(e.getAdditionalInfo(), "alerteRegle.").values()));
+                details.put("piecesSupplementaires", lirePrefixe(e.getAdditionalInfo(), "pieceSuppLibelle.").entrySet().stream()
+                        .map(p -> Map.of("code", p.getKey(), "libelle", p.getValue())).toList());
+                details.put("campagneId", lireInfo(e.getAdditionalInfo(), "campagneId"));
+                c.put("messagesNonLus", nonLus.getOrDefault(e.getId(), 0L));
+                details.put("paymentTransactionRef", blankToNull(e.getRegistrationFeeReference()));
                 details.put("paymentStatus", Boolean.TRUE.equals(e.getRegistrationFeePaid()) ? "approved" : "pending");
                 c.put("details", details);
                 candidatesList.add(c);
             }
-        } else {
-            candidatesList.addAll(portalCandidates);
         }
 
+        boolean stockage = elementsPortail != null;
         return ResponseEntity.ok(Map.of(
             "candidates", candidatesList,
-            "campaigns", portalCampaigns,
-            "auditLogs", portalAuditLogs,
-            "messages", portalMessages
+            "campaigns", stockage ? lireElements(ElementPortailAdmissionJpaEntity.CAMPAGNE) : List.of(),
+            "auditLogs", stockage ? lireElements(ElementPortailAdmissionJpaEntity.AUDIT) : List.of(),
+            "messages", stockage ? lireElements(ElementPortailAdmissionJpaEntity.MESSAGE) : List.of()
         ));
+    }
+
+    /** Lit la clé « paymentMethod » du JSON additionalInfo ; null si absente, vide ou JSON illisible. */
+    static String readPaymentMethod(String additionalInfo) {
+        return lireInfo(additionalInfo, "paymentMethod");
+    }
+
+    /** Lien http(s) uniquement (jamais « javascript: » ni autre schéma dans un lien affiché à l'administration). */
+    static String lienHttp(String url) {
+        return url != null && url.matches("(?i)^https?://\\S+$") ? url : null;
+    }
+
+    private static final List<String> CHAMPS_DOSSIER = List.of("dateNaissance", "lieuNaissance", "sexe", "nationalite",
+            "numeroPiece", "adresse", "niveau", "diplomePrecedent", "etablissementPrecedent", "serieBac", "anneeBac",
+            "mentionBac", "sessionRentree", "garantNom", "garantLien", "garantTelephone", "garantEmail", "garantProfession",
+            "deposePar");
+
+    /** Champs texte connus du dossier, dans un ordre fixe ; vide si rien n'a été saisi. */
+    static Map<String, String> lireDossier(String additionalInfo) {
+        Map<String, String> dossier = new java.util.LinkedHashMap<>();
+        for (String champ : CHAMPS_DOSSIER) {
+            String v = lireInfo(additionalInfo, champ);
+            if (v != null) {
+                dossier.put(champ, v);
+            }
+        }
+        return dossier;
+    }
+
+    /** Lit une clé texte du JSON additionalInfo ; null si absente, vide ou JSON illisible. */
+    /** Champs texte dont le nom commence par {@code prefixe} (« alerteRegle.1 »…), dans l'ordre : suffixe → valeur. */
+    static Map<String, String> lirePrefixe(String additionalInfo, String prefixe) {
+        Map<String, String> res = new java.util.LinkedHashMap<>();
+        if (additionalInfo == null || additionalInfo.isBlank()) {
+            return res;
+        }
+        try {
+            JSON.readTree(additionalInfo).properties().forEach(champ -> {
+                if (champ.getKey().startsWith(prefixe) && champ.getValue().isValueNode() && !champ.getValue().isNull()) {
+                    String v = blankToNull(champ.getValue().asText());
+                    if (v != null) res.put(champ.getKey().substring(prefixe.length()), v);
+                }
+            });
+        } catch (Exception ex) {
+            logger.warn("additionalInfo illisible pour la lecture des champs « {}* »", prefixe);
+        }
+        return res;
+    }
+
+    static String lireInfo(String additionalInfo, String cle) {
+        if (additionalInfo == null || additionalInfo.isBlank()) {
+            return null;
+        }
+        try {
+            com.fasterxml.jackson.databind.JsonNode node = JSON.readTree(additionalInfo).get(cle);
+            if (node == null || node.isNull() || !node.isValueNode()) {
+                return null;
+            }
+            return blankToNull(node.asText());
+        } catch (Exception ex) {
+            logger.warn("additionalInfo illisible pour la lecture de « {} »", cle);
+            return null;
+        }
+    }
+
+    private static String blankToNull(String value) {
+        return (value == null || value.isBlank()) ? null : value;
     }
 
     @PostMapping("/db")
     @Operation(summary = "Mettre à jour la base admissions", description = "Synchronise les modifications du portail candidat avec PostgreSQL")
+    @org.springframework.transaction.annotation.Transactional
     public ResponseEntity<Map<String, Object>> saveAdmissionsDb(@RequestBody Map<String, Object> body) {
-        if (body.containsKey("candidates") && body.get("candidates") instanceof List<?> list) {
-            portalCandidates.clear();
-            for (Object item : list) {
-                if (item instanceof Map<?, ?> m) {
-                    Map<String, Object> map = (Map<String, Object>) m;
-                    portalCandidates.add(map);
+        exigerStockage();
+        if (body == null) {
+            throw new org.springframework.web.server.ResponseStatusException(
+                    org.springframework.http.HttpStatus.BAD_REQUEST, "Corps de requête manquant.");
+        }
+        List<?> candidats = listeDeMaps(body, "candidates");
+        List<?> campagnes = listeDeMaps(body, "campaigns");
+        List<?> journal = listeDeMaps(body, "auditLogs");
+        List<?> messages = listeDeMaps(body, "messages");
+        // APP-QA-04 : rien à enregistrer → refus
+        if (candidats == null && campagnes == null && journal == null && messages == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST,
+                    "Aucune donnée à enregistrer (candidates, campaigns, auditLogs ou messages attendu).");
+        }
 
-                    String id = String.valueOf(map.getOrDefault("id", ""));
-                    if (!id.isBlank() && candidateJpaRepository != null) {
-                        String name = String.valueOf(map.getOrDefault("name", ""));
-                        String email = String.valueOf(map.getOrDefault("email", ""));
-                        String course = String.valueOf(map.getOrDefault("course", ""));
-                        String step = String.valueOf(map.getOrDefault("step", "new"));
-                        boolean paid = Boolean.parseBoolean(String.valueOf(map.getOrDefault("registrationFeePaid", false)));
+        // Validation AVANT toute écriture : pas d'enregistrement partiel, pas de formation par défaut.
+        if (candidats != null) {
+            for (Object item : candidats) {
+                Map<?, ?> m = (Map<?, ?>) item;
+                String id = texte(m.get("id"));
+                if (id == null) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.BAD_REQUEST, "Candidat sans identifiant.");
+                }
+                if (texte(m.get("course")) == null) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.BAD_REQUEST, "Formation demandée manquante pour le candidat " + id + ".");
+                }
+                if (texte(m.get("name")) == null) {
+                    throw new org.springframework.web.server.ResponseStatusException(
+                            org.springframework.http.HttpStatus.BAD_REQUEST, "Nom manquant pour le candidat " + id + ".");
+                }
+            }
+            for (Object item : candidats) {
+                Map<?, ?> map = (Map<?, ?>) item;
+                String id = texte(map.get("id"));
+                String name = texte(map.get("name"));
+                String email = texte(map.get("email"));
+                String course = texte(map.get("course"));
+                String step = texte(map.get("step"));
+                boolean paid = Boolean.parseBoolean(String.valueOf(map.get("registrationFeePaid")));
 
-                        ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity entity = 
-                            candidateJpaRepository.findById(id).orElseGet(() -> {
-                                ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity ne = 
-                                    new ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity();
-                                ne.setId(id);
-                                return ne;
-                            });
+                ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity entity =
+                    candidateJpaRepository.findById(id).orElseGet(() -> {
+                        ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity ne =
+                            new ecole_221.sn.ecole.modules.admissions.infrastructure.persistence.CandidateJpaEntity();
+                        ne.setId(id);
+                        return ne;
+                    });
 
-                        entity.setFullName(name);
-                        String[] parts = name.split("\\s+", 2);
-                        entity.setFirstName(parts[0]);
-                        entity.setLastName(parts.length > 1 ? parts[1] : parts[0]);
-                        entity.setEmail(email);
-                        entity.setCourseChoice(course);
-                        entity.setCurrentStep(step);
-                        entity.setRegistrationFeePaid(paid);
-                        entity.setUpdatedAt(java.time.LocalDateTime.now());
-                        candidateJpaRepository.save(entity);
+                if (entity.estInscrit()) {
+                    // APP-TL-23 : un dossier inscrit est figé ; la synchronisation du portail le renvoie tel quel.
+                    boolean modifie = !java.util.Objects.equals(name, entity.getFullName())
+                            || !java.util.Objects.equals(email, entity.getEmail())
+                            || !java.util.Objects.equals(course, entity.getCourseChoice())
+                            || (step != null && !step.equals(entity.getCurrentStep()))
+                            || paid != Boolean.TRUE.equals(entity.getRegistrationFeePaid());
+                    if (modifie) {
+                        throw new org.springframework.web.server.ResponseStatusException(
+                                org.springframework.http.HttpStatus.CONFLICT, EtatsCandidature.DOSSIER_INSCRIT + " (" + id + ")");
                     }
+                    continue;
                 }
+                entity.setFullName(name);
+                String[] parts = name.split("\\s+", 2);
+                entity.setFirstName(parts[0]);
+                entity.setLastName(parts.length > 1 ? parts[1] : parts[0]);
+                entity.setEmail(email);
+                entity.setCourseChoice(course);
+                if (step != null && !step.equals(entity.getCurrentStep())) {
+                    entity.setCurrentStep(EtatsCandidature.etape(step));
+                    EtatsCandidature.apresEtape(entity);   // la décision suit l'étape du Kanban (APP-BE-24)
+                }
+                entity.setRegistrationFeePaid(paid);
+                entity.setUpdatedAt(java.time.LocalDateTime.now());
+                candidateJpaRepository.save(entity);
             }
         }
-        if (body.containsKey("campaigns") && body.get("campaigns") instanceof List<?> list) {
-            portalCampaigns.clear();
-            for (Object item : list) {
-                if (item instanceof Map<?, ?> m) {
-                    portalCampaigns.add((Map<String, Object>) m);
-                }
-            }
-        }
-        if (body.containsKey("auditLogs") && body.get("auditLogs") instanceof List<?> list) {
-            portalAuditLogs.clear();
-            for (Object item : list) {
-                if (item instanceof Map<?, ?> m) {
-                    portalAuditLogs.add((Map<String, Object>) m);
-                }
-            }
-        }
-        if (body.containsKey("messages") && body.get("messages") instanceof List<?> list) {
-            portalMessages.clear();
-            for (Object item : list) {
-                if (item instanceof Map<?, ?> m) {
-                    portalMessages.add((Map<String, Object>) m);
-                }
-            }
-        }
+        if (campagnes != null) remplacerElements(ElementPortailAdmissionJpaEntity.CAMPAGNE, campagnes);
+        if (journal != null) remplacerElements(ElementPortailAdmissionJpaEntity.AUDIT, journal);
+        if (messages != null) remplacerElements(ElementPortailAdmissionJpaEntity.MESSAGE, messages);
         return ResponseEntity.ok(Map.of("success", true));
+    }
+
+    private static String texte(Object v) {
+        if (v == null) return null;
+        String s = v.toString().trim();
+        return s.isEmpty() ? null : s;
     }
 }
