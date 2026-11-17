@@ -23,3 +23,10 @@ logging:
     org.hibernate.type.descriptor.sql.BasicBinder: TRACE
     org.springframework.jdbc: DEBUG
     org.springframework.transaction: DEBUG
+
+# B6 (15/11) : profil de développement : Swagger UI et /v3/api-docs ouverts (fermés par défaut dans application.yaml).
+springdoc:
+  api-docs:
+    enabled: ${SPRINGDOC_ENABLED:true}
+  swagger-ui:
+    enabled: ${SPRINGDOC_ENABLED:true}

@@ -43,7 +43,9 @@ import java.util.concurrent.ForkJoinPool;
  *       (pas de différence de temps de réponse) : aucune fuite de l'existence des comptes ;</li>
  *   <li>au plus {@value #DEMANDES_MAX} demandes par adresse en 15 minutes ; une nouvelle demande annule les liens
  *       précédents non utilisés ;</li>
- *   <li>lien construit sur l'adresse configurée du site (app.url-frontend), jamais sur l'en-tête de la requête.</li>
+ *   <li>lien construit sur l'adresse configurée du site (app.url-frontend), jamais sur la requête (Host,
+ *       X-Forwarded-Host, Origin, Referer, X-Tenant-Slug) ni sur un domaine propre d'école ; l'école du lien
+ *       (« /t/&lt;slug&gt; ») est l'école d'APPARTENANCE du compte (revue DevSecOps).</li>
  * </ul>
  */
 @Service
@@ -83,8 +85,20 @@ public class ReinitialisationMotDePasseService {
      * Demande d'un lien. Ne lève jamais d'erreur selon l'existence du compte : seule la limite de demandes
      * (429) et une adresse vide ou mal formée (400) sont signalées.
      */
+    /** Appartenances et écoles : école du lien (facultatives dans les tests construits sans Spring). */
+    @Autowired(required = false)
+    private ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances;
+    @Autowired(required = false)
+    private ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationRepositoryPort ecoles;
+
+    void setAppartenances(ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort a,
+                          ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationRepositoryPort e) {
+        this.appartenances = a;
+        this.ecoles = e;
+    }
+
     @Transactional
-    public void demander(String emailBrut, String slugEcole) {
+    public void demander(String emailBrut) {
         String adresse = emailBrut == null ? "" : emailBrut.trim().toLowerCase(Locale.ROOT);
         if (adresse.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Saisissez l'adresse e-mail de votre compte.");
@@ -118,6 +132,7 @@ public class ReinitialisationMotDePasseService {
         d.setExpireLe(maintenant.plusMinutes(VALIDITE_MINUTES));
         demandes.save(d);
 
+        String slugEcole = ecoleDuCompte(compte.getId());
         String lien = urlFrontend + (slugEcole == null || slugEcole.isBlank() ? "" : "/t/" + slugEcole)
                 + "/reinitialiser-mot-de-passe?jeton=" + jeton;
         String prenom = compte.getPrenom() == null ? "" : " " + compte.getPrenom();
@@ -134,24 +149,74 @@ public class ReinitialisationMotDePasseService {
         });
     }
 
+    /** Slug de l'école d'appartenance du compte (même choix qu'à la connexion), ou null. */
+    private String ecoleDuCompte(String userId) {
+        if (appartenances == null || ecoles == null) {
+            return null;
+        }
+        try {
+            var choix = ecole_221.sn.ecole.modules.platform.organization.application.EcoleDuCompte
+                    .choisir(appartenances.findByUserId(userId), ecoles::findById);
+            return choix.retenue() == null ? null : choix.retenue().getSlug();
+        } catch (RuntimeException e) {
+            logger.warn("École du compte introuvable pour le lien de réinitialisation : {}", e.getMessage());
+            return null;
+        }
+    }
+
     /** Nouveau mot de passe avec un jeton valide ; 400 précis sinon. */
     @Transactional
     public void reinitialiser(String jeton, String nouveau) {
-        String regle = ChangementMotDePasseService.erreurRegles(nouveau);
+        reinitialiser(jeton, nouveau, null);
+    }
+
+    /** Essais du code oral (lien d'un compte à privilèges) avant annulation du lien. */
+    public static final int ESSAIS_CODE_MAX = 5;
+
+    /**
+     * Nouveau mot de passe avec un jeton valide. V20 : un lien annulé ou en attente de l'accord d'un second
+     * administrateur est refusé comme un lien expiré ; un lien de compte à privilèges exige en plus le code oral de
+     * 6 chiffres (5 essais, puis le lien est annulé).
+     */
+    @Transactional(noRollbackFor = ResponseStatusException.class)
+    public void reinitialiser(String jeton, String nouveau, String code) {
         if (jeton == null || jeton.isBlank()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, LIEN_INVALIDE);
         }
         ReinitialisationMotDePasseJpaEntity d = demandes.findByJetonHache(hacher(jeton.trim()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, LIEN_INVALIDE));
         LocalDateTime maintenant = LocalDateTime.now(horloge);
-        if (d.getUtiliseLe() != null || !maintenant.isBefore(d.getExpireLe())) {
+        if (d.getUtiliseLe() != null || d.getAnnuleLe() != null || !maintenant.isBefore(d.getExpireLe())
+                || (d.isAccordRequis() && d.getAccordePar() == null)) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, LIEN_INVALIDE);
         }
-        if (regle != null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, regle);   // le lien reste utilisable
+        if (d.getCodeHache() != null) {
+            String saisi = code == null ? "" : code.replaceAll("\\s", "");
+            if (saisi.isEmpty()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Saisissez le code de 6 chiffres que l'école vous a communiqué de vive voix.");
+            }
+            if (!encodeur.matches(saisi, d.getCodeHache())) {
+                d.setEssaisCode(d.getEssaisCode() + 1);
+                if (d.getEssaisCode() >= ESSAIS_CODE_MAX) {
+                    d.setAnnuleLe(maintenant);
+                    demandes.save(d);
+                    logger.warn("[ALERTE SÉCURITÉ] Lien {} annulé après {} codes erronés", d.getId(), ESSAIS_CODE_MAX);
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                            "Trop de codes erronés : ce lien est annulé. Demandez un nouveau lien à votre école.");
+                }
+                demandes.save(d);
+                int reste = ESSAIS_CODE_MAX - d.getEssaisCode();
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                        "Code incorrect : " + reste + " essai" + (reste > 1 ? "s" : "") + " restant" + (reste > 1 ? "s" : "") + ".");
+            }
         }
         UserJpaEntity compte = comptes.findById(d.getUserId())
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.BAD_REQUEST, LIEN_INVALIDE));
+        String regle = ChangementMotDePasseService.erreurRegles(nouveau, compte);   // règle unique
+        if (regle != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, regle);   // le lien reste utilisable
+        }
         compte.setPassword(encodeur.encode(nouveau));
         compte.setDoitChangerMotDePasse(null);
         comptes.save(compte);
@@ -183,7 +248,7 @@ public class ReinitialisationMotDePasseService {
         return Base64.getUrlEncoder().withoutPadding().encodeToString(octets);
     }
 
-    static String hacher(String jeton) {
+    public static String hacher(String jeton) {
         try {
             return HexFormat.of().formatHex(MessageDigest.getInstance("SHA-256").digest(jeton.getBytes(StandardCharsets.UTF_8)));
         } catch (NoSuchAlgorithmException e) {

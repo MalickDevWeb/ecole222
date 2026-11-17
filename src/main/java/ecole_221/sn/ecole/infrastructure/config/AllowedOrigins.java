@@ -11,6 +11,9 @@ import java.util.List;
  * <p>APP-SEC-04 : la liste se règle par la variable d'environnement {@code CORS_ALLOWED_ORIGINS}
  * (motifs séparés par des virgules). Sans elle : postes de développement + frontend de production.
  * Le joker global « * » est toujours refusé (allowCredentials=true).
+ *
+ * <p>Domaines des écoles : aucune origine n'est ajoutée dynamiquement ; un hôte d'école appelle l'API en
+ * même origine (relais /api).</p>
  */
 public final class AllowedOrigins {
 

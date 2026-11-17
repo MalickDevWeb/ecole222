@@ -193,22 +193,30 @@ public class AdminController {
     }
 
     @PostMapping("/students")
-    @Operation(summary = "Ajouter étudiant", description = "Crée le compte de l'élève dans l'école courante. E-mail obligatoire (identifiant de connexion) ; "
-            + "mot de passe saisi (8 caractères min.) ou généré et renvoyé une seule fois dans motDePasseProvisoire.")
-    public ResponseEntity<Map<String, Object>> addStudent(@RequestBody Map<String, String> body) {
+    @Operation(summary = "Ajouter étudiant", description = "Crée le compte de l'élève dans l'école courante. E-mail (identifiant de connexion) "
+            + "OU sansEmail: true (connexion par matricule, APP-TL-23) ; 400 si ni l'un ni l'autre ; matricule facultatif (généré sinon) ; "
+            + "mot de passe saisi (8 caractères min.) ou généré et renvoyé une seule fois dans motDePasseProvisoire ; "
+            + "réponse : identifiant de connexion (matricule si sans e-mail).")
+    public ResponseEntity<Map<String, Object>> addStudent(@RequestBody Map<String, Object> corps) {
+        // Corps lu en Map<String, Object>. L'écran envoie « sansEmail » en booléen (true), comme le documente
+        // cette route ; avec Map<String, String> et la configuration JSON stricte (JsonStrictConfig), la requête serait
+        // refusée (400 « texte attendu »).
+        Map<String, String> body = enTextes(corps);
         String[] nom = noms(body);
         logger.info("POST /admin/students - Création d'un élève");
         ClasseJpaEntity classe = classeDeLEcole(premier(body.get("classeId"), body.get("promotion_id")));   // 400 avant toute création
-        CompteCree cree = comptesEcole.creer(nom[0], nom[1], body.get("email"),
-                premier(body.get("telephone"), body.get("phoneParent")), body.get("matricule"), "ETUDIANT",
-                body.get("password"));
+        boolean sansEmail = "true".equalsIgnoreCase(texte(body.get("sansEmail")));
+        CompteCree cree = comptesEcole.creerEleve(nom[0], nom[1], body.get("email"), sansEmail,
+                premier(body.get("telephone"), body.get("phoneParent")), body.get("matricule"), body.get("password"));
         UserJpaEntity u = cree.compte();
-        actionLogger.logAdminAction("ADD_STUDENT", "ADMIN", u.getId(), "Élève créé : " + u.getEmail());
+        actionLogger.logAdminAction("ADD_STUDENT", "ADMIN", u.getId(), "Élève créé : " + u.getMatricule());
         if (classe != null) {
             inscriptions.save(new InscriptionClasseJpaEntity(UUID.randomUUID().toString(), u.getId(), classe.getId()));
         }
 
         Map<String, Object> response = eleve(u, "ACTIVE", classe == null ? null : Map.of(u.getId(), classe));
+        // identifiant à remettre : matricule pour un élève sans e-mail (jamais l'identifiant technique .invalid)
+        response.put("identifiant", Boolean.TRUE.equals(response.get("sansEmail")) ? u.getMatricule() : u.getEmail());
         if (cree.motDePasseProvisoire() != null) {
             response.put("motDePasseProvisoire", cree.motDePasseProvisoire());
         }
@@ -557,6 +565,15 @@ public class AdminController {
             return new String[] {body.get("firstName"), body.get("lastName")};
         }
         return ComptesEcoleService.decouperNom(body.get("name"));
+    }
+
+    /** Corps libre → valeurs textuelles (booléens et nombres acceptés : true → « true », 3 → « 3 »). */
+    private static Map<String, String> enTextes(Map<String, Object> corps) {
+        Map<String, String> m = new java.util.HashMap<>();
+        if (corps != null) {
+            corps.forEach((cle, valeur) -> m.put(cle, valeur == null ? null : String.valueOf(valeur)));
+        }
+        return m;
     }
 
     private static String texte(Object o) {

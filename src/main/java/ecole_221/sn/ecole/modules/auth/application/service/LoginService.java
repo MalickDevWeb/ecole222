@@ -16,6 +16,10 @@ import ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort
 import ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort;
 import ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationRepositoryPort;
 import ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationUser;
+import ecole_221.sn.ecole.modules.platform.organization.domain.model.Organization;
+import ecole_221.sn.ecole.modules.platform.organization.application.EcoleDuCompte;
+import ecole_221.sn.ecole.shared.error.AppException;
+import ecole_221.sn.ecole.shared.error.ErrorCode;
 import java.util.List;
 
 @Service
@@ -84,7 +88,16 @@ public class LoginService implements LoginUseCase {
         return e;
     }
 
+    /** Alerte au-delà de 20 échecs dans la journée pour un même compte (journal [ALERTE SÉCURITÉ]). */
+    static final int ALERTE_ECHECS_JOUR = 20;
+    private final ecole_221.sn.ecole.partage.Frein echecsDuJour = new ecole_221.sn.ecole.partage.Frein(Integer.MAX_VALUE, java.time.Duration.ofDays(1));
+
     private void noterEchec(String cle) {
+        echecsDuJour.noter(cle);
+        if (echecsDuJour.compte(cle) == ALERTE_ECHECS_JOUR + 1) {
+            log.warn("[ALERTE SÉCURITÉ] Plus de {} échecs de connexion en 24 h pour l'identifiant {} : essai probable de "
+                    + "mots de passe ; prévenir l'administration de l'école.", ALERTE_ECHECS_JOUR, cle);
+        }
         if (echecs.size() > 10_000) {   // garde-fou mémoire : purge des fenêtres expirées
             java.time.Instant limite = horloge.instant().minus(FENETRE);
             echecs.entrySet().removeIf(e -> { synchronized (e.getValue()) { return e.getValue().isEmpty() || e.getValue().peekLast().isBefore(limite); } });
@@ -112,6 +125,7 @@ public class LoginService implements LoginUseCase {
         final String cle = cleFrein;
         User user = userRepositoryPort.findByEmail(email)
                 .or(() -> userRepositoryPort.findByEmail(email.toLowerCase(java.util.Locale.ROOT)))
+                .or(() -> parTelephone(email))
                 .or(() -> parMatricule(email))
                 .orElseThrow(() -> {
                     // Même coût de calcul qu'un compte existant : la durée de la réponse ne révèle pas si l'adresse
@@ -143,9 +157,11 @@ public class LoginService implements LoginUseCase {
                 log.warn("Mise à niveau de l'empreinte du mot de passe non enregistrée : {}", e.getMessage());
             }
         }
+        // Défaut F1 : l'école est choisie AVANT d'émettre le jeton ; une école suspendue, archivée ou rejetée
+        // refuse la connexion (403, message clair) au lieu d'ouvrir une session inutilisable.
+        String tenantSlug = resolveTenantSlug(user, command.getEmail());
         log.info("Connexion réussie pour : {} (rôle={})", command.getEmail(), user.getRole());
         String token = jwtService.generateToken(user);
-        String tenantSlug = resolveTenantSlug(user, command.getEmail());
 
         LoginResponseDto reponse = new LoginResponseDto(
                 user.getId(),
@@ -165,6 +181,19 @@ public class LoginService implements LoginUseCase {
      * identifiant sans « @ » est cherché parmi les matricules, et seuls les comptes élèves sont acceptés ainsi. Même
      * frein et même message d'échec que pour un e-mail.
      */
+    /**
+     * Un PARENT sans e-mail se connecte avec son NUMÉRO DE TÉLÉPHONE (« 77 123 45 67 »,
+     * « +221 77… »). Seuls les comptes parents sont acceptés ainsi ; même frein et même message d'échec qu'un e-mail.
+     */
+    private java.util.Optional<User> parTelephone(String identifiant) {
+        if (!ecole_221.sn.ecole.partage.NumeroTelephone.ressembleAUnNumero(identifiant)) {
+            return java.util.Optional.empty();
+        }
+        return ecole_221.sn.ecole.partage.NumeroTelephone.e164(identifiant)
+                .flatMap(userRepositoryPort::findByTelephone)
+                .filter(u -> u.getRole() != null && "PARENT".equals(u.getRole().value()));
+    }
+
     private java.util.Optional<User> parMatricule(String identifiant) {
         if (identifiant == null || identifiant.contains("@") || identifiant.isBlank()) {
             return java.util.Optional.empty();
@@ -178,20 +207,26 @@ public class LoginService implements LoginUseCase {
     private String resolveTenantSlug(User user, String inputEmail) {
         String email = (inputEmail != null ? inputEmail : user.getEmail()).trim().toLowerCase();
 
-        // 1. Appartenance réelle (organization_users) — prioritaire (SEC-003)
+        // 1. Appartenance réelle (organization_users) — prioritaire (SEC-003).
+        // F10 : la meilleure appartenance est retenue — membre actif d'une école ACTIVE, puis d'une école en
+        // attente de validation, puis appartenance non active.
+        // F1 : si TOUTES les écoles du compte sont suspendues, archivées ou rejetées → connexion refusée.
+        Organization meilleure = null;
+        Organization refusee = null;
         try {
-            List<OrganizationUser> memberships = organizationUserRepositoryPort.findByUserId(user.getId());
-            if (memberships != null && !memberships.isEmpty()) {
-                String orgId = memberships.get(0).getOrganizationId();
-                if (orgId != null) {
-                    var orgOpt = organizationRepositoryPort.findById(orgId);
-                    if (orgOpt.isPresent()) {
-                        return orgOpt.get().getSlug();
-                    }
-                }
-            }
+            EcoleDuCompte.Choix choix = EcoleDuCompte.choisir(organizationUserRepositoryPort.findByUserId(user.getId()),
+                    organizationRepositoryPort::findById);
+            meilleure = choix.retenue();
+            refusee = choix.fermee();
         } catch (Exception e) {
             log.warn("Impossible de résoudre l'organisation pour l'utilisateur {} : {}", user.getId(), e.getMessage());
+        }
+        if (meilleure != null) {
+            return meilleure.getSlug();
+        }
+        if (refusee != null && !comptePlateforme(user)) {
+            log.warn("Connexion refusée pour {} : école « {} » au statut {}", user.getId(), refusee.getSlug(), refusee.getStatus().value());
+            throw refus(refusee);
         }
 
         // 2. À défaut : déduction depuis l'email <role>@<slug>.sn (comptes historiques sans appartenance)
@@ -203,5 +238,20 @@ public class LoginService implements LoginUseCase {
 
         // 3. Fallback École 221
         return "ecole221";
+    }
+
+    /** Super-administrateur / administrateur de la plateforme : jamais bloqué par le statut d'une école. */
+    private static boolean comptePlateforme(User user) {
+        String role = user.getRole() == null ? "" : user.getRole().value();
+        return "SUPER_ADMIN".equals(role) || "PLATFORM_ADMIN".equals(role);
+    }
+
+    private static AppException refus(Organization ecole) {
+        if (ecole.isSuspended()) {
+            return new AppException(ErrorCode.TENANT_SUSPENDED, "Votre établissement « " + ecole.getName() + " » est suspendu : "
+                    + "la connexion est impossible pour le moment. Contactez la direction de votre école ou l'administration de la plateforme.");
+        }
+        return new AppException(ErrorCode.TENANT_NOT_ACTIVE, "Votre établissement « " + ecole.getName() + " » n'est plus actif "
+                + "(statut : " + ecole.getStatus().displayName() + ") : la connexion est impossible.");
     }
 }

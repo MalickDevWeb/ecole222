@@ -56,9 +56,9 @@ public class PlanningService implements PlanningUseCase {
     }
     
     @Override
-    public void deleteRoom(String roomId) {
+    public String deleteRoom(String roomId) {
         logger.info("Suppression de la salle: {}", roomId);
-        planningRepositoryPort.deleteRoom(roomId);
+        return planningRepositoryPort.deleteRoom(roomId);
     }
     
     // ==================== GESTION DES CRÉNEAUX HORAIRES ====================
@@ -88,9 +88,9 @@ public class PlanningService implements PlanningUseCase {
     }
     
     @Override
-    public void deleteSlot(String slotId) {
+    public String deleteSlot(String slotId) {
         logger.info("Suppression du créneau horaire: {}", slotId);
-        planningRepositoryPort.deleteSlot(slotId);
+        return planningRepositoryPort.deleteSlot(slotId);
     }
     
     // ==================== GESTION DES FILIÈRES ====================
@@ -120,9 +120,9 @@ public class PlanningService implements PlanningUseCase {
     }
     
     @Override
-    public void deleteFiliere(String filiereId) {
+    public String deleteFiliere(String filiereId) {
         logger.info("Suppression de la filière: {}", filiereId);
-        planningRepositoryPort.deleteFiliere(filiereId);
+        return planningRepositoryPort.deleteFiliere(filiereId);
     }
     
     // ==================== GESTION DES CLASSES ====================
@@ -161,9 +161,9 @@ public class PlanningService implements PlanningUseCase {
     }
     
     @Override
-    public void deleteClasse(String classeId) {
+    public String deleteClasse(String classeId) {
         logger.info("Suppression de la classe: {}", classeId);
-        planningRepositoryPort.deleteClasse(classeId);
+        return planningRepositoryPort.deleteClasse(classeId);
     }
     
     @Override

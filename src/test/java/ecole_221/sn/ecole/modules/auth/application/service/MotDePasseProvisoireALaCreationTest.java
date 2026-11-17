@@ -56,10 +56,11 @@ class MotDePasseProvisoireALaCreationTest {
     }
 
     @Test
-    void un_mot_de_passe_choisi_par_l_administration_ne_l_impose_pas() {
-        var cree = service.creer("Awa", "Diop", "awa.diop@exemple.sn", null, null, "PROFESSEUR", "ChoisiParAdmin1");
+    void un_mot_de_passe_choisi_par_l_administration_est_aussi_a_changer() {
+        // Politique unique : tout mot de passe posé par un tiers est à changer à la première connexion
+        var cree = service.creer("Awa", "Diop", "awa.diop@exemple.sn", null, null, "PROFESSEUR", "le baobab fleurit en mai");
         assertThat(cree.motDePasseProvisoire()).isNull();
-        assertThat(cree.compte().getDoitChangerMotDePasse()).isNull();
+        assertThat(cree.compte().getDoitChangerMotDePasse()).isTrue();
     }
 
     @Test

@@ -38,6 +38,10 @@ public class CollaborationController {
     private final ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances;
     private final ecole_221.sn.ecole.modules.auth.domain.port.repository.UserRepositoryPort comptes;
 
+    /** Classes virtuelles filtrées par classe pour l'élève et le parent, et notifiées à la publication. */
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private ecole_221.sn.ecole.modules.collaboration.application.service.ClassesVirtuellesService classesVirtuelles;
+
     @org.springframework.beans.factory.annotation.Autowired
     public CollaborationController(CollaborationUseCase collaborationUseCase, ActionLogger actionLogger,
                                    ecole_221.sn.ecole.modules.platform.organization.domain.port.repository.OrganizationUserRepositoryPort appartenances,
@@ -245,13 +249,16 @@ public class CollaborationController {
     }
 
     @GetMapping("/meets")
-    @Operation(summary = "Liste des réunions", description = "Retourne toutes les réunions virtuelles planifiées.")
+    @Operation(summary = "Liste des réunions", description = "Classes virtuelles planifiées. Élève : celles publiées pour ses classes ; "
+            + "parent : celles des classes de ses enfants ; personnel et professeurs : toutes.")
     public ResponseEntity<List<Map<String, Object>>> getMeets() {
-        return ResponseEntity.ok(collaborationUseCase.getMeets());
+        List<Map<String, Object>> meets = collaborationUseCase.getMeets();
+        if (classesVirtuelles != null) meets = classesVirtuelles.filtrer(meets, moiOuNull());
+        return ResponseEntity.ok(meets);
     }
 
     @PostMapping("/meets")
-    @Operation(summary = "Créer une réunion", description = "Planifie une classe virtuelle (subjectName ou title, meetLink ou link : lien Google Meet https://meet.google.com/abc-defg-hij, date, time).")
+    @Operation(summary = "Créer une réunion", description = "Planifie une classe virtuelle (subjectName ou title, meetLink ou link : lien Google Meet https://meet.google.com/abc-defg-hij, debut et fin : AAAA-MM-JJTHH:MM, heure de Dakar ; 12 h au plus, fin à venir). Le lien n'est montré aux élèves et aux parents qu'entre le début et la fin.")
     public ResponseEntity<Map<String, Object>> createMeet(@RequestBody Map<String, Object> body) {
         // APP-QA-04 : seuls les champs connus, contrôlés
         corpsRequis(body);
@@ -268,8 +275,14 @@ public class CollaborationController {
         }
         d.put("link", lien);
         d.put("meetLink", lien);
-        d.put("date", texteOptionnel(body, "date", "La date", 40));
-        d.put("time", texteOptionnel(body, "time", "L'heure", 60));
+        // Heure de début (le lien apparaît aux élèves) et heure de fin (il disparaît),
+        // obligatoires et contrôlées.
+        var horaire = ecole_221.sn.ecole.modules.collaboration.application.service.HoraireClasseVirtuelle.lire(
+                body, ecole_221.sn.ecole.modules.collaboration.application.service.HoraireClasseVirtuelle.maintenant());
+        d.put("debut", horaire.debut());
+        d.put("fin", horaire.fin());
+        d.put("date", ecole_221.sn.ecole.modules.collaboration.application.service.HoraireClasseVirtuelle.jour(horaire.debut()));
+        d.put("time", ecole_221.sn.ecole.modules.collaboration.application.service.HoraireClasseVirtuelle.plageHoraire(horaire.debut(), horaire.fin()));
         d.put("teacherName", texteOptionnel(body, "teacherName", "Le nom de l'enseignant", 200));
         d.put("classIds", listeTextes(body.get("classIds"), "Les classes"));
         d.put("classNames", listeTextes(body.get("classNames"), "Les noms de classes"));
@@ -279,6 +292,17 @@ public class CollaborationController {
         collaborationUseCase.createMeet(d);
         Map<String, Object> res = new HashMap<>();
         res.put("success", true);
+        // Classe virtuelle publiée → les élèves de la classe et leurs parents sont prévenus
+        @SuppressWarnings("unchecked")
+        List<String> classes = (List<String>) d.get("classIds");
+        if (classesVirtuelles != null && Boolean.TRUE.equals(d.get("isPublished")) && classes != null && !classes.isEmpty()) {
+            String sujet = String.valueOf(d.get("subjectName"));
+            String quand = " " + ecole_221.sn.ecole.modules.collaboration.application.service.HoraireClasseVirtuelle.libelle(horaire.debut(), horaire.fin());
+            String prof = d.get("teacherName") != null ? " avec " + d.get("teacherName") : "";
+            var auteur = moiOuNull();
+            res.put("prevenus", classesVirtuelles.prevenir(classes, "Classe virtuelle : " + sujet,
+                    "Cours en visioconférence" + prof + quand + ". Le lien apparaîtra sur votre accueil à l'heure de début.", auteur == null ? null : auteur.getId()));
+        }
         return ResponseEntity.ok(res);
     }
 
@@ -366,6 +390,11 @@ public class CollaborationController {
             return u;
         }
         throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.UNAUTHORIZED, "Veuillez vous connecter.");
+    }
+
+    private static ecole_221.sn.ecole.modules.auth.domain.model.User moiOuNull() {
+        var auth = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        return auth != null && auth.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u ? u : null;
     }
 
     private static String nomAffiche(ecole_221.sn.ecole.modules.auth.domain.model.User u) {

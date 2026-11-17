@@ -231,6 +231,7 @@ public class CollaborationService implements CollaborationUseCase {
 
     @Override
     public List<Map<String, Object>> getMeets() {
+        java.time.LocalDateTime maintenant = HoraireClasseVirtuelle.maintenant();
         return meetJpaRepository.findAll().stream().map(meet -> {
             Map<String, Object> map = new HashMap<>();
             map.put("id", meet.getId());
@@ -245,6 +246,11 @@ public class CollaborationService implements CollaborationUseCase {
             map.put("classIds", liste(meet.getClassIds()));
             map.put("classNames", liste(meet.getClassNames()));
             map.put("isPublished", Boolean.TRUE.equals(meet.getPublished()));
+            map.put("auteurId", meet.getAuteurId());   // Le professeur retrouve les classes virtuelles qu'il a créées
+            // V26 : horaire et statut (à venir, en cours, terminée, sans horaire) à l'heure de l'école
+            map.put("debut", meet.getDebut() == null ? null : meet.getDebut().toString());
+            map.put("fin", meet.getFin() == null ? null : meet.getFin().toString());
+            map.put("statut", HoraireClasseVirtuelle.statut(meet.getDebut(), meet.getFin(), maintenant));
             return map;
         }).toList();
     }
@@ -283,6 +289,9 @@ public class CollaborationService implements CollaborationUseCase {
         meet.setClassIds(csv(d.get("classIds")));
         meet.setClassNames(csv(d.get("classNames")));
         meet.setPublished(Boolean.TRUE.equals(d.get("isPublished")));
+        meet.setAuteurId(ecole_221.sn.ecole.partage.CompteCourant.id());   // V22 : auteur de la séance
+        if (d.get("debut") instanceof java.time.LocalDateTime debut) meet.setDebut(debut);   // V26
+        if (d.get("fin") instanceof java.time.LocalDateTime fin) meet.setFin(fin);
         meetJpaRepository.save(meet);
     }
 
@@ -293,6 +302,7 @@ public class CollaborationService implements CollaborationUseCase {
         meet.setTitle(title);
         meet.setLink(link);
         meet.setTime(time);
+        meet.setAuteurId(ecole_221.sn.ecole.partage.CompteCourant.id());   // V22 : auteur de la séance
         meetJpaRepository.save(meet);
     }
     

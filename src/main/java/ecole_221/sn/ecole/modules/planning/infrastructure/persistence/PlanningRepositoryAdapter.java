@@ -29,11 +29,15 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     private final FiliereJpaRepository filiereJpaRepository;
     private final ClasseJpaRepository classeJpaRepository;
     
+    private final ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService corbeille;
+
     public PlanningRepositoryAdapter(
             RoomJpaRepository roomJpaRepository,
             SlotJpaRepository slotJpaRepository,
             FiliereJpaRepository filiereJpaRepository,
-            ClasseJpaRepository classeJpaRepository) {
+            ClasseJpaRepository classeJpaRepository,
+            ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService corbeille) {
+        this.corbeille = corbeille;
         this.roomJpaRepository = roomJpaRepository;
         this.slotJpaRepository = slotJpaRepository;
         this.filiereJpaRepository = filiereJpaRepository;
@@ -66,12 +70,12 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     }
     
     @Override
-    public void deleteRoom(String roomId) {
+    public String deleteRoom(String roomId) {
         logger.debug("Suppression de la salle: {}", roomId);
         if (!roomJpaRepository.existsById(roomId)) {
             throw new RoomNotFoundException(roomId);
         }
-        roomJpaRepository.deleteById(roomId);
+        return corbeille.supprimer(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.SALLE, roomId);   // corbeille (V21)
     }
     
     @Override
@@ -116,12 +120,12 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     }
     
     @Override
-    public void deleteSlot(String slotId) {
+    public String deleteSlot(String slotId) {
         logger.debug("Suppression du créneau: {}", slotId);
         if (!slotJpaRepository.existsById(slotId)) {
             throw new SlotNotFoundException(slotId);
         }
-        slotJpaRepository.deleteById(slotId);
+        return corbeille.supprimer(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.CRENEAU_HORAIRE, slotId);   // corbeille (V21)
     }
     
     @Override
@@ -166,12 +170,12 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     }
     
     @Override
-    public void deleteFiliere(String filiereId) {
+    public String deleteFiliere(String filiereId) {
         logger.debug("Suppression de la filière: {}", filiereId);
         if (!filiereJpaRepository.existsById(filiereId)) {
             throw new FiliereNotFoundException(filiereId);
         }
-        filiereJpaRepository.deleteById(filiereId);
+        return corbeille.supprimer(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.FILIERE, filiereId);   // corbeille (V21)
     }
     
     @Override
@@ -208,12 +212,12 @@ public class PlanningRepositoryAdapter implements PlanningRepositoryPort {
     }
     
     @Override
-    public void deleteClasse(String classeId) {
+    public String deleteClasse(String classeId) {
         logger.debug("Suppression de la classe: {}", classeId);
         if (!classeJpaRepository.existsById(classeId)) {
             throw new ClasseNotFoundException(classeId);
         }
-        classeJpaRepository.deleteById(classeId);
+        return corbeille.supprimer(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.CLASSE, classeId);   // corbeille (V21)
     }
     
     @Override

@@ -1,5 +1,7 @@
 package ecole_221.sn.ecole.modules.professor.application.service;
 
+import ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService;
+import ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille;
 import ecole_221.sn.ecole.modules.professor.infrastructure.persistence.*;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpStatus;
@@ -24,8 +26,9 @@ class GestionContenusServiceTest {
     private final TentativeQuizJpaRepository tentatives = mock(TentativeQuizJpaRepository.class);
     private final HomeworkJpaRepository devoirs = mock(HomeworkJpaRepository.class);
     private final ReminderJpaRepository rappels = mock(ReminderJpaRepository.class);
+    private final CorbeilleService corbeille = mock(CorbeilleService.class);
     private final GestionContenusService service =
-            new GestionContenusService(modules, supports, quiz, tentatives, devoirs, rappels);
+            new GestionContenusService(modules, supports, quiz, tentatives, devoirs, rappels, corbeille);
     private final Consumer<String> ok = c -> { };
 
     private QuizJpaEntity quiz1() {
@@ -62,11 +65,13 @@ class GestionContenusServiceTest {
         TentativeQuizJpaEntity t = new TentativeQuizJpaEntity();
         when(tentatives.findByQuizId("quiz-1")).thenReturn(List.of(t));
         assertEquals(409, assertThrows(ResponseStatusException.class, () -> service.supprimerQuiz("quiz-1", false, ok)).getStatusCode().value());
-        verify(quiz, never()).delete(any());
+        verify(corbeille, never()).supprimer(any(), any());
         var res = service.supprimerQuiz("quiz-1", true, ok);
         assertEquals(1, res.get("tentativesSupprimees"));
-        verify(tentatives).deleteAll(List.of(t));
-        verify(quiz).delete(q);
+        // corbeille (V21) : rien n'est effacé, le quiz (et donc ses tentatives) est masqué et restaurable
+        verify(corbeille).supprimer(TypeCorbeille.QUIZ, "quiz-1");
+        verify(tentatives, never()).deleteAll(any());
+        verify(quiz, never()).delete(q);
     }
 
     @Test
@@ -79,10 +84,11 @@ class GestionContenusServiceTest {
         l.setModuleId("m-1");
         when(supports.findByCourseId("c-1")).thenReturn(List.of(l));
         assertEquals(409, assertThrows(ResponseStatusException.class, () -> service.supprimerModule("m-1", ok)).getStatusCode().value());
-        verify(modules, never()).delete(any());
+        verify(corbeille, never()).supprimer(any(), any());
         when(supports.findByCourseId("c-1")).thenReturn(List.of());
         service.supprimerModule("m-1", ok);
-        verify(modules).delete(m);
+        verify(corbeille).supprimer(TypeCorbeille.MODULE, "m-1");
+        verify(modules, never()).delete(any());
     }
 
     @Test
@@ -96,6 +102,7 @@ class GestionContenusServiceTest {
         Consumer<String> interdit = c -> { throw new ResponseStatusException(HttpStatus.FORBIDDEN, "Ce cours n'est pas attribué à votre compte."); };
         assertEquals(403, assertThrows(ResponseStatusException.class, () -> service.supprimerDevoir("h-1", interdit)).getStatusCode().value());
         verify(devoirs, never()).delete(any());
+        verify(corbeille, never()).supprimer(any(), any());
     }
 
     @Test

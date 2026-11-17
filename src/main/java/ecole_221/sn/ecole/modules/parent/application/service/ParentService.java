@@ -311,8 +311,10 @@ public class ParentService implements ParentUseCase {
         boolean plusieurs = liste.size() > 1;
         long total = 0;
         List<PaymentDto.PaymentInstallmentDto> lignes = new ArrayList<>();
+        List<PaymentDto.EnfantPaiementDto> enfants = new ArrayList<>();
         for (EnfantSituation es : liste) {
             var s = es.s();
+            int debutEnfant = lignes.size();
             String nom = ((es.enfant().prenom() == null ? "" : es.enfant().prenom()) + " "
                     + (es.enfant().nom() == null ? "" : es.enfant().nom())).trim();
             String pour = plusieurs && !nom.isEmpty() ? " — " + nom : "";
@@ -335,8 +337,11 @@ public class ParentService implements ParentUseCase {
                         "Reste à payer" + (s.classe() == null || s.classe().isBlank() ? "" : " (" + s.classe() + ")") + pour,
                         s.resteDu(), null, "EN_COURS", null));
             }
+            enfants.add(new PaymentDto.EnfantPaiementDto(es.enfant().id(), nom.isEmpty() ? null : nom, es.enfant().matricule(),
+                    s.classe() != null && !s.classe().isBlank() ? s.classe() : es.enfant().classe(),
+                    s.totalDu(), s.paye(), s.resteDu(), List.copyOf(lignes.subList(debutEnfant, lignes.size()))));
         }
-        return new PaymentDto(total, lignes, PaymentDto.STATUT_DISPONIBLE);
+        return new PaymentDto(total, lignes, PaymentDto.STATUT_DISPONIBLE, enfants);
     }
 
     @Override

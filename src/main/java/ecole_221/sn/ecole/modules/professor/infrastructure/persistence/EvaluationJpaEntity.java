@@ -12,7 +12,8 @@ import java.time.LocalDateTime;
  */
 @Entity
 @Table(name = "evaluations_cours", indexes = @Index(name = "idx_evaluations_cours_cours", columnList = "course_id"))
-public class EvaluationJpaEntity {
+@org.hibernate.annotations.SQLRestriction("supprime_le is null")   // corbeille (V21) : ligne supprimée invisible partout
+public class EvaluationJpaEntity extends ecole_221.sn.ecole.partage.ColonnesCorbeille {
 
     @org.hibernate.annotations.TenantId
     @Column(name = "organization_id")

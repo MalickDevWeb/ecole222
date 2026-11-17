@@ -62,11 +62,13 @@ public class PlanningController {
     
     @DeleteMapping("/rooms/{roomId}")
     @Operation(summary = "Supprimer une salle", description = "Supprime une salle par son identifiant.")
-    public ResponseEntity<Void> deleteRoom(
+    public ResponseEntity<java.util.Map<String, Object>> deleteRoom(
             @Parameter(description = "Identifiant de la salle") @PathVariable("roomId") String roomId) {
         logger.info("DELETE /planning/rooms/{} - Suppression salle", roomId);
-        planningUseCase.deleteRoom(roomId);
-        return ResponseEntity.noContent().build();
+        // 200 avec {"corbeille": true, "message"} : l'élément reste restaurable depuis la corbeille
+        String libelle = planningUseCase.deleteRoom(roomId);
+        return ResponseEntity.ok(ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService.reponseSuppression(
+                ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.SALLE, roomId, libelle));
     }
     
     // ==================== ENDPOINTS CRÉNEAUX HORAIRES ====================
@@ -100,11 +102,13 @@ public class PlanningController {
     
     @DeleteMapping("/slots/{slotId}")
     @Operation(summary = "Supprimer un créneau horaire", description = "Supprime un créneau horaire.")
-    public ResponseEntity<Void> deleteSlot(
+    public ResponseEntity<java.util.Map<String, Object>> deleteSlot(
             @Parameter(description = "Identifiant du créneau") @PathVariable("slotId") String slotId) {
         logger.info("DELETE /planning/slots/{} - Suppression créneau", slotId);
-        planningUseCase.deleteSlot(slotId);
-        return ResponseEntity.noContent().build();
+        // 200 avec {"corbeille": true, "message"} : l'élément reste restaurable depuis la corbeille
+        String libelle = planningUseCase.deleteSlot(slotId);
+        return ResponseEntity.ok(ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService.reponseSuppression(
+                ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.CRENEAU_HORAIRE, slotId, libelle));
     }
     
     // ==================== ENDPOINTS FILIÈRES ====================
@@ -134,11 +138,13 @@ public class PlanningController {
     
     @DeleteMapping("/filieres/{filiereId}")
     @Operation(summary = "Supprimer une filière", description = "Supprime une filière.")
-    public ResponseEntity<Void> deleteFiliere(
+    public ResponseEntity<java.util.Map<String, Object>> deleteFiliere(
             @Parameter(description = "Identifiant de la filière") @PathVariable("filiereId") String filiereId) {
         logger.info("DELETE /planning/filieres/{} - Suppression filière", filiereId);
-        planningUseCase.deleteFiliere(filiereId);
-        return ResponseEntity.noContent().build();
+        // 200 avec {"corbeille": true, "message"} : l'élément reste restaurable depuis la corbeille
+        String libelle = planningUseCase.deleteFiliere(filiereId);
+        return ResponseEntity.ok(ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService.reponseSuppression(
+                ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.FILIERE, filiereId, libelle));
     }
     
     // ==================== ENDPOINTS CLASSES ====================
@@ -176,11 +182,13 @@ public class PlanningController {
     
     @DeleteMapping("/classes/{classeId}")
     @Operation(summary = "Supprimer une classe", description = "Supprime une classe.")
-    public ResponseEntity<Void> deleteClasse(
+    public ResponseEntity<java.util.Map<String, Object>> deleteClasse(
             @Parameter(description = "Identifiant de la classe") @PathVariable("classeId") String classeId) {
         logger.info("DELETE /planning/classes/{} - Suppression classe", classeId);
-        planningUseCase.deleteClasse(classeId);
-        return ResponseEntity.noContent().build();
+        // 200 avec {"corbeille": true, "message"} : l'élément reste restaurable depuis la corbeille
+        String libelle = planningUseCase.deleteClasse(classeId);
+        return ResponseEntity.ok(ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService.reponseSuppression(
+                ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.CLASSE, classeId, libelle));
     }
     
     @GetMapping("/filieres/{filiereId}/classes")

@@ -44,9 +44,28 @@ class AccesCoursInterceptorTest {
         return r;
     }
 
+    /** I3 : le contrôle exige une école de requête ; ces cours (sans école enregistrée) y sont. */
+    @org.junit.jupiter.api.BeforeEach
+    void ecoleDeLaRequete() {
+        ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.setCurrentOrganization(
+                ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationFactory.create("École A",
+                        ecole_221.sn.ecole.modules.platform.organization.domain.valueobject.OrganizationType.ECOLE, "a@ex.sn"));
+    }
+
     @AfterEach
     void fin() {
         SecurityContextHolder.clearContext();
+        ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.clear();
+    }
+
+    @Test
+    void sansEcoleDeRequeteLeCoursEstIntrouvable() {
+        ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.clear();
+        connecter("prof-a", RoleUtilisateur.PROFESSEUR);
+        Mockito.when(cours.findById("c-a")).thenReturn(Optional.of(new CourseJpaEntity("c-a", "Réseaux", "L3", 30, "prof-a")));
+        var e = assertThrows(ResponseStatusException.class,
+                () -> intercepteur.preHandle(requete(Map.of("courseId", "c-a")), new MockHttpServletResponse(), null));
+        assertEquals(404, e.getStatusCode().value());
     }
 
     @Test

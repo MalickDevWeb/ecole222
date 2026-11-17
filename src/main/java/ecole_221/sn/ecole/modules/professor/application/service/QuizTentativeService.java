@@ -295,6 +295,21 @@ public class QuizTentativeService {
         return total == 0 ? 0 : Math.round(score * 1000.0 / total) / 10.0;
     }
 
+    /**
+     * Vrai si le cours appartient à l'école courante et à la classe de l'élève (même règle que les quiz).
+     * Sert au contrôle de GET /student/courses/{id}/details.
+     */
+    @Transactional(readOnly = true)
+    public boolean estCoursDeSaClasse(String courseId, String eleveId) {
+        if (courseId == null || eleveId == null) return false;
+        try {
+            coursDeSaClasse(courseId, eleveId, "");
+            return true;
+        } catch (ResponseStatusException introuvable) {
+            return false;
+        }
+    }
+
     private CourseJpaEntity coursDeSaClasse(String courseId, String eleveId, String messageIntrouvable) {
         String ecole = TenantContext.getCurrentOrganizationId().orElse(null);
         String classe = inscriptions.findFirstByUserId(eleveId).map(InscriptionClasseJpaEntity::getClasseId).orElse(null);

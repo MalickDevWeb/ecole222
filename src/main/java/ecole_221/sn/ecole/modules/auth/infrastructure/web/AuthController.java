@@ -29,7 +29,25 @@ public class AuthController {
 
     private final LoginUseCase loginUseCase;
     private final ActionLogger actionLogger;
-    /** Déconnexion réelle (2026-11-13) : le jeton présenté est révoqué jusqu'à son expiration. */
+    /**
+     * Politique de mot de passe : frein par adresse IP, en plus du frein par compte de LoginService — au plus
+     * 30 échecs en 15 minutes depuis une même IP (essai d'un mot de passe sur de nombreux comptes) ; temporaire.
+     */
+    static final ecole_221.sn.ecole.partage.Frein FREIN_IP = new ecole_221.sn.ecole.partage.Frein(30, java.time.Duration.ofMinutes(15));
+
+    private static void verifierFreinIp(HttpServletRequest request) {
+        if (FREIN_IP.bloque(request.getRemoteAddr())) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.TOO_MANY_REQUESTS,
+                    "Trop de tentatives de connexion depuis cette adresse. Réessayez dans 15 minutes.");
+        }
+    }
+
+    private static void noterEchecIp(HttpServletRequest request, Exception e) {
+        if (e instanceof org.springframework.web.server.ResponseStatusException r && r.getStatusCode().value() == 401) {
+            FREIN_IP.noter(request.getRemoteAddr());
+        }
+    }
+    /** Déconnexion réelle : le jeton présenté est révoqué jusqu'à son expiration. */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.infrastructure.security.revocation.RevocationJetons revocation;
     @org.springframework.beans.factory.annotation.Autowired(required = false)
@@ -54,6 +72,7 @@ public class AuthController {
         String errorMessage = null;
         
         try {
+            verifierFreinIp(request);
             dto = loginUseCase.login(command);
             success = true;
             
@@ -76,6 +95,7 @@ public class AuthController {
             dto.setToken(null); 
             return ResponseEntity.ok(dto);
         } catch (Exception e) {
+            noterEchecIp(request, e);
             errorMessage = e.getMessage();
             actionLogger.logAuthAction("LOGIN", command.getEmail(), "UNKNOWN", false, 
                 "Échec connexion - Erreur: " + errorMessage);
@@ -96,6 +116,7 @@ public class AuthController {
         String errorMessage = null;
         
         try {
+            verifierFreinIp(request);
             dto = loginUseCase.login(command);
             success = true;
 
@@ -106,6 +127,7 @@ public class AuthController {
             // Exposer le token dans le body pour Swagger
             return ResponseEntity.ok(dto);
         } catch (Exception e) {
+            noterEchecIp(request, e);
             errorMessage = e.getMessage();
             actionLogger.logAuthAction("LOGIN_TOKEN", command.getEmail(), "UNKNOWN", false, 
                 "Échec connexion (Token) - Erreur: " + errorMessage);

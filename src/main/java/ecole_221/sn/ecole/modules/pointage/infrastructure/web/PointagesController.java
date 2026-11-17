@@ -9,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Map;
@@ -43,6 +44,15 @@ public class PointagesController {
         corpsRequis(corps);
         Object qr = corps.get("qr");
         return ResponseEntity.status(HttpStatus.CREATED).body(service.pointer(qr instanceof String s ? s : null));
+    }
+
+    @Operation(summary = "Pointages du jour (administration)", description = "Pointages de l'école regroupés par personne : arrivée, départ, présence actuelle. date=AAAA-MM-JJ (aujourd'hui par défaut), role=ETUDIANT|PROFESSEUR, de / a = plage horaire HH:MM (personnes ayant un passage dans la plage). Module « Sécurité et audit » de la matrice des droits.")
+    @GetMapping("/admin/pointages")
+    public ResponseEntity<Map<String, Object>> pointagesDuJour(@RequestParam(required = false) String date,
+                                                               @RequestParam(required = false) String role,
+                                                               @RequestParam(required = false) String de,
+                                                               @RequestParam(required = false) String a) {
+        return ResponseEntity.ok(service.pointagesDuJour(date, role, de, a));
     }
 
     @Operation(summary = "Mes pointages", description = "60 derniers pointages du compte connecté, nombre du jour et sens du prochain pointage.")

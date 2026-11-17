@@ -6,7 +6,8 @@ import jakarta.persistence.Table;
 
 @Entity
 @Table(name = "meets")
-public class MeetJpaEntity {
+@org.hibernate.annotations.SQLRestriction("supprime_le is null")   // corbeille (V21) : ligne supprimée invisible partout
+public class MeetJpaEntity extends ecole_221.sn.ecole.partage.ColonnesCorbeille {
     @org.hibernate.annotations.TenantId
     @jakarta.persistence.Column(name = "organization_id")
     private String organizationId;
@@ -33,7 +34,17 @@ public class MeetJpaEntity {
     @jakarta.persistence.Column(name = "class_names", length = 2000)
     private String classNames;
     private Boolean published;
-    // APP-TL-26 (2026-11-14) : champ « compte Google obligatoire » retiré (enregistré sans aucun effet). La colonne
+    /** V22 : compte qui a lancé la séance (null pour les séances antérieures). */
+    @jakarta.persistence.Column(name = "auteur_id")
+    private String auteurId;
+    /** V22 : cours de l'enseignant auquel la séance est rattachée, s'il est identifiable sans ambiguïté. */
+    @jakarta.persistence.Column(name = "course_id")
+    private String courseId;
+    /** V26 : heure à partir de laquelle le lien est montré aux élèves et aux parents. */
+    private java.time.LocalDateTime debut;
+    /** V26 : heure après laquelle la classe virtuelle n'est plus montrée aux élèves et aux parents. */
+    private java.time.LocalDateTime fin;
+    // APP-TL-26 : champ « compte Google obligatoire » retiré (enregistré sans aucun effet). La colonne
     // restrict_google (V1) reste en base, facultative et inutilisée : aucune migration.
 
     public MeetJpaEntity() {}
@@ -68,4 +79,12 @@ public class MeetJpaEntity {
     public Boolean getPublished() { return published; }
     public void setPublished(Boolean v) { this.published = v; }
     public void setActive(boolean active) { this.active = active; }
+    public String getAuteurId() { return auteurId; }
+    public void setAuteurId(String v) { this.auteurId = v; }
+    public String getCourseId() { return courseId; }
+    public void setCourseId(String v) { this.courseId = v; }
+    public java.time.LocalDateTime getDebut() { return debut; }
+    public void setDebut(java.time.LocalDateTime debut) { this.debut = debut; }
+    public java.time.LocalDateTime getFin() { return fin; }
+    public void setFin(java.time.LocalDateTime fin) { this.fin = fin; }
 }

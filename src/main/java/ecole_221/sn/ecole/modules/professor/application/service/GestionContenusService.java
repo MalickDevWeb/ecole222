@@ -1,6 +1,8 @@
 package ecole_221.sn.ecole.modules.professor.application.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService;
+import ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille;
 import ecole_221.sn.ecole.modules.professor.domain.valueobject.Priority;
 import ecole_221.sn.ecole.modules.professor.infrastructure.persistence.*;
 import org.springframework.http.HttpStatus;
@@ -30,6 +32,9 @@ import java.util.function.Consumer;
  *       explicite {@code supprimerResultats=true}, qui supprime aussi les tentatives (et le dit dans la réponse) ;</li>
  *   <li>support, devoir, rappel : suppression directe (confirmée à l'écran).</li>
  * </ul>
+ * <p>Corbeille (V21) : toute suppression est DOUCE — l'élément disparaît pour l'élève et pour le professeur,
+ * reste restaurable 30 jours (CorbeilleService), puis est purgé ; les tentatives d'un quiz et les rendus d'un devoir
+ * sont masqués avec lui et ne sont effacés qu'à la purge.</p>
  * <p>Pour une modification, un champ absent du corps est conservé ; un champ présent est validé.</p>
  */
 @Service
@@ -43,16 +48,18 @@ public class GestionContenusService {
     private final TentativeQuizJpaRepository tentatives;
     private final HomeworkJpaRepository devoirs;
     private final ReminderJpaRepository rappels;
+    private final CorbeilleService corbeille;
 
     public GestionContenusService(ModuleJpaRepository modules, LessonJpaRepository supports, QuizJpaRepository quiz,
                                   TentativeQuizJpaRepository tentatives, HomeworkJpaRepository devoirs,
-                                  ReminderJpaRepository rappels) {
+                                  ReminderJpaRepository rappels, CorbeilleService corbeille) {
         this.modules = modules;
         this.supports = supports;
         this.quiz = quiz;
         this.tentatives = tentatives;
         this.devoirs = devoirs;
         this.rappels = rappels;
+        this.corbeille = corbeille;
     }
 
     // ---------------------------------------------------------------- modules
@@ -77,8 +84,8 @@ public class GestionContenusService {
             throw conflit("Ce module contient " + nbSupports + " support(s) et " + nbQuiz + " quiz : supprimez-les "
                     + "ou déplacez les supports vers un autre module avant de supprimer le module.");
         }
-        modules.delete(m);
-        return supprime(moduleId, "Module supprimé.");
+        String libelle = corbeille.supprimer(TypeCorbeille.MODULE, moduleId);
+        return supprime(moduleId, libelle + " placé dans la corbeille.");
     }
 
     // ---------------------------------------------------------------- supports de cours
@@ -117,8 +124,8 @@ public class GestionContenusService {
     public Map<String, Object> supprimerSupport(String lessonId, Consumer<String> verifierCours) {
         LessonJpaEntity l = supports.findById(lessonId).orElseThrow(() -> introuvable("Support de cours introuvable."));
         verifier(l.getCourseId(), verifierCours, "Support de cours introuvable.");
-        supports.delete(l);
-        return supprime(lessonId, "Support de cours supprimé.");
+        String libelle = corbeille.supprimer(TypeCorbeille.SUPPORT, lessonId);
+        return supprime(lessonId, libelle + " placé dans la corbeille.");
     }
 
     // ---------------------------------------------------------------- quiz
@@ -179,13 +186,14 @@ public class GestionContenusService {
         verifier(q.getCourseId(), verifierCours, "Quiz introuvable.");
         List<TentativeQuizJpaEntity> faites = tentatives.findByQuizId(quizId);
         if (!faites.isEmpty() && !supprimerResultats) {
-            throw conflit("Ce quiz a déjà été passé (" + faites.size() + " tentative(s) d'élèves). Le supprimer effacerait "
-                    + "aussi ces résultats : confirmez explicitement la suppression des résultats.");
+            throw conflit("Ce quiz a déjà été passé (" + faites.size() + " tentative(s) d'élèves). Le supprimer masquerait "
+                    + "aussi ces résultats (effacés 30 jours plus tard) : confirmez explicitement la suppression des résultats.");
         }
-        tentatives.deleteAll(faites);
-        quiz.delete(q);
-        Map<String, Object> res = supprime(quizId, faites.isEmpty() ? "Quiz supprimé."
-                : "Quiz supprimé avec ses " + faites.size() + " tentative(s) d'élèves.");
+        // corbeille : les tentatives restent en base, masquées avec le quiz, et reviennent s'il est restauré
+        String libelle = corbeille.supprimer(TypeCorbeille.QUIZ, quizId);
+        Map<String, Object> res = supprime(quizId, faites.isEmpty() ? libelle + " placé dans la corbeille."
+                : faites.size() == 1 ? libelle + " placé dans la corbeille avec la tentative d'un élève."
+                : libelle + " placé dans la corbeille avec ses " + faites.size() + " tentatives d'élèves.");
         res.put("tentativesSupprimees", faites.size());
         return res;
     }
@@ -231,8 +239,8 @@ public class GestionContenusService {
     public Map<String, Object> supprimerDevoir(String homeworkId, Consumer<String> verifierCours) {
         HomeworkJpaEntity h = devoirs.findById(homeworkId).orElseThrow(() -> introuvable("Devoir introuvable."));
         verifier(h.getCourseId(), verifierCours, "Devoir introuvable.");
-        devoirs.delete(h);
-        return supprime(homeworkId, "Devoir supprimé.");
+        String libelle = corbeille.supprimer(TypeCorbeille.DEVOIR, homeworkId);
+        return supprime(homeworkId, libelle + " placé dans la corbeille.");
     }
 
     // ---------------------------------------------------------------- rappels
@@ -261,8 +269,8 @@ public class GestionContenusService {
     public Map<String, Object> supprimerRappel(String reminderId, Consumer<String> verifierCours) {
         ReminderJpaEntity r = rappels.findById(reminderId).orElseThrow(() -> introuvable("Rappel introuvable."));
         verifier(r.getCourseId(), verifierCours, "Rappel introuvable.");
-        rappels.delete(r);
-        return supprime(reminderId, "Rappel supprimé.");
+        String libelle = corbeille.supprimer(TypeCorbeille.RAPPEL, reminderId);
+        return supprime(reminderId, libelle + " placé dans la corbeille.");
     }
 
     // ---------------------------------------------------------------- vues et outils
@@ -304,6 +312,7 @@ public class GestionContenusService {
         Map<String, Object> v = new LinkedHashMap<>();
         v.put("id", id);
         v.put("supprime", true);
+        v.put("corbeille", true);   // restaurable depuis GET /corbeille pendant 30 jours
         v.put("message", message);
         return v;
     }

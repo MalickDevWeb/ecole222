@@ -53,6 +53,7 @@ public class SecurityConfig {
         "/auth/logout",
         "/auth/mot-de-passe-oublie",          // APP-FEAT-02 : réponse identique que le compte existe ou non
         "/auth/reinitialiser-mot-de-passe",   // APP-FEAT-02 : jeton à usage unique
+        "/auth/regles-mot-de-passe",          // Règles d'un rôle (indicateur de force), aucune donnée de compte
         "/auth/register",
         "/register-school",
         "/public/**",
@@ -66,8 +67,9 @@ public class SecurityConfig {
         "/v3/api-docs/**",
         "/swagger-resources/**",
         "/webjars/**",
-        // H2 console (dev)
-        "/h2-console/**",
+        // (en profil prod, Swagger UI et /v3/api-docs sont désactivés : application-prod.yaml, I12)
+        // I12 (audit DevSecOps) : /h2-console/** retiré des routes ouvertes. H2 n'est qu'une dépendance de
+        // test et aucune console n'est servie ; si elle était un jour activée, elle ne serait pas ouverte sans compte.
         // WebSocket
         "/ws/**",
         // Admissions : seules les routes du portail candidat sont publiques, voir PORTAIL_CANDIDAT_* (APP-SEC-12)
@@ -124,8 +126,13 @@ public class SecurityConfig {
                 // Envoi d'e-mails libres (destinataire, sujet, contenu au choix) : réservé à l'administration.
                 .requestMatchers("/email/**", "/v1/email/**").hasAnyRole(ROLES_ESPACE_ADMIN)
                 // Centre de notifications de l'école (liste complète, envoi à n'importe quel destinataire, boîte d'un
-                // autre compte) : administration uniquement — seul l'espace administration l'utilise. Avant : un élève
-                // lisait les notifications de l'administrateur et envoyait des notifications « prioritaires » à qui il voulait.
+                // autre compte) : administration uniquement — seul l'espace administration l'utilise.
+                // Annonces : chaque compte, quel que soit son rôle, lit SES notifications et les marque lues
+                // (le service ne sert que celles du compte connecté, dans l'école courante). Placé AVANT la règle
+                // d'administration ci-dessous, qui garde tout le reste du centre de notifications.
+                .requestMatchers(HttpMethod.GET, "/v1/notifications/mes", "/v1/notifications/mes/non-lues",
+                        "/api/v1/notifications/mes", "/api/v1/notifications/mes/non-lues").hasAnyRole(ROLES_AVEC_ESPACE)
+                .requestMatchers(HttpMethod.PATCH, "/v1/notifications/*/lue", "/api/v1/notifications/*/lue").hasAnyRole(ROLES_AVEC_ESPACE)
                 .requestMatchers("/v1/notifications/**", "/api/v1/notifications/**", "/v1/notifications", "/api/v1/notifications")
                     .hasAnyRole(ROLES_ESPACE_ADMIN)
                 .requestMatchers("/admin/**", "/finance/**", "/dashboard/**", "/audit/**")
@@ -145,7 +152,9 @@ public class SecurityConfig {
                 .requestMatchers("/student/**").hasAnyRole("ETUDIANT", "STUDENT", "PROFESSEUR", "TEACHER", "ADMIN", "ADMINISTRATOR", "SUPER_ADMIN")
                 // Pointage d'arrivée / départ par le QR d'entrée du vigile — élèves et professeurs seulement
                 .requestMatchers("/pointages", "/pointages/**").hasAnyRole("ETUDIANT", "STUDENT", "PROFESSEUR", "TEACHER")
-                // APP-SEC-20 (2026-11-13, refus par défaut) : un rôle sans espace (SECRETAIRE, COMPTABLE, VISITEUR,
+                // FEAT-007 : groupes WhatsApp à rejoindre, pour les élèves et les parents
+                .requestMatchers("/groupes-whatsapp/**").hasAnyRole("ETUDIANT", "STUDENT", "PARENT")
+                // APP-SEC-20 (refus par défaut) : un rôle sans espace (SECRETAIRE, COMPTABLE, VISITEUR,
                 // SURVEILLANT, DIRECTEUR, RH) n'atteint plus aucune route métier ; seul son compte (/auth/**) reste
                 // accessible.
                 .requestMatchers("/auth/**").authenticated()
@@ -177,6 +186,8 @@ public class SecurityConfig {
 
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
+        // Domaines des écoles : AUCUNE origine dynamique. L'API est servie en MÊME ORIGINE sur chaque hôte
+        // d'école (relais /api, comme frontend/nginx.conf) : ni sous-domaine ni domaine propre n'a besoin du CORS.
         CorsConfiguration config = new CorsConfiguration();
         // Origines explicites requises quand allowCredentials=true
         // Source unique partagée avec le WebSocket (APP-SEC-01) : voir AllowedOrigins

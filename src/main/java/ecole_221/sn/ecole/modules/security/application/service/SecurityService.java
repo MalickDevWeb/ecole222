@@ -175,33 +175,46 @@ public class SecurityService implements SecurityUseCase {
                 .or(() -> comptes.findByMatricule(sansPrefixe));
         String ecole = ecole_221.sn.ecole.shared.infrastructure.tenant.TenantContext.getCurrentOrganizationId().orElse(null);
 
+        // I8 : la recherche du titulaire porte sur TOUTE la plateforme (matricules uniques).
+        // L'appartenance à l'école courante est donc vérifiée AVANT de lire quoi que ce soit du compte : un titulaire
+        // absent ou étranger à l'école reste « Inconnu » dans la réponse comme dans les journaux, pour qu'aucune école
+        // ne puisse obtenir, en énumérant des matricules, les noms des élèves (mineurs) des autres écoles.
+        var appartenance = titulaire.flatMap(u -> ecole == null ? Optional.empty()
+                : appartenances.findByUserIdAndOrganizationId(u.getId(), ecole).filter(m -> m.isActive() && !m.isExpired()));
+
         boolean accessGranted;
         String nom;
         String msg;
-        if (titulaire.isEmpty()) {
+        if (appartenance.isEmpty()) {
             accessGranted = false;
             nom = "Inconnu";
-            msg = "Accès refusé : badge non reconnu.";
+            // Identifiant ou matricule saisi : même réponse que pour un badge inexistant (pas d'oracle « ce matricule
+            // existe dans une autre école »). QR signé par le serveur : il ne peut être fabriqué pour un matricule
+            // choisi et porte déjà son matricule en clair ; le vigile peut donc savoir qu'il vient d'une autre école.
+            msg = titulaire.isPresent() && jetonVerifie
+                    ? "Accès refusé : ce badge n'appartient pas à cet établissement."
+                    : "Accès refusé : badge non reconnu.";
         } else {
             var u = titulaire.get();
             nom = ((u.getPrenom() == null ? "" : u.getPrenom() + " ") + (u.getNom() == null ? "" : u.getNom())).trim();
-            boolean membre = ecole != null && appartenances.findByUserIdAndOrganizationId(u.getId(), ecole)
-                    .map(m -> m.isActive() && !m.isExpired()).orElse(false);
-            if (!membre) {
-                accessGranted = false;
-                msg = "Accès refusé : ce badge n'appartient pas à cet établissement.";
-            } else if (u.getRole() != null && "ETUDIANT".equals(u.getRole().value()) && !jetonVerifie) {
+            Categorie categorie = categorie(u, appartenance.get());
+            if (categorie == Categorie.ELEVE && !jetonVerifie) {
                 accessGranted = false;
                 msg = "Accès refusé : présentez le badge QR de l'application (le matricule seul ne suffit pas).";
-            } else if (u.getRole() != null && "ETUDIANT".equals(u.getRole().value())) {
-                // APP-TL-22 (2026-11-14) : l'accès au campus ne dépend JAMAIS des frais de scolarité. Avant : un élève
-                // marqué « En Retard » à la main était refusé au portique (enfant laissé dehors, vigile informé de la
-                // situation financière de la famille). Badge QR valide + élève actif de l'école = accès.
+            } else if (categorie == Categorie.ELEVE) {
+                // APP-TL-22 : l'accès au campus ne dépend JAMAIS des frais de scolarité (aucun enfant laissé dehors,
+                // rien de la situation financière de la famille montré au vigile). Badge QR valide + élève actif de
+                // l'école = accès.
                 accessGranted = true;
                 msg = "Accès autorisé.";
-            } else {
-                accessGranted = true;   // personnel de l'école
+            } else if (categorie == Categorie.PERSONNEL) {
+                accessGranted = true;
                 msg = "Accès autorisé (personnel).";
+            } else {
+                // B5 : REFUS PAR DÉFAUT (PARENT et VISITEUR sont aussi rattachés comme membres par
+                // UserMembershipListener).
+                accessGranted = false;
+                msg = "Accès refusé : ce compte n'est pas un badge du personnel ni d'un élève.";
             }
         }
 
@@ -213,9 +226,42 @@ public class SecurityService implements SecurityUseCase {
     }
 
     /**
+     * B5 : rôles d'APPARTENANCE à l'école admis au portique comme personnel. Liste explicite (refus par défaut) :
+     * administration, professeurs, vigiles et rôles du personnel de la matrice RBAC (CataloguePermissions.ROLES_PERSONNEL :
+     * DIRECTEUR, SECRETAIRE, COMPTABLE, SURVEILLANT, RH). PARENT, VISITEUR, rôles de la plateforme ou inconnus : refusés.
+     */
+    static final Set<String> ROLES_PERSONNEL_PORTIQUE = java.util.stream.Stream.concat(
+            java.util.stream.Stream.of("ADMIN", "ADMINISTRATOR", "PROFESSEUR", "VIGIL"),
+            ecole_221.sn.ecole.modules.admin.rbac.CataloguePermissions.ROLES_PERSONNEL.stream())
+            .collect(Collectors.toUnmodifiableSet());
+
+    enum Categorie { ELEVE, PERSONNEL, AUCUNE }
+
+    /**
+     * Catégorie d'un membre au portique, d'après le rôle de son appartenance à l'école (alias TEACHER, STUDENT…
+     * normalisés). Un compte élève reste élève quel que soit le rôle de l'appartenance : il lui faut le badge QR.
+     */
+    static Categorie categorie(ecole_221.sn.ecole.modules.auth.domain.model.User u,
+                               ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationUser m) {
+        String role = roleNormalise(m.getRole());
+        boolean compteEleve = u.getRole() != null && "ETUDIANT".equals(roleNormalise(u.getRole().value()));
+        if ("ETUDIANT".equals(role) || compteEleve) return Categorie.ELEVE;
+        return ROLES_PERSONNEL_PORTIQUE.contains(role) ? Categorie.PERSONNEL : Categorie.AUCUNE;
+    }
+
+    private static String roleNormalise(String role) {
+        if (role == null || role.isBlank()) return "";
+        try {
+            return ecole_221.sn.ecole.modules.auth.domain.valueobject.RoleUtilisateur.fromString(role).value();
+        } catch (IllegalArgumentException inconnu) {
+            return role.trim().toUpperCase(java.util.Locale.ROOT);   // rôle hors catalogue : jamais dans la liste
+        }
+    }
+
+    /**
      * Liste d'accès pour la décision HORS LIGNE du terminal du vigile (EF-10) : clé publique des badges
      * (vérification de la signature sans pouvoir en fabriquer), élèves actifs de l'école (matricule et nom seulement :
-     * aucune donnée financière, APP-TL-22) et membres du personnel. Valable 24 h ; le terminal la retélécharge dès que le réseau revient.
+     * aucune donnée financière, APP-TL-22) et membres du personnel (ROLES_PERSONNEL_PORTIQUE seulement : ni parents ni visiteurs, B5). Valable 24 h ; le terminal la retélécharge dès que le réseau revient.
      */
     @Override
     public Map<String, Object> listeAccesHorsLigne() {
@@ -229,13 +275,14 @@ public class SecurityService implements SecurityUseCase {
             var u = comptes.findById(m.getUserId()).orElse(null);
             if (u == null) continue;
             String nom = ((u.getPrenom() == null ? "" : u.getPrenom() + " ") + (u.getNom() == null ? "" : u.getNom())).trim();
-            if ("ETUDIANT".equalsIgnoreCase(m.getRole())) {
+            Categorie categorie = categorie(u, m);
+            if (categorie == Categorie.ELEVE) {
                 if (u.getMatricule() == null || u.getMatricule().isBlank()) continue;   // pas de badge sans matricule
                 Map<String, Object> e = new HashMap<>();
                 e.put("matricule", u.getMatricule());
                 e.put("nom", nom);
                 eleves.add(e);
-            } else {
+            } else if (categorie == Categorie.PERSONNEL) {   // B5 : PARENT, VISITEUR… absents de la liste
                 Map<String, Object> p = new HashMap<>();
                 p.put("id", u.getId());
                 p.put("matricule", u.getMatricule());

@@ -16,3 +16,13 @@ ecole:
   audit:
     purge:
       active: false
+  # 15/11 : pas de revérification planifiée des domaines propres pendant les tests (aucun accès DNS)
+  domaines:
+    verification:
+      active: false
+  # 16/11 : ni archivage automatique ni reprise au démarrage pendant les tests (tables Flyway absentes de H2)
+  archivage:
+    automatique:
+      active: false
+    reprise:
+      active: false

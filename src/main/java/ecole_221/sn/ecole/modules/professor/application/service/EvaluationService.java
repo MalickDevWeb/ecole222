@@ -53,8 +53,12 @@ public class EvaluationService {
     private final InscriptionClasseJpaRepository inscriptions;
     private final ComptesEcoleService comptesEcole;
 
+    private final ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService corbeille;
+
     public EvaluationService(EvaluationJpaRepository evaluations, NoteEvaluationJpaRepository notes, JournalNoteJpaRepository journal,
-                             CourseJpaRepository cours, InscriptionClasseJpaRepository inscriptions, ComptesEcoleService comptesEcole) {
+                             CourseJpaRepository cours, InscriptionClasseJpaRepository inscriptions, ComptesEcoleService comptesEcole,
+                             ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService corbeille) {
+        this.corbeille = corbeille;
         this.evaluations = evaluations;
         this.notes = notes;
         this.journal = journal;
@@ -132,8 +136,9 @@ public class EvaluationService {
         return vue(evaluations.save(e), existantes.size());
     }
 
+    /** @return réponse de mise à la corbeille {id, type, libelle, supprime, corbeille, message} */
     @Transactional
-    public void supprimer(String courseId, String evaluationId) {
+    public Map<String, Object> supprimer(String courseId, String evaluationId) {
         EvaluationJpaEntity e = evaluation(courseId, evaluationId);
         refuserSiVerrouillee(e, "supprimée");
         exigerPeriodeOuverte(e.getDateEvaluation(), "ses évaluations ne peuvent plus être supprimées");
@@ -146,7 +151,10 @@ public class EvaluationService {
             throw new ResponseStatusException(HttpStatus.CONFLICT,
                     "Impossible de supprimer l'évaluation « " + e.getTitre() + " » : une évaluation de rattrapage la vise.");
         }
-        evaluations.delete(e);
+        // corbeille (V21) : restaurable 30 jours par son auteur ou l'administration (si la période est encore ouverte)
+        var type = ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.EVALUATION;
+        return ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService.reponseSuppression(type, evaluationId,
+                corbeille.supprimer(type, evaluationId));
     }
 
     // ================================================================ notes

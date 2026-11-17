@@ -196,7 +196,7 @@ public class InscriptionAdmisService {
             }
             String[] nom = nom(c);
             String matricule = comptes.nouveauMatriculeEleve();
-            String identifiant = email != null ? email : matricule.toLowerCase(Locale.ROOT) + "@" + DOMAINE_SANS_EMAIL;
+            String identifiant = email != null ? email : ComptesEcoleService.identifiantSansEmail(matricule);
             ComptesEcoleService.CompteCree cree = comptes.creer(nom[0], nom[1], identifiant, null, matricule, "ETUDIANT", null);
             eleve = cree.compte();
             provisoire = cree.motDePasseProvisoire();

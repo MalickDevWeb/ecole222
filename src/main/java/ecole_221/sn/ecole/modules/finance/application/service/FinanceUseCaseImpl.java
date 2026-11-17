@@ -163,25 +163,21 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
     @Override
     public List<TransactionDto> getAllTransactions() {
         logger.info("Récupération de toutes les transactions");
-        return financeRepositoryPort.findAllTransactions().stream()
-            .map(this::toTransactionDto)
-            .collect(Collectors.toList());
+        // Lu directement sur l'entité (école courante, @TenantId) pour rendre moyen, référence, élève, classe,
+        // dossier et auteur de la saisie (le modèle Transaction du domaine ne les porte pas)
+        return versDto(transactionRepository.findAll());
     }
     
     @Override
     public List<TransactionDto> getTransactionsByStudentId(String studentId) {
         logger.info("Récupération des transactions par étudiant: {}", studentId);
-        return financeRepositoryPort.findTransactionsByStudentId(studentId).stream()
-            .map(this::toTransactionDto)
-            .collect(Collectors.toList());
+        return versDto(transactionRepository.findByStudentId(studentId));
     }
     
     @Override
     public List<TransactionDto> getRecentTransactions() {
         logger.info("Récupération des transactions récentes");
-        return transactionRepository.findRecentTransactions(LocalDateTime.now().minusDays(30)).stream()
-            .map(this::toTransactionDtoFromEntity)
-            .collect(Collectors.toList());
+        return versDto(transactionRepository.findRecentTransactions(LocalDateTime.now().minusDays(30)));
     }
     
     @Override
@@ -296,7 +292,8 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
             transaction.getAmount(),
             transaction.getCurrency(),
             transaction.getStatus(),
-            transaction.getTransactionDate()
+            transaction.getTransactionDate(),
+            null, null, null, null, null, null, null   // champs non portés par le modèle du domaine
         );
     }
     
@@ -312,15 +309,39 @@ public class FinanceUseCaseImpl implements FinanceUseCase {
         );
     }
     
-    private TransactionDto toTransactionDtoFromEntity(TransactionJpaEntity entity) {
+    /** Transactions → réponse, avec la classe lue dans le dossier financier (une seule lecture des dossiers). */
+    private List<TransactionDto> versDto(List<TransactionJpaEntity> liste) {
+        java.util.Set<String> ids = liste.stream().map(TransactionJpaEntity::getStudentFinanceId)
+                .filter(java.util.Objects::nonNull).collect(Collectors.toSet());
+        Map<String, StudentFinanceJpaEntity> dossiers = ids.isEmpty() ? Map.of()
+                : studentFinanceRepository.findAllById(ids).stream()
+                    .collect(Collectors.toMap(StudentFinanceJpaEntity::getId, d -> d, (a, b) -> a));
+        return liste.stream().map(t -> toTransactionDtoFromEntity(t, dossiers.get(t.getStudentFinanceId()))).toList();
+    }
+
+    /**
+     * Devise et statut : aucune colonne ne les stocke. « FCFA » est l'unité unique des montants enregistrés ;
+     * « COMPLETED » : chaque ligne de transactions est un mouvement déjà effectué (aucune transaction en attente
+     * n'est enregistrée). Les autres champs viennent de la base, null s'ils n'y sont pas (jamais inventés).
+     */
+    static TransactionDto toTransactionDtoFromEntity(TransactionJpaEntity entity, StudentFinanceJpaEntity dossier) {
+        String nom = entity.getStudentName() != null && !entity.getStudentName().isBlank() ? entity.getStudentName()
+                : dossier == null ? null : dossier.getStudentName();
         return new TransactionDto(
             entity.getId(),
             entity.getStudentId(),
             entity.getTransactionType(),
             entity.getAmount() != null ? entity.getAmount().toString() : "0",
-            "FCFA", // Devise par défaut
-            "COMPLETED", // Statut par défaut
-            entity.getTransactionDate() != null ? entity.getTransactionDate().toString() : null
+            "FCFA",
+            "COMPLETED",
+            entity.getTransactionDate() != null ? entity.getTransactionDate().toString() : null,
+            entity.getPaymentMethod(),
+            entity.getReference(),
+            nom,
+            dossier == null ? null : dossier.getClasse(),
+            entity.getStudentFinanceId(),
+            entity.getSaisiPar(),
+            entity.getCreatedAt() != null ? entity.getCreatedAt().toString() : null
         );
     }
 

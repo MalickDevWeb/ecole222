@@ -28,16 +28,9 @@ public interface OrganizationRepositoryPort {
      */
     Optional<Organization> findByEmail(String email);
     
-    /**
-     * Trouve une organization par subdomain.
-     */
-    Optional<Organization> findBySubdomain(String subdomain);
-    
-    /**
-     * Trouve une organization par custom domain.
-     */
-    Optional<Organization> findByCustomDomain(String customDomain);
-    
+    // findBySubdomain / findByCustomDomain retirées (implémentations factices) ; l'adresse d'une école
+    // (sous-domaine ou domaine pointé par CNAME) est résolue par shared.infrastructure.tenant.domaine.ResolutionHoteEcole.
+
     /**
      * Trouve toutes les organizations par statut.
      */

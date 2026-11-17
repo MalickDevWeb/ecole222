@@ -44,22 +44,6 @@ public class OrganizationRepositoryAdapter implements OrganizationRepositoryPort
     }
     
     @Override
-    public Optional<Organization> findBySubdomain(String subdomain) {
-        // Pour l'instant, on utilise une logique simple
-        // À améliorer avec la table domains
-        return jpaRepository.findAll().stream()
-            .filter(org -> org.getName().toLowerCase().replace(" ", "-").equals(subdomain))
-            .findFirst()
-            .map(this::toDomain);
-    }
-    
-    @Override
-    public Optional<Organization> findByCustomDomain(String customDomain) {
-        // return jpaRepository.findByDomainName(customDomain).map(this::toDomain);
-        return Optional.empty(); // À implémenter
-    }
-    
-    @Override
     public List<Organization> findByStatus(OrganizationStatus status) {
         OrganizationStatusJpa statusJpa = OrganizationStatusJpa.valueOf(status.value());
         return jpaRepository.findByStatus(statusJpa).stream()

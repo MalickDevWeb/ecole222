@@ -59,7 +59,7 @@ class ParentsEleveServiceTest {
     void parentInconnuCompteCreeAvecMotDePasseProvisoireEtLie() {
         when(utilisateurs.findByEmail("fatou.sow@exemple.sn")).thenReturn(Optional.empty());
         UserJpaEntity cree = compte("p-new", "PARENT");
-        when(comptes.creer(eq("Fatou"), eq("Sow"), eq("fatou.sow@exemple.sn"), eq("+221 77 000 00 00"), isNull(), eq("PARENT"), isNull()))
+        when(comptes.creer(eq("Fatou"), eq("Sow"), eq("fatou.sow@exemple.sn"), eq("+221770000000"), isNull(), eq("PARENT"), isNull()))
                 .thenReturn(new ComptesEcoleService.CompteCree(cree, "Prov-1234"));
         Map<String, Object> r = service.lier("e1", Map.of("email", "Fatou.Sow@exemple.sn", "nom", "Fatou Sow",
                 "telephone", "+221 77 000 00 00", "relation", "MERE"));

@@ -36,4 +36,10 @@ public interface NotificationJpaRepository extends JpaRepository<NotificationJpa
     
     @Query("SELECT COUNT(n) FROM NotificationJpaEntity n WHERE n.recipientId = :recipientId AND n.isRead = false")
     Long countUnreadByRecipientId(@Param("recipientId") String recipientId);
+
+    /** Annonces : les 50 dernières notifications d'un compte, dans l'école courante (@TenantId). */
+    List<NotificationJpaEntity> findTop50ByRecipientIdOrderByCreatedAtDesc(String recipientId);
+
+    /** Nombre de destinataires ayant lu une annonce (action_type = « annonce », action_link = id de l'annonce). */
+    long countByActionTypeAndActionLinkAndIsReadTrue(String actionType, String actionLink);
 }

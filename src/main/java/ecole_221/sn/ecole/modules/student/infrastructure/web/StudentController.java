@@ -35,6 +35,14 @@ public class StudentController {
     @Autowired(required = false)
     private ecole_221.sn.ecole.modules.collaboration.infrastructure.persistence.MeetJpaRepository meetJpaRepository;
 
+    /** Corbeille (V21) : arrêter une séance la met à la corbeille. */
+    @Autowired(required = false)
+    private ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService corbeille;
+
+    /** V22 : qui peut arrêter une séance en direct (auteur, enseignant du cours, administration). */
+    @Autowired(required = false)
+    private ecole_221.sn.ecole.modules.collaboration.application.service.DroitsSeanceEnDirect droitsSeance;
+
     /** Affectation réelle élève → classe (filtrée par école). */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.modules.admin.infrastructure.persistence.InscriptionClasseJpaRepository inscriptions;
@@ -46,6 +54,10 @@ public class StudentController {
     /** Lot B : rendus des devoirs de classe (dépôt réel du fichier). */
     @org.springframework.beans.factory.annotation.Autowired(required = false)
     private ecole_221.sn.ecole.modules.professor.application.service.RendusDevoirsService rendusDevoirs;
+
+    /** Appartenance du cours à la classe de l'élève (même règle que les quiz) : détails de cours. */
+    @Autowired(required = false)
+    private ecole_221.sn.ecole.modules.professor.application.service.QuizTentativeService quizEleve;
 
     private final StudentUseCase studentUseCase;
     private final ecole_221.sn.ecole.modules.student.infrastructure.persistence.CourseDetailRepository courseDetailRepository;
@@ -193,7 +205,7 @@ public class StudentController {
         return ResponseEntity.ok(StudentMapper.toReactionResponseDto(sessionId, request.type()));
     }
 
-    // APP-QA-04 : lancer ou supprimer une séance en direct est un acte d'enseignant (avant : tout élève le pouvait)
+    // APP-QA-04 : lancer ou supprimer une séance en direct est un acte d'enseignant
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('PROFESSEUR','PROFESSOR','TEACHER','ADMIN','ADMINISTRATOR','SUPER_ADMIN')")
     @PostMapping("/live-sessions")
     @Operation(summary = "Démarrer une session live", description = "Enregistre une session live démarrée par un enseignant.")
@@ -225,22 +237,33 @@ public class StudentController {
             meet.setSubjectName(cours);
             var moi = compteConnecte();
             meet.setTeacherName(((moi.getPrenom() == null ? "" : moi.getPrenom()) + " " + (moi.getNom() == null ? "" : moi.getNom())).trim());
+            // V22 : auteur et cours conservés, pour que seuls l'auteur, l'enseignant du cours et
+            // l'administration puissent arrêter la séance
+            meet.setAuteurId(moi.getId());
+            if (droitsSeance != null) meet.setCourseId(droitsSeance.coursDuProfesseur(cours, moi.getId()));
             meetJpaRepository.save(meet);
         }
         logger.info("POST /student/live-sessions - Live session créée: {} (titre: {}, lien: {})", id, title, link);
         return ResponseEntity.ok(Map.of("success", true, "id", id, "title", title, "meetUrl", link != null ? link : ""));
     }
 
-    // APP-QA-04 : lancer ou supprimer une séance en direct est un acte d'enseignant (avant : tout élève le pouvait)
+    // APP-QA-04 : lancer ou supprimer une séance en direct est un acte d'enseignant
     @org.springframework.security.access.prepost.PreAuthorize("hasAnyRole('PROFESSEUR','PROFESSOR','TEACHER','ADMIN','ADMINISTRATOR','SUPER_ADMIN')")
     @DeleteMapping("/live-sessions/{id}")
     @Operation(summary = "Arrêter une session live", description = "Supprime ou termine une session live.")
     public ResponseEntity<Map<String, Object>> stopLiveSession(@PathVariable String id) {
-        if (meetJpaRepository != null) {
-            meetJpaRepository.deleteById(id);
+        // corbeille (V21) : la séance disparaît pour les élèves et reste restaurable 30 jours
+        if (meetJpaRepository == null || corbeille == null || droitsSeance == null) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE,
+                    "Les séances en direct ne sont pas disponibles.");
         }
-        logger.info("DELETE /student/live-sessions/{} - Session arrêtée", id);
-        return ResponseEntity.ok(Map.of("success", true, "message", "Session arrêtée avec succès"));
+        var seance = meetJpaRepository.findById(id)
+                .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.NOT_FOUND, "Séance introuvable."));
+        // V22 : 403 pour un professeur qui n'est ni l'auteur ni l'enseignant du cours
+        droitsSeance.exigerArretAutorise(seance);
+        String libelle = corbeille.supprimer(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.SEANCE_EN_DIRECT, id);
+        logger.info("DELETE /student/live-sessions/{} - Session placée dans la corbeille", id);
+        return ResponseEntity.ok(Map.of("success", true, "corbeille", true, "message", libelle + " placée dans la corbeille."));
     }
 
     // ==================== GRADES ====================
@@ -345,9 +368,18 @@ public class StudentController {
                 ? "c-" + courseId.substring("course-".length())
                 : courseId;
 
+        // Le cours doit être l'un de ceux de la classe de l'élève (404 sinon, même message qu'un cours
+        // inexistant) et les bonnes réponses des quiz ne sont pas envoyées (les quiz se passent par
+        // /student/courses/{id}/quizzes, corrigés par le serveur)
+        String eleve = etudiant();
+        if (quizEleve == null
+                || !(quizEleve.estCoursDeSaClasse(courseId, eleve) || quizEleve.estCoursDeSaClasse(legacyCourseId, eleve))) {
+            throw new CourseNotFoundException(courseId);
+        }
         return courseDetailRepository.findById(courseId)
                 .or(() -> courseDetailRepository.findById(legacyCourseId))
-                .map(detail -> ResponseEntity.ok(detail.getData()))
+                .map(detail -> ResponseEntity.ok(
+                        ecole_221.sn.ecole.modules.student.application.service.ContenuCoursEleve.sansBonnesReponses(detail.getData())))
                 .orElseThrow(() -> new CourseNotFoundException(courseId));
     }
 

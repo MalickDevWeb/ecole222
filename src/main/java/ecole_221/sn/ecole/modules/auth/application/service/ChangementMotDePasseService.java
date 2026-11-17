@@ -15,8 +15,8 @@ import org.springframework.web.server.ResponseStatusException;
  * créé par le super-admin) portent le drapeau {@code doitChangerMotDePasse} : tant qu'il est présent, les
  * routes métier sont refusées (voir {@code MotDePasseProvisoireInterceptor}). Le changement l'efface.</p>
  *
- * <p>Règles : au moins {@value #LONGUEUR_MIN} caractères, au moins une lettre et un chiffre, différent de
- * l'ancien ; l'ancien mot de passe doit être exact.</p>
+ * <p>Règles : PolitiqueMotDePasse (longueur selon le rôle, liste de refus, nom, suites, ancien) ; l'ancien
+ * mot de passe doit être exact.</p>
  */
 @Service
 public class ChangementMotDePasseService {
@@ -34,18 +34,24 @@ public class ChangementMotDePasseService {
         this.encodeur = encodeur;
     }
 
-    /** Message d'erreur de la règle de robustesse, ou null si le mot de passe est acceptable. */
-    public static String erreurRegles(String nouveau) {
-        if (nouveau == null || nouveau.isBlank()) return "Le nouveau mot de passe est obligatoire.";
-        if (nouveau.length() < LONGUEUR_MIN) {
-            return "Le nouveau mot de passe doit contenir au moins " + LONGUEUR_MIN + " caractères.";
-        }
-        boolean lettre = nouveau.chars().anyMatch(Character::isLetter);
-        boolean chiffre = nouveau.chars().anyMatch(Character::isDigit);
-        if (!lettre || !chiffre) {
-            return "Le nouveau mot de passe doit contenir au moins une lettre et un chiffre.";
-        }
-        return null;
+    /**
+     * Règle UNIQUE de robustesse (PolitiqueMotDePasse) — création, activation, réinitialisation, changement,
+     * inscription publique. {@code compte} null : inscription publique d'une école (règles de l'administration).
+     * Message d'erreur en français, ou null si le mot de passe est accepté.
+     */
+    public static String erreurRegles(String motDePasse, UserJpaEntity compte) {
+        return PolitiqueMotDePasse.erreur(motDePasse, compte, java.util.List.of());
+    }
+
+    /** Même règle, avec des mots interdits en plus (nom et identifiant de l'école à l'inscription publique…). */
+    public static String erreurRegles(String motDePasse, UserJpaEntity compte, java.util.Collection<String> motsInterdits) {
+        return PolitiqueMotDePasse.erreur(motDePasse, compte, motsInterdits);
+    }
+
+    /** Même règle ; chaque mot interdit dit ce qu'il représente, pour un refus précis (« contient votre prénom »). */
+    public static String erreurReglesDetaillee(String motDePasse, UserJpaEntity compte,
+                                               java.util.List<PolitiqueMotDePasse.MotInterdit> motsInterdits) {
+        return PolitiqueMotDePasse.erreurDetaillee(motDePasse, compte, motsInterdits);
     }
 
     @Transactional
@@ -56,14 +62,14 @@ public class ChangementMotDePasseService {
         if (ancien == null || ancien.isEmpty()) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "L'ancien mot de passe est obligatoire.");
         }
-        String regle = erreurRegles(nouveau);
-        if (regle != null) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, regle);
-        }
         UserJpaEntity compte = comptes.findById(userId)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Compte introuvable."));
         if (compte.getPassword() == null || !encodeur.matches(ancien, compte.getPassword())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "L'ancien mot de passe est incorrect.");
+        }
+        String regle = erreurRegles(nouveau, compte);   // règle unique (longueur selon le rôle, liste, nom, ancien…)
+        if (regle != null) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, regle);
         }
         if (ancien.equals(nouveau) || encodeur.matches(nouveau, compte.getPassword())) {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST,

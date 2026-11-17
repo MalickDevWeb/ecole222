@@ -60,6 +60,7 @@ class AdminControllerTest {
     private final PasswordEncoder encodeur = new BCryptPasswordEncoder(4);
     private Organization ecole;
     private MockMvc mockMvc;
+    private AdminController controleur;
 
     @BeforeEach
     void setUp() {
@@ -73,9 +74,9 @@ class AdminControllerTest {
         inscriptions = Mockito.mock(InscriptionClasseJpaRepository.class);
         ComptesEcoleService comptesEcole = new ComptesEcoleService(comptes, appartenances, encodeur);
 
-        AdminController controller = new AdminController(adminUseCase, actionLogger, comptesEcole, adminRepository,
+        controleur = new AdminController(adminUseCase, actionLogger, comptesEcole, adminRepository,
                 classes, seances, Mockito.mock(PointagePersonnelJpaRepository.class), inscriptions);
-        mockMvc = MockMvcBuilders.standaloneSetup(controller)
+        mockMvc = MockMvcBuilders.standaloneSetup(controleur)
                 .setControllerAdvice(new GlobalExceptionHandler())
                 .build();
 
@@ -233,13 +234,36 @@ class AdminControllerTest {
     void motDePasseSaisiEstUtiliseEtJamaisRenvoye() throws Exception {
         Mockito.when(comptes.findFirstByMatricule(anyString())).thenReturn(Optional.empty());
         mockMvc.perform(post("/admin/students").contentType(MediaType.APPLICATION_JSON)
-                .content("{\"name\":\"Awa Fall\",\"email\":\"awa@exemple.sn\",\"password\":\"MotDePasse2026\"}"))
+                .content("{\"name\":\"Awa Fall\",\"email\":\"awa@exemple.sn\",\"password\":\"le baobab fleurit en mai\"}"))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.motDePasseProvisoire").doesNotExist())
                 .andExpect(jsonPath("$.matricule").isString());
         ArgumentCaptor<UserJpaEntity> saisi = ArgumentCaptor.forClass(UserJpaEntity.class);
         Mockito.verify(comptes).save(saisi.capture());
-        assertTrue(encodeur.matches("MotDePasse2026", saisi.getValue().getPassword()));
+        assertTrue(encodeur.matches("le baobab fleurit en mai", saisi.getValue().getPassword()));
+    }
+
+    @Test
+    void creationSansEmailEnBooleenAccepteeAvecLaConfigurationJsonStricte() throws Exception {
+        // La fenêtre « Nouvel élève » envoie sansEmail: true (booléen). Avec un corps Map<String, String> et la
+        // configuration JSON stricte de l'application (JsonStrictConfig), la création serait refusée (400 « texte attendu »).
+        // Même réglage de coercition que JsonStrictConfig.
+        tools.jackson.databind.json.JsonMapper strict = tools.jackson.databind.json.JsonMapper.builder()
+                .withCoercionConfig(tools.jackson.databind.type.LogicalType.Textual, c -> c
+                        .setCoercion(tools.jackson.databind.cfg.CoercionInputShape.Integer, tools.jackson.databind.cfg.CoercionAction.Fail)
+                        .setCoercion(tools.jackson.databind.cfg.CoercionInputShape.Float, tools.jackson.databind.cfg.CoercionAction.Fail)
+                        .setCoercion(tools.jackson.databind.cfg.CoercionInputShape.Boolean, tools.jackson.databind.cfg.CoercionAction.Fail))
+                .build();
+        MockMvc mvcStrict = MockMvcBuilders.standaloneSetup(controleur)
+                .setControllerAdvice(new GlobalExceptionHandler())
+                .setMessageConverters(new org.springframework.http.converter.json.JacksonJsonHttpMessageConverter(strict))
+                .build();
+        Mockito.when(comptes.findFirstByMatricule(anyString())).thenReturn(Optional.empty());
+
+        mvcStrict.perform(post("/admin/students").contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"prenom\":\"Fatou\",\"nom\":\"Diallo\",\"sansEmail\":true}"))
+                .andExpect(status().isCreated())
+                .andExpect(jsonPath("$.identifiant").isString());
     }
 
     @Test

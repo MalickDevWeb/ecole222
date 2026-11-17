@@ -138,6 +138,78 @@ public class PointagesService {
         return r;
     }
 
+    /**
+     * Pointages d'une journée de l'école courante, regroupés par personne (administration, onglet « Pointages » de
+     * Sécurité) : première arrivée, dernier départ, présence actuelle (dernier pointage = arrivée), détail des passages.
+     *
+     * @param date jour au format AAAA-MM-JJ (aujourd'hui à Dakar si absent)
+     * @param role ETUDIANT, PROFESSEUR, ou absent pour tous
+     * @param de   début de la plage horaire HH:MM (facultatif) : seules les personnes ayant un passage dans la plage
+     * @param a    fin de la plage horaire HH:MM (facultatif) ; arrivée, départ et présence restent ceux de la journée
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> pointagesDuJour(String date, String role, String de, String a) {
+        java.time.LocalTime heureDe = heure(de, "L'heure de début du filtre", java.time.LocalTime.MIN);
+        java.time.LocalTime heureA = heure(a, "L'heure de fin du filtre", java.time.LocalTime.MAX);
+        if (heureA.isBefore(heureDe)) {
+            throw refus("Plage horaire invalide : l'heure de fin est avant l'heure de début.");
+        }
+        ecoleCourante();
+        java.time.LocalDate jour;
+        try {
+            jour = date == null || date.isBlank() ? LocalDateTime.now(horloge).toLocalDate() : java.time.LocalDate.parse(date.trim());
+        } catch (java.time.format.DateTimeParseException e) {
+            throw refus("Date invalide : utilisez le format AAAA-MM-JJ.");
+        }
+        String filtre = role == null || role.isBlank() ? null : roleNormalise(role);
+        if (filtre != null && !List.of("ETUDIANT", "PROFESSEUR").contains(filtre)) {
+            throw refus("Rôle invalide : « ETUDIANT » ou « PROFESSEUR ».");
+        }
+        List<PointageJpaEntity> liste = pointages.findByHorodatageBetweenOrderByHorodatageAsc(
+                jour.atStartOfDay(), jour.plusDays(1).atStartOfDay().minusNanos(1));
+        Map<String, List<PointageJpaEntity>> parPersonne = new LinkedHashMap<>();
+        for (PointageJpaEntity p : liste) {
+            if (filtre == null || filtre.equals(p.getRole())) {
+                parPersonne.computeIfAbsent(p.getUtilisateurId(), k -> new java.util.ArrayList<>()).add(p);
+            }
+        }
+        List<Map<String, Object>> personnes = parPersonne.values().stream()
+                .filter(siens -> siens.stream().map(p -> p.getHorodatage().toLocalTime())
+                        .anyMatch(t -> !t.isBefore(heureDe) && !t.isAfter(heureA)))
+                .map(siens -> {
+            PointageJpaEntity premier = siens.get(0);
+            PointageJpaEntity dernier = siens.get(siens.size() - 1);
+            Map<String, Object> m = new LinkedHashMap<>();
+            m.put("utilisateurId", premier.getUtilisateurId());
+            m.put("nom", siens.stream().map(PointageJpaEntity::getNom).filter(n -> n != null && !n.isBlank()).reduce((x, y) -> y).orElse(null));
+            m.put("role", dernier.getRole());
+            m.put("arrivee", siens.stream().filter(p -> ARRIVEE.equals(p.getType())).findFirst().map(p -> HEURE.format(p.getHorodatage())).orElse(null));
+            m.put("depart", DEPART.equals(dernier.getType()) ? HEURE.format(dernier.getHorodatage()) : null);
+            m.put("present", ARRIVEE.equals(dernier.getType()));
+            m.put("passages", siens.stream().map(p -> Map.of("type", p.getType(), "heure", HEURE.format(p.getHorodatage()))).toList());
+            return m;
+        }).sorted(java.util.Comparator.comparing((Map<String, Object> m) -> java.util.Objects.toString(m.get("nom"), ""), String.CASE_INSENSITIVE_ORDER)).toList();
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("date", jour.toString());
+        r.put("de", de == null || de.isBlank() ? null : HEURE.format(heureDe));
+        r.put("a", a == null || a.isBlank() ? null : HEURE.format(heureA));
+        r.put("personnes", personnes);
+        r.put("total", personnes.size());
+        r.put("presents", personnes.stream().filter(m -> Boolean.TRUE.equals(m.get("present"))).count());
+        return r;
+    }
+
+    /** Heure HH:MM d'un filtre, ou la valeur par défaut si absente ; « 12:30 » à « 12:30:59 » pour une borne de fin. */
+    private static java.time.LocalTime heure(String valeur, String libelle, java.time.LocalTime parDefaut) {
+        if (valeur == null || valeur.isBlank()) return parDefaut;
+        try {
+            java.time.LocalTime t = java.time.LocalTime.parse(valeur.trim());
+            return parDefaut == java.time.LocalTime.MAX ? t.withSecond(59).withNano(999_999_999) : t;
+        } catch (java.time.format.DateTimeParseException e) {
+            throw refus(libelle + " est invalide (format attendu : 08:30).");
+        }
+    }
+
     /** Arrivée si aucun pointage aujourd'hui ou si le dernier est un départ ; départ sinon. */
     static String prochainType(Optional<PointageJpaEntity> dernier, LocalDateTime maintenant) {
         return dernier.filter(d -> d.getHorodatage().toLocalDate().equals(maintenant.toLocalDate()))

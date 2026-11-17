@@ -33,7 +33,9 @@ import java.util.regex.Pattern;
 @Service
 public class ComptesEcoleService {
 
-    public static final int LONGUEUR_MIN_MOT_DE_PASSE = 8;
+    /** @deprecated Remplacé par la politique unique (PolitiqueMotDePasse, longueur selon le rôle). */
+    @Deprecated
+    public static final int LONGUEUR_MIN_MOT_DE_PASSE = ecole_221.sn.ecole.modules.auth.application.service.PolitiqueMotDePasse.MIN_ELEVE_PARENT;
     private static final Pattern EMAIL = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
     private static final String ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789";
     private static final SecureRandom HASARD = new SecureRandom();
@@ -131,9 +133,6 @@ public class ComptesEcoleService {
         if (isBlank(clair)) {
             provisoire = motDePasseProvisoire();
             clair = provisoire;
-        } else if (clair.length() < LONGUEUR_MIN_MOT_DE_PASSE) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
-                    "Le mot de passe doit contenir au moins " + LONGUEUR_MIN_MOT_DE_PASSE + " caractères.");
         }
 
         UserJpaEntity u = new UserJpaEntity();
@@ -144,9 +143,17 @@ public class ComptesEcoleService {
         u.setTelephone(tel);
         u.setMatricule(mat);
         u.setRole(role);
+        if (provisoire == null) {
+            // Politique unique : un mot de passe choisi par l'administration suit la règle du rôle du compte
+            String regle = ecole_221.sn.ecole.modules.auth.application.service.ChangementMotDePasseService.erreurRegles(clair, u);
+            if (regle != null) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, regle);
+            }
+        }
         u.setPassword(encodeur.encode(clair));
-        // mot de passe GÉNÉRÉ : à changer à la première connexion (un mot de passe choisi par l'admin ne l'est pas)
-        u.setDoitChangerMotDePasse(provisoire != null ? Boolean.TRUE : null);
+        // TOUT mot de passe posé par un tiers (généré ou choisi par l'administration) est à changer à la première
+        // connexion — l'administration ne doit pas connaître le mot de passe utilisé ensuite
+        u.setDoitChangerMotDePasse(Boolean.TRUE);
         comptes.save(u);
 
         // appartenance explicite (le UserMembershipListener ne crée pas de doublon)
@@ -160,6 +167,46 @@ public class ComptesEcoleService {
         lien.setJoinedAt(LocalDateTime.now());
         appartenances.save(lien);
         return new CompteCree(u, provisoire);
+    }
+
+    /**
+     * Crée un compte ÉLÈVE (création directe par l'administration) : avec une adresse e-mail, ou « sans
+     * e-mail » — même règle que l'inscription des admis (APP-TL-23) : connexion par matricule, identifiant technique
+     * {@code <matricule>@sans-email.invalid} jamais affiché ni envoyé (la réinitialisation refuse les adresses .invalid).
+     * 400 si ni e-mail ni « sans e-mail », ou les deux ; 409 si l'e-mail ou le matricule est pris.
+     */
+    @Transactional
+    public CompteCree creerEleve(String prenom, String nom, String email, boolean sansEmail, String telephone,
+                                 String matricule, String motDePasse) {
+        boolean emailSaisi = !isBlank(email);
+        if (sansEmail && emailSaisi) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "Choisissez : une adresse e-mail pour l'élève, ou « sans e-mail » (connexion par matricule).");
+        }
+        if (!sansEmail && !emailSaisi) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "L'adresse e-mail est obligatoire, ou cochez « sans e-mail » (connexion par matricule).");
+        }
+        if (emailSaisi && InscriptionAdmisService.sansEmail(email.trim())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Adresse e-mail invalide.");
+        }
+        if (!sansEmail) {
+            return creer(prenom, nom, email, telephone, matricule, "ETUDIANT", motDePasse);
+        }
+        if (isBlank(prenom) && isBlank(nom)) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Le nom est obligatoire.");
+        }
+        // matricule contrôlé AVANT l'identifiant technique qui en dérive (sinon « e-mail déjà utilisé », incompréhensible)
+        String mat = isBlank(matricule) ? nouveauMatriculeEleve() : matricule.trim();
+        if (comptes.findFirstByMatricule(mat).isPresent()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Ce matricule est déjà attribué.");
+        }
+        return creer(prenom, nom, identifiantSansEmail(mat), telephone, mat, "ETUDIANT", motDePasse);
+    }
+
+    /** Identifiant technique d'un élève sans e-mail (domaine réservé, jamais livrable) : {@code <matricule>@sans-email.invalid}. */
+    public static String identifiantSansEmail(String matricule) {
+        return matricule.toLowerCase(Locale.ROOT) + "@" + InscriptionAdmisService.DOMAINE_SANS_EMAIL;
     }
 
     /**

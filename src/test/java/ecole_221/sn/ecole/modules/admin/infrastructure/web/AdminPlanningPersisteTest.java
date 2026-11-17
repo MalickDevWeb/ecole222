@@ -40,6 +40,7 @@ class AdminPlanningPersisteTest {
     private ClasseJpaRepository classes;
     private CreneauPlanningJpaRepository creneaux;
     private MockMvc mockMvc;
+    private ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService corbeille;
 
     @BeforeEach
     void setUp() {
@@ -47,7 +48,8 @@ class AdminPlanningPersisteTest {
         filieres = Mockito.mock(FiliereJpaRepository.class);
         classes = Mockito.mock(ClasseJpaRepository.class);
         creneaux = Mockito.mock(CreneauPlanningJpaRepository.class);
-        JpaPlanningRepository depot = new JpaPlanningRepository(rooms, filieres, classes, creneaux);
+        corbeille = Mockito.mock(ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService.class);
+        JpaPlanningRepository depot = new JpaPlanningRepository(rooms, filieres, classes, creneaux, corbeille);
         mockMvc = MockMvcBuilders.standaloneSetup(new AdminPlanningController(new PlanningService(depot)))
                 .setControllerAdvice(new GlobalExceptionHandler()).build();
     }
@@ -74,11 +76,20 @@ class AdminPlanningPersisteTest {
         retiree.setId("r-old");
         retiree.setName("À supprimer");
         Mockito.when(rooms.findAll()).thenReturn(List.of(existante, retiree));
+        Mockito.when(corbeille.supprimer(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.SALLE, "r-old"))
+                .thenReturn("Salle “À supprimer”");
 
         mockMvc.perform(put("/admin/planning/rooms").contentType(MediaType.APPLICATION_JSON)
                         .content("[{\"id\":\"r1\",\"name\":\"Amphi Senghor\",\"capacity\":120,\"equipment\":[\"Projecteur\",\"Sono\"],\"status\":\"Disponible\"},"
                                 + "{\"id\":\"r2\",\"name\":\"Salle TP\",\"capacity\":24,\"equipment\":[]}]"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                // La réponse annonce les lignes mises à la corbeille
+                .andExpect(jsonPath("$.corbeille").value(true))
+                .andExpect(jsonPath("$.misALaCorbeille", hasSize(1)))
+                .andExpect(jsonPath("$.misALaCorbeille[0].type").value("salle"))
+                .andExpect(jsonPath("$.misALaCorbeille[0].id").value("r-old"))
+                .andExpect(jsonPath("$.misALaCorbeille[0].libelle").value("Salle “À supprimer”"))
+                .andExpect(jsonPath("$.message").value("Salle “À supprimer” placée dans la corbeille."));
 
         ArgumentCaptor<RoomJpaEntity> captor = ArgumentCaptor.forClass(RoomJpaEntity.class);
         verify(rooms, Mockito.times(2)).save(captor.capture());
@@ -88,8 +99,10 @@ class AdminPlanningPersisteTest {
         assertEquals("Projecteur,Sono", r1.getEquipment());
         assertEquals("Bâtiment B", r1.getLocation());
         assertNull(captor.getAllValues().get(1).getEquipment());   // aucun équipement présumé
-        verify(rooms).delete(retiree);
-        verify(rooms, never()).delete(existante);
+        // corbeille (V21) : la salle retirée du PUT est mise à la corbeille, jamais effacée
+        verify(corbeille).supprimer(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.SALLE, "r-old");
+        verify(corbeille, never()).supprimer(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.SALLE, "r1");
+        verify(rooms, never()).delete(any());
     }
 
     @Test
@@ -97,7 +110,12 @@ class AdminPlanningPersisteTest {
         Mockito.when(creneaux.findAll()).thenReturn(List.of());
         mockMvc.perform(put("/admin/planning/slots").contentType(MediaType.APPLICATION_JSON)
                         .content("[{\"id\":\"p-1\",\"day\":\"Lundi\",\"slot\":\"08h - 10h\",\"classeId\":\"c-1\",\"subject\":\"RDM\"}]"))
-                .andExpect(status().isOk());
+                .andExpect(status().isOk())
+                // forme du bilan conservée ; rien n'a été retiré : corbeille false, liste vide, pas de message
+                .andExpect(jsonPath("$.creneaux").value(1))
+                .andExpect(jsonPath("$.corbeille").value(false))
+                .andExpect(jsonPath("$.misALaCorbeille", hasSize(0)))
+                .andExpect(jsonPath("$.message").doesNotExist());
 
         ArgumentCaptor<CreneauPlanningJpaEntity> captor = ArgumentCaptor.forClass(CreneauPlanningJpaEntity.class);
         verify(creneaux).save(captor.capture());
@@ -138,6 +156,7 @@ class AdminPlanningPersisteTest {
         verify(creneaux, never()).save(any());
         verify(rooms, never()).save(any());
         verify(rooms, never()).delete(any());
+        verify(corbeille, never()).supprimer(any(), any());
     }
 
     @Test

@@ -31,12 +31,12 @@ public final class CataloguePermissions {
                     List.of("/admin/promotions", "/admin/courses", "/admin/schedule", "/admin/planning", "/admin/demandes-report", "/planning")),
             new Module("personnel", "Personnel", "Comptes du personnel et des enseignants, émargement",
                     List.of("/admin/staff", "/admin/professors", "/admin/attendance", "/admin/users")),
-            new Module("securite", "Sécurité et audit", "Terminaux d'accès, journal d'audit, journal en direct",
-                    List.of("/admin/terminaux", "/admin/gates", "/audit", "/admin/realtime-logs")),
-            new Module("communication", "Communication", "Notifications et e-mails de l'école",
-                    List.of("/v1/notifications", "/notifications", "/email")),
-            new Module("ecole", "Établissement", "Tableau de bord, abonnement, coordonnées, identité visuelle, référentiels, trimestres et clôture des notes",
-                    List.of("/admin/abonnement", "/admin/coordonnees", "/admin/identite-visuelle", "/admin/stats", "/dashboard", "/v1/referentiels",
+            new Module("securite", "Sécurité et audit", "Terminaux d'accès, journal d'audit, journal en direct, pointages d'arrivée et de départ",
+                    List.of("/admin/terminaux", "/admin/gates", "/audit", "/admin/realtime-logs", "/admin/pointages")),
+            new Module("communication", "Communication", "Annonces, notifications et e-mails de l'école, groupes WhatsApp",
+                    List.of("/v1/notifications", "/notifications", "/email", "/admin/groupes-whatsapp")),
+            new Module("ecole", "Établissement", "Tableau de bord, abonnement, coordonnées, identité visuelle, domaine propre, référentiels, trimestres et clôture des notes",
+                    List.of("/admin/abonnement", "/admin/coordonnees", "/admin/identite-visuelle", "/admin/domaine", "/admin/domaines", "/admin/stats", "/dashboard", "/v1/referentiels",
                             "/admin/periodes")),
             new Module("collaboration", "Collaboration", "Groupes de travail, wiki, réunions", List.of("/collaboration", "/wiki", "/meet")),
             new Module("transferts", "Transferts d'élèves", "Demandes de transfert vers une autre école et décisions sur les demandes reçues",
@@ -82,6 +82,12 @@ public final class CataloguePermissions {
         boolean lecture = "GET".equals(methode) || "HEAD".equals(methode);
         return chemin.startsWith("/auth/")
                 || chemin.equals("/admin/rbac/moi")
+                // Annonces : ses propres notifications, pour tout le personnel (sans droit « communication »)
+                || (lecture && (chemin.equals("/v1/notifications/mes") || chemin.equals("/v1/notifications/mes/non-lues")))
+                || ("PATCH".equals(methode) && chemin.matches("/v1/notifications/[^/]+/lue"))
+                // Corbeille : ses propres suppressions ; chaque restauration exige ensuite le droit d'écriture
+                // du module de l'élément (CorbeilleService), la purge reste réservée à l'administration
+                || chemin.equals("/corbeille") || chemin.startsWith("/corbeille/")
                 || (lecture && (chemin.startsWith("/planning") || chemin.startsWith("/v1/referentiels")
                     || chemin.startsWith("/admin/identite-visuelle") || chemin.startsWith("/admin/coordonnees")));
     }

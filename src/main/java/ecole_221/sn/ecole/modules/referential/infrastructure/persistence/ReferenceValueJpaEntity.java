@@ -21,7 +21,8 @@ import java.time.LocalDateTime;
         uniqueConstraints = @UniqueConstraint(name = "uk_reference_value_scope",
                 columnNames = {"list_code", "code", "organization_id"}),
         indexes = @Index(name = "idx_reference_values_list_org", columnList = "list_code, organization_id"))
-public class ReferenceValueJpaEntity {
+@org.hibernate.annotations.SQLRestriction("supprime_le is null")   // corbeille (V21) : ligne supprimée invisible partout
+public class ReferenceValueJpaEntity extends ecole_221.sn.ecole.partage.ColonnesCorbeille {
 
     @Id
     private String id;

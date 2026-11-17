@@ -101,19 +101,51 @@ public class WebSocketAuthInterceptor implements ChannelInterceptor {
         }
     }
 
-    /** École indiquée par X-Tenant-Slug (si le compte en est membre actif), sinon l'unique école active du compte. */
+    /**
+     * École indiquée par X-Tenant-Slug (si le compte en est membre actif), sinon l'unique école active du compte.
+     *
+     * <p>Revue DevSecOps (F1) : une appartenance EXPIRÉE ne compte plus (même règle que
+     * TenantMembershipInterceptor) et une école suspendue, archivée ou rejetée refuse la connexion WebSocket
+     * (sauf SUPER_ADMIN / PLATFORM_ADMIN au jeton validé).</p>
+     */
     String ecoleDeLaConnexion(UsernamePasswordAuthenticationToken jeton, String slug) {
         if (appartenances == null || !(jeton.getPrincipal() instanceof ecole_221.sn.ecole.modules.auth.domain.model.User u)) {
             return null;
         }
+        boolean plateforme = jeton.getAuthorities().stream().map(org.springframework.security.core.GrantedAuthority::getAuthority)
+                .anyMatch(a -> a.equals("ROLE_SUPER_ADMIN") || a.equals("ROLE_PLATFORM_ADMIN"));
         java.util.List<String> actives = appartenances.findByUserId(u.getId()).stream()
-                .filter(ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationUser::isActive)
+                .filter(m -> m.isActive() && !m.isExpired())
                 .map(ecole_221.sn.ecole.modules.platform.organization.domain.model.OrganizationUser::getOrganizationId)
                 .toList();
         if (slug != null && !slug.isBlank() && ecoles != null) {
-            return ecoles.findBySlug(slug.strip()).map(o -> o.getId()).filter(actives::contains).orElse(null);
+            var ecole = ecoles.findBySlug(slug.strip()).filter(o -> actives.contains(o.getId())).orElse(null);
+            if (ecole != null && !plateforme && !ecole_221.sn.ecole.modules.platform.organization.application.EcoleDuCompte.ouverte(ecole)) {
+                throw new MessageDeliveryException(refusStatut(ecole));
+            }
+            return ecole == null ? null : ecole.getId();
+        }
+        if (ecoles != null && !plateforme) {
+            java.util.List<String> ouvertes = new java.util.ArrayList<>();
+            ecole_221.sn.ecole.modules.platform.organization.domain.model.Organization fermee = null;
+            for (String id : actives) {
+                var ecole = ecoles.findById(id).orElse(null);
+                if (ecole == null) continue;
+                if (ecole_221.sn.ecole.modules.platform.organization.application.EcoleDuCompte.ouverte(ecole)) ouvertes.add(id);
+                else if (fermee == null) fermee = ecole;
+            }
+            if (ouvertes.isEmpty() && fermee != null) {
+                throw new MessageDeliveryException(refusStatut(fermee));
+            }
+            return ouvertes.size() == 1 ? ouvertes.get(0) : null;
         }
         return actives.size() == 1 ? actives.get(0) : null;
+    }
+
+    private static String refusStatut(ecole_221.sn.ecole.modules.platform.organization.domain.model.Organization ecole) {
+        return ecole.isSuspended()
+                ? "Établissement suspendu : la connexion en direct est impossible."
+                : "Établissement inactif (statut : " + ecole.getStatus().displayName() + ") : la connexion en direct est impossible.";
     }
 
     UsernamePasswordAuthenticationToken authentifier(String entete) {

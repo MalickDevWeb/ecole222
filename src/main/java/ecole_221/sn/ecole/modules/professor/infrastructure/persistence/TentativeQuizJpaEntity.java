@@ -17,6 +17,8 @@ import java.time.LocalDateTime;
         @Index(name = "idx_quiz_tentatives_quiz", columnList = "quiz_id"),
         @Index(name = "idx_quiz_tentatives_quiz_eleve", columnList = "quiz_id, student_id")
 })
+// corbeille (V21) : les tentatives d'un quiz mis à la corbeille sont invisibles avec lui (purgées avec lui à 30 jours)
+@org.hibernate.annotations.SQLRestriction("quiz_id not in (select q.id from quizzes q where q.supprime_le is not null)")
 public class TentativeQuizJpaEntity {
     @org.hibernate.annotations.TenantId
     @Column(name = "organization_id")

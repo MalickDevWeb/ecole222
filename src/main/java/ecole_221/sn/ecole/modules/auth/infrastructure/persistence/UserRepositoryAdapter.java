@@ -32,6 +32,11 @@ public class UserRepositoryAdapter implements UserRepositoryPort {
     public User save(User user) {
         logger.debug("Sauvegarde de l'utilisateur: {}", user.getEmail());
         UserJpaEntity entity = toUserEntity(user);
+        // V20 : le modèle du domaine ne porte pas la date de modification du téléphone ; elle est conservée ici (sinon la
+        // fusion l'effacerait), et un changement de numéro est daté par l'entité (@PreUpdate)
+        if (user.getId() != null) {
+            jpaRepository.findById(user.getId()).ifPresent(existant -> entity.setTelephoneModifieLe(existant.getTelephoneModifieLe()));
+        }
         UserJpaEntity savedEntity = jpaRepository.save(entity);
         return toUser(savedEntity);
     }

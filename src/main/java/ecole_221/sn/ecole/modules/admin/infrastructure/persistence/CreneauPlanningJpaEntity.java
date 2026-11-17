@@ -12,7 +12,8 @@ import jakarta.persistence.Table;
  */
 @Entity
 @Table(name = "creneaux_planning")
-public class CreneauPlanningJpaEntity {
+@org.hibernate.annotations.SQLRestriction("supprime_le is null")   // corbeille (V21) : ligne supprimée invisible partout
+public class CreneauPlanningJpaEntity extends ecole_221.sn.ecole.partage.ColonnesCorbeille {
 
     @org.hibernate.annotations.TenantId
     @Column(name = "organization_id")

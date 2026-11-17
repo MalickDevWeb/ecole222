@@ -60,12 +60,13 @@ public class EvaluationController {
     }
 
     @DeleteMapping("/professor/courses/{courseId}/evaluations/{evaluationId}")
-    @Operation(summary = "Supprimer une évaluation", description = "409 si verrouillée, si des notes sont saisies ou si un rattrapage la vise.")
-    public ResponseEntity<Void> supprimer(@PathVariable("courseId") String courseId,
-                                          @PathVariable("evaluationId") String evaluationId) {
+    @Operation(summary = "Supprimer une évaluation", description = "Mise à la corbeille (restaurable) : 200 "
+            + "{id, type, libelle, supprime, corbeille: true, message}. 409 si verrouillée, si des notes sont saisies ou si un rattrapage la vise.")
+    public ResponseEntity<Map<String, Object>> supprimer(@PathVariable("courseId") String courseId,
+                                                         @PathVariable("evaluationId") String evaluationId) {
         verifier(courseId, evaluationId);
-        service.supprimer(courseId, evaluationId);
-        return ResponseEntity.noContent().build();
+        // 200 avec le message de la corbeille
+        return ResponseEntity.ok(service.supprimer(courseId, evaluationId));
     }
 
     @GetMapping("/professor/courses/{courseId}/evaluations/{evaluationId}/notes")

@@ -11,8 +11,15 @@ import java.util.List;
 public record PaymentDto(
     long totalAnnuel,
     List<PaymentInstallmentDto> echeances,
-    String statut
+    String statut,
+    /** Situation de CHAQUE enfant (le parent voit et règle enfant par enfant) ; vide sans dossier. */
+    List<EnfantPaiementDto> enfants
 ) {
+    /** Compatibilité : réponse sans détail par enfant. */
+    public PaymentDto(long totalAnnuel, List<PaymentInstallmentDto> echeances, String statut) {
+        this(totalAnnuel, echeances, statut, List.of());
+    }
+
     public static final String STATUT_DISPONIBLE = "disponible";
     public static final String STATUT_NON_DISPONIBLE = "non_disponible";
 
@@ -20,6 +27,18 @@ public record PaymentDto(
     public static PaymentDto nonDisponible() {
         return new PaymentDto(0L, List.of(), STATUT_NON_DISPONIBLE);
     }
+
+    /** Situation d'un enfant : montants réels du dossier financier, et ses lignes (versements, reste à payer). */
+    public record EnfantPaiementDto(
+        String id,
+        String nom,
+        String matricule,
+        String classe,
+        long totalDu,
+        long paye,
+        long resteDu,
+        List<PaymentInstallmentDto> lignes
+    ) {}
 
     public record PaymentInstallmentDto(
         String id,

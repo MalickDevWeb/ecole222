@@ -15,6 +15,7 @@ public enum ErrorCode {
     TENANT_NOT_FOUND(HttpStatus.NOT_FOUND, "Établissement introuvable."),
     TENANT_SUSPENDED(HttpStatus.FORBIDDEN, "Cet établissement est temporairement suspendu."),
     TENANT_EXPIRED(HttpStatus.FORBIDDEN, "L'abonnement de cet établissement a expiré."),
+    TENANT_NOT_ACTIVE(HttpStatus.FORBIDDEN, "Cet établissement n'est plus actif."),
 
     // Utilisateurs & Comptes
     USER_EMAIL_ALREADY_EXISTS(HttpStatus.CONFLICT, "Cette adresse email est déjà associée à un compte utilisateur."),

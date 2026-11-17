@@ -64,6 +64,10 @@ class MeetAllerRetourTest {
         corps.put("classIds", List.of("c-l1"));
         corps.put("classNames", List.of("L1 GL"));
         corps.put("isPublished", true);
+        // Heure de début et heure de fin obligatoires (créneau à venir)
+        java.time.LocalDateTime debut = HoraireClasseVirtuelle.maintenant().plusHours(1).withSecond(0).withNano(0);
+        corps.put("debut", debut.toString());
+        corps.put("fin", debut.plusHours(2).toString());
         return corps;
     }
 

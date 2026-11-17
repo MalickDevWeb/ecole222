@@ -8,4 +8,6 @@ import java.util.Optional;
 public interface ReinitialisationMotDePasseJpaRepository extends JpaRepository<ReinitialisationMotDePasseJpaEntity, String> {
     Optional<ReinitialisationMotDePasseJpaEntity> findByJetonHache(String jetonHache);
     List<ReinitialisationMotDePasseJpaEntity> findByUserIdAndUtiliseLeIsNull(String userId);
+    /** V20 : liens d'une école en attente de l'accord d'un second administrateur. */
+    List<ReinitialisationMotDePasseJpaEntity> findByOrganizationIdAndAccordRequisTrueAndAccordeParIsNullAndUtiliseLeIsNullAndAnnuleLeIsNull(String organizationId);
 }

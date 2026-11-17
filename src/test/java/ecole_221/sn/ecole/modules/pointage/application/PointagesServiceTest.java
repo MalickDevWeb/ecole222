@@ -72,6 +72,9 @@ class PointagesServiceTest {
         Mockito.when(depot.findTop60ByUtilisateurIdOrderByHorodatageDesc(anyString())).thenAnswer(a -> enregistres.stream()
                 .filter(p -> p.getUtilisateurId().equals(a.getArgument(0)))
                 .sorted(Comparator.comparing(PointageJpaEntity::getHorodatage).reversed()).toList());
+        Mockito.when(depot.findByHorodatageBetweenOrderByHorodatageAsc(any(), any())).thenAnswer(a -> enregistres.stream()
+                .filter(p -> !p.getHorodatage().isBefore(a.getArgument(0)) && !p.getHorodatage().isAfter(a.getArgument(1)))
+                .sorted(Comparator.comparing(PointageJpaEntity::getHorodatage)).toList());
         service = new PointagesService(depot, jetons, appartenances, horloge);
     }
 
@@ -169,5 +172,44 @@ class PointagesServiceTest {
         assertThat(lu.ecoleId()).isEqualTo(ecoleA.getId());
         assertThat(lu.valide()).isTrue();
         assertThat((Long) r.get("renouvelerDansSecondes")).isBetween(1L, 60L);
+    }
+
+    @Test
+    void administrationVoitLaJourneeParPersonne() {
+        connecte("e1", RoleUtilisateur.ETUDIANT, ecoleA);
+        service.pointer(qr(ecoleA));                        // élève : arrivée…
+        horloge.avancer(Duration.ofMinutes(5));
+        connecte("p1", RoleUtilisateur.PROFESSEUR, ecoleA);
+        service.pointer(qr(ecoleA));                        // professeur : arrivée
+        horloge.avancer(Duration.ofMinutes(5));
+        connecte("e1", RoleUtilisateur.ETUDIANT, ecoleA);
+        service.pointer(qr(ecoleA));                        // …puis départ de l'élève
+
+        String jour = java.time.LocalDate.now(horloge).toString();
+        Map<String, Object> tous = service.pointagesDuJour(jour, null, null, null);
+        assertThat(tous.get("total")).isEqualTo(2);
+        assertThat(tous.get("presents")).isEqualTo(1L);   // le professeur est encore là, l'élève est parti
+        @SuppressWarnings("unchecked")
+        List<Map<String, Object>> personnes = (List<Map<String, Object>>) tous.get("personnes");
+        Map<String, Object> eleve = personnes.stream().filter(m -> "e1".equals(m.get("utilisateurId"))).findFirst().orElseThrow();
+        assertThat(eleve.get("arrivee")).isNotNull();
+        assertThat(eleve.get("depart")).isNotNull();
+        assertThat(eleve.get("present")).isEqualTo(false);
+        assertThat((List<?>) eleve.get("passages")).hasSize(2);
+
+        Map<String, Object> profs = service.pointagesDuJour(jour, "PROFESSEUR", null, null);
+        assertThat(profs.get("total")).isEqualTo(1);
+        assertThat(service.pointagesDuJour(java.time.LocalDate.now(horloge).minusDays(1).toString(), null, null, null).get("total")).isEqualTo(0);
+        assertThat(statut(() -> service.pointagesDuJour("16/11/2026", null, null, null))).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(statut(() -> service.pointagesDuJour(jour, "PARENT", null, null))).isEqualTo(HttpStatus.BAD_REQUEST);
+
+        // plage horaire : l'élève a pointé à t0 et t0+10 min, le professeur à t0+5 min
+        java.time.LocalTime t0 = enregistres.get(0).getHorodatage().toLocalTime().withSecond(0).withNano(0);
+        String h = t0.plusMinutes(5).toString(), h2 = t0.plusMinutes(6).toString();
+        Map<String, Object> plage = service.pointagesDuJour(jour, null, h, h);
+        assertThat(plage.get("total")).as("seul le professeur a un passage à " + h).isEqualTo(1);
+        assertThat(service.pointagesDuJour(jour, null, h2, null).get("total")).as("après " + h2 + " : le départ de l'élève").isEqualTo(1);
+        assertThat(statut(() -> service.pointagesDuJour(jour, null, "10:00", "09:00"))).isEqualTo(HttpStatus.BAD_REQUEST);
+        assertThat(statut(() -> service.pointagesDuJour(jour, null, "8h30", null))).isEqualTo(HttpStatus.BAD_REQUEST);
     }
 }

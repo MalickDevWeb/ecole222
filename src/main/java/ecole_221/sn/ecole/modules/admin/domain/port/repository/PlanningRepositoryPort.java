@@ -5,14 +5,18 @@ import java.util.List;
 
 public interface PlanningRepositoryPort {
     List<Room> getAllRooms();
-    void saveRooms(List<Room> rooms);
+    /** @return les lignes absentes de la liste, mises à la corbeille : {type, id, libelle} */
+    List<java.util.Map<String, Object>> saveRooms(List<Room> rooms);
 
     List<Filiere> getAllFilieres();
-    void saveFilieres(List<Filiere> filieres);
+    /** @return les lignes absentes de la liste, mises à la corbeille : {type, id, libelle} */
+    List<java.util.Map<String, Object>> saveFilieres(List<Filiere> filieres);
 
     List<Classe> getAllClasses();
-    void saveClasses(List<Classe> classes);
+    /** @return les lignes absentes de la liste, mises à la corbeille : {type, id, libelle} */
+    List<java.util.Map<String, Object>> saveClasses(List<Classe> classes);
 
     List<TimeSlot> getAllSlots();
-    void saveSlots(List<TimeSlot> slots);
+    /** @return les lignes absentes de la liste, mises à la corbeille : {type, id, libelle} */
+    List<java.util.Map<String, Object>> saveSlots(List<TimeSlot> slots);
 }

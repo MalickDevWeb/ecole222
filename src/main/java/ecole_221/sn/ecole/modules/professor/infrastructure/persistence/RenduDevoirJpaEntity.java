@@ -19,6 +19,8 @@ import java.time.LocalDateTime;
 @Table(name = "rendus_devoirs",
         uniqueConstraints = @UniqueConstraint(name = "uk_rendu_devoir_eleve", columnNames = {"organization_id", "homework_id", "student_id"}),
         indexes = {@Index(name = "idx_rendu_devoir", columnList = "homework_id"), @Index(name = "idx_rendu_eleve", columnList = "student_id")})
+// corbeille (V21) : les rendus d'un devoir mis à la corbeille sont invisibles avec lui (purgés avec lui à 30 jours)
+@org.hibernate.annotations.SQLRestriction("homework_id not in (select h.id from homeworks h where h.supprime_le is not null)")
 public class RenduDevoirJpaEntity {
 
     @org.hibernate.annotations.TenantId

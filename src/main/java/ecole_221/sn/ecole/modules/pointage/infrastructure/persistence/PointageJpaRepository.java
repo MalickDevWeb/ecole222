@@ -9,4 +9,5 @@ import java.util.Optional;
 public interface PointageJpaRepository extends JpaRepository<PointageJpaEntity, String> {
     Optional<PointageJpaEntity> findFirstByUtilisateurIdOrderByHorodatageDesc(String utilisateurId);
     List<PointageJpaEntity> findTop60ByUtilisateurIdOrderByHorodatageDesc(String utilisateurId);
+    List<PointageJpaEntity> findByHorodatageBetweenOrderByHorodatageAsc(java.time.LocalDateTime debut, java.time.LocalDateTime fin);
 }

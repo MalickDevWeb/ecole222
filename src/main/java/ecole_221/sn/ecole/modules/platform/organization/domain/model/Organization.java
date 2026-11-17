@@ -209,6 +209,21 @@ public class Organization {
             throw new IllegalStateException("Seules les organizations archivées peuvent être désarchivées");
         }
         this.status = OrganizationStatus.SUSPENDED; // On désarchive en mode suspendu par sécurité
+        // suspended_at sert au seuil d'archivage automatique ; une ancienne date relancerait aussitôt un archivage.
+        // Tout retour à SUSPENDED repart de maintenant.
+        this.suspendedAt = LocalDateTime.now();
+        this.updatedAt = LocalDateTime.now();
+    }
+
+    /**
+     * Restauration d'une école archivée : l'école redevient ACTIVE et n'est plus comptée comme suspendue.
+     */
+    public void restaurer() {
+        if (!this.status.equals(OrganizationStatus.ARCHIVED)) {
+            throw new IllegalStateException("Seule une école archivée peut être restaurée.");
+        }
+        this.status = OrganizationStatus.ACTIVE;
+        this.suspendedAt = null;
         this.updatedAt = LocalDateTime.now();
     }
     

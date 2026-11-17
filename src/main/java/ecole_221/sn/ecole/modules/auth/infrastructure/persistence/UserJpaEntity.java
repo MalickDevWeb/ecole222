@@ -113,4 +113,33 @@ public class UserJpaEntity {
 
     public Boolean getDoitChangerMotDePasse() { return doitChangerMotDePasse; }
     public void setDoitChangerMotDePasse(Boolean doitChangerMotDePasse) { this.doitChangerMotDePasse = doitChangerMotDePasse; }
+
+    // ── V20 : date de la dernière modification du numéro de téléphone ──────────────────────────────────────────
+    /** Un lien d'accès n'est pas envoyé à un numéro modifié depuis moins de 24 h sans l'accord d'un second administrateur. */
+    @Column(name = "telephone_modifie_le")
+    private java.time.LocalDateTime telephoneModifieLe;
+
+    /** Numéro lu en base (comparé avant chaque mise à jour) ; null pour un compte pas encore enregistré. */
+    @jakarta.persistence.Transient
+    private String telephoneCharge;
+    @jakarta.persistence.Transient
+    private boolean charge;
+
+    public java.time.LocalDateTime getTelephoneModifieLe() { return telephoneModifieLe; }
+    public void setTelephoneModifieLe(java.time.LocalDateTime telephoneModifieLe) { this.telephoneModifieLe = telephoneModifieLe; }
+
+    @jakarta.persistence.PostLoad
+    void memoriserTelephone() {
+        this.telephoneCharge = this.telephone;
+        this.charge = true;
+    }
+
+    /** Toute modification du numéro d'un compte existant (ajout compris) est datée ; la création ne l'est pas. */
+    @jakarta.persistence.PreUpdate
+    void daterChangementTelephone() {
+        if (charge && !java.util.Objects.equals(telephoneCharge, telephone)) {
+            this.telephoneModifieLe = java.time.LocalDateTime.now();
+            this.telephoneCharge = this.telephone;
+        }
+    }
 }

@@ -87,14 +87,17 @@ public class TenantService {
         }
 
         // 2. Créer l'établissement (statut PENDING par défaut avec slug unique)
-        String slug = command.name().toLowerCase()
-                .replaceAll("[^a-z0-9]+", "-")
-                .replaceAll("^-+|-+$", "");
-        if (slug.isEmpty()) {
-            slug = "ecole-" + System.currentTimeMillis();
-        }
-        if (organizationRepositoryPort.existsBySlug(slug)) {
-            slug = slug + "-" + (int)(Math.random() * 9000 + 1000);
+        // Défaut F2 : accents retirés (« Lycée de Thiès » → lycee-de-thies),
+        // noms réservés de la plateforme interdits, collision → suffixe -2, -3… prévisible.
+        // Le slug sert aussi de sous-domaine <slug>.<domaine-plateforme>.
+        // B4 (revue DevSecOps phase 2) : un nom qui donne un identifiant réservé est refusé (400), jamais suffixé.
+        String slug;
+        try {
+            slug = ecole_221.sn.ecole.modules.platform.organization.domain.model.SlugEcole.libre(
+                    ecole_221.sn.ecole.modules.platform.organization.domain.model.SlugEcole.depuisNom(command.name()),
+                    organizationRepositoryPort::existsBySlug);
+        } catch (ecole_221.sn.ecole.modules.platform.organization.domain.model.SlugEcole.BaseReservee e) {
+            throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.BAD_REQUEST, e.getMessage());
         }
 
         Organization org = OrganizationFactory.create(

@@ -119,6 +119,8 @@ public class EcolagesService {
         t.setReference(reference);
         t.setDescription("Versement");
         t.setTransactionDate(quand);
+        t.setSaisiParId(ecole_221.sn.ecole.partage.CompteCourant.id());       // V19 : auteur de la saisie
+        t.setSaisiPar(ecole_221.sn.ecole.partage.CompteCourant.nomComplet());
         transactions.save(t);
 
         long du = d.getTotalRequired() == null ? 0 : d.getTotalRequired();

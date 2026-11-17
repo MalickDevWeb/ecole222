@@ -77,12 +77,16 @@ public class ReferenceValueController {
         return view(l, caller, code.toUpperCase());
     }
 
-    @Operation(summary = "Supprimer une valeur", description = "Mêmes droits que l'ajout. 204.")
+    @Operation(summary = "Supprimer une valeur", description = "Mêmes droits que l'ajout. Valeur propre à l'école : mise à la "
+            + "corbeille, 200 {id, type, libelle, supprime, corbeille: true, message}. Surcharge ou valeur plateforme : "
+            + "suppression définitive, 204.")
     @DeleteMapping("/{list}/{code}")
-    public ResponseEntity<Void> delete(@PathVariable String list, @PathVariable String code,
-                                       @RequestParam(required = false) String scope, Authentication auth) {
-        commands.delete(resolve(list), code.toUpperCase(), caller(auth, scope));
-        return ResponseEntity.noContent().build();
+    public ResponseEntity<java.util.Map<String, Object>> delete(@PathVariable String list, @PathVariable String code,
+                                                                @RequestParam(required = false) String scope, Authentication auth) {
+        // La mise à la corbeille est annoncée
+        return commands.delete(resolve(list), code.toUpperCase(), caller(auth, scope))
+                .map(ResponseEntity::ok)
+                .orElseGet(() -> ResponseEntity.noContent().build());
     }
 
     private ReferenceList resolve(String slug) {

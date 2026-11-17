@@ -429,12 +429,11 @@ public class GroupChatController {
     
     @Operation(summary = "Supprimer un message", description = "Réservé à l'auteur du message ou à un administrateur de la discussion.")
     @DeleteMapping("/messages/{id}")
-    public ResponseEntity<Void> deleteMessage(@PathVariable String id) {
+    public ResponseEntity<java.util.Map<String, Object>> deleteMessage(@PathVariable String id) {
         try {
-            // Auteur ou administrateur de la discussion uniquement ; échec annoncé (avant : 200 même en cas d'échec,
-            // et n'importe quel compte supprimait n'importe quel message)
-            groupChatService.supprimerMessage(id, moi());
-            return ResponseEntity.ok().build();
+            // Auteur ou administrateur de la discussion uniquement ; échec annoncé.
+            // 200 avec le message de la corbeille
+            return ResponseEntity.ok(groupChatService.supprimerMessage(id, moi()));
         } catch (Exception e) {
             logger.warn("Suppression de message refusée : {}", e.getMessage());
             throw relancer(e);

@@ -28,8 +28,6 @@ class TenantResolutionFallbackTest {
         Mockito.when(repo.findBySlug(anyString())).thenReturn(Optional.empty());
         Mockito.when(repo.findBySlug("ecole-221")).thenReturn(Optional.of(ecole221));
         Mockito.when(repo.findById(anyString())).thenReturn(Optional.empty());
-        Mockito.when(repo.findBySubdomain(anyString())).thenReturn(Optional.empty());
-        Mockito.when(repo.findByCustomDomain(anyString())).thenReturn(Optional.empty());
         Mockito.when(repo.findByEmail(anyString())).thenReturn(Optional.empty());
     }
 
@@ -38,7 +36,9 @@ class TenantResolutionFallbackTest {
         req.setServerName("127.0.0.1");
         if (enTete != null) req.addHeader("X-Tenant-Slug", enTete);
         MockHttpServletResponse res = new MockHttpServletResponse();
-        new TenantResolutionFilter(repo).doFilter(req, res, new MockFilterChain());
+        new TenantResolutionFilter(repo,
+                new ecole_221.sn.ecole.shared.infrastructure.tenant.domaine.ResolutionHoteEcole(repo, h -> Optional.empty(), h -> Optional.empty(),
+                        "myschool.sn", "", "http://localhost:5173")).doFilter(req, res, new MockFilterChain());
         return res.getStatus();
     }
 

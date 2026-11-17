@@ -32,7 +32,8 @@ public class NotificationJpaEntity {
     @Column(name = "title")
     private String title;
     
-    @Column(name = "message")
+    /** V18 : text (un message d'annonce peut dépasser 255 caractères). */
+    @Column(name = "message", columnDefinition = "TEXT")
     private String message;
     
     @Column(name = "notification_type")

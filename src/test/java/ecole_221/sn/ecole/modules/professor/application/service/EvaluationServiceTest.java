@@ -82,8 +82,13 @@ class EvaluationServiceTest {
             return l;
         });
 
-        service = new EvaluationService(evalRepo, noteRepo, journalRepo, coursRepo, inscriptions, comptes);
+        // corbeille (V21) : la suppression passe par la corbeille ; ici elle retire l'évaluation de la « base » simulée
+        corbeille = Mockito.mock(ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService.class);
+        Mockito.when(corbeille.supprimer(any(), anyString())).thenAnswer(i -> { evals.remove(i.<String>getArgument(1)); return "Évaluation"; });
+        service = new EvaluationService(evalRepo, noteRepo, journalRepo, coursRepo, inscriptions, comptes, corbeille);
     }
+
+    private ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService corbeille;
 
     @AfterEach
     void fin() {
@@ -175,8 +180,13 @@ class EvaluationServiceTest {
         service.enregistrerNotes("c1", id, List.of(ligne("e1", 12)));
         assertEquals(409, statut(() -> service.supprimer("c1", id)));
         String vide = creer("DS 2", 1);
-        service.supprimer("c1", vide);
+        // La réponse annonce la mise à la corbeille
+        Map<String, Object> r = service.supprimer("c1", vide);
+        assertEquals(true, r.get("corbeille"));
+        assertEquals("Évaluation placée dans la corbeille.", r.get("message"));
         assertFalse(evals.containsKey(vide));
+        Mockito.verify(corbeille).supprimer(ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.EVALUATION, vide);
+        Mockito.verify(evalRepo, Mockito.never()).delete(any());
     }
 
     @Test

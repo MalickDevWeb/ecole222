@@ -69,9 +69,13 @@ public class AccesCoursInterceptor implements HandlerInterceptor {
 
     /** Le cours existe dans l'école de la requête et appartient au professeur connecté (sauf administration). */
     public CourseJpaEntity verifierCours(String courseId) {
+        // I3 (revue DevSecOps) : sans école, refus (par exemple /api/sync traité sans école).
         String ecole = TenantContext.getCurrentOrganizationId().orElse(null);
+        if (ecole == null) {
+            throw new ResponseStatusException(HttpStatus.NOT_FOUND, "Cours introuvable dans cet établissement.");
+        }
         CourseJpaEntity c = cours.findById(courseId)
-                .filter(x -> ecole == null || x.getOrganizationId() == null || ecole.equals(x.getOrganizationId()))
+                .filter(x -> x.getOrganizationId() == null || ecole.equals(x.getOrganizationId()))
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Cours introuvable dans cet établissement."));
         var auth = SecurityContextHolder.getContext().getAuthentication();
         boolean admin = auth != null && auth.getAuthorities().stream().map(GrantedAuthority::getAuthority).anyMatch(ROLES_ADMIN::contains);

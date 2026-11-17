@@ -32,6 +32,7 @@ class StudentControllerTest {
     private StudentDataRepository studentDataRepository;
     private ActionLogger actionLogger;
     private EmailUseCase emailUseCase;
+    private ecole_221.sn.ecole.modules.professor.application.service.QuizTentativeService quizEleve;
     private MockMvc mockMvc;
 
     /** APP-SEC-19 : le portail étudiant sert l'étudiant CONNECTÉ (ici usr-001). */
@@ -60,6 +61,9 @@ class StudentControllerTest {
             studentUseCase, courseDetailRepository, studentDataRepository, 
             null, actionLogger, emailUseCase
         );
+        // Appartenance du cours à la classe de l'élève (détails de cours)
+        quizEleve = Mockito.mock(ecole_221.sn.ecole.modules.professor.application.service.QuizTentativeService.class);
+        org.springframework.test.util.ReflectionTestUtils.setField(controller, "quizEleve", quizEleve);
         
         mockMvc = MockMvcBuilders
                 .standaloneSetup(controller)
@@ -138,6 +142,7 @@ class StudentControllerTest {
 
     @Test
     void testGetCourseDetailsFallbackToLegacyId() throws Exception {
+        Mockito.when(quizEleve.estCoursDeSaClasse("course-1", "usr-001")).thenReturn(true);
         Map<String, Object> detailData = new HashMap<>();
         detailData.put("id", "course-1");
         detailData.put("title", "Architecture des Microservices");
@@ -153,6 +158,7 @@ class StudentControllerTest {
 
     @Test
     void testGetCourseDetailsNotFoundReturns404() throws Exception {
+        Mockito.when(quizEleve.estCoursDeSaClasse("course-404", "usr-001")).thenReturn(true);
         Mockito.when(courseDetailRepository.findById("course-404")).thenReturn(java.util.Optional.empty());
         Mockito.when(courseDetailRepository.findById("c-404")).thenReturn(java.util.Optional.empty());
 
@@ -160,6 +166,42 @@ class StudentControllerTest {
                         .contentType(MediaType.APPLICATION_JSON))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.message").value("Cours non trouvé avec l'identifiant: course-404"));
+    }
+
+    @Test
+    void detailsDuCoursSansLesBonnesReponsesDesQuiz() throws Exception {
+        Mockito.when(quizEleve.estCoursDeSaClasse("course-7", "usr-001")).thenReturn(true);
+        Map<String, Object> q1 = new HashMap<>();
+        q1.put("question", "Combien de tours fait la boucle ?");
+        q1.put("options", java.util.List.of("1", "2", "3"));
+        q1.put("reponseCorrecte", 2);
+        q1.put("explication", "La condition est vérifiée trois fois.");
+        Map<String, Object> data = new HashMap<>();
+        data.put("id", "course-7");
+        data.put("title", "Algorithmique");
+        data.put("quizzes", java.util.List.of(q1));
+        Mockito.when(courseDetailRepository.findById("course-7")).thenReturn(java.util.Optional.of(new CourseDetail("course-7", data)));
+
+        String corps = mockMvc.perform(get("/student/courses/course-7/details"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.title").value("Algorithmique"))
+                .andExpect(jsonPath("$.quizzes[0].question").value("Combien de tours fait la boucle ?"))
+                .andExpect(jsonPath("$.quizzes[0].options.length()").value(3))
+                .andExpect(jsonPath("$.quizzes[0].reponseCorrecte").doesNotExist())
+                .andExpect(jsonPath("$.quizzes[0].explication").doesNotExist())
+                .andReturn().getResponse().getContentAsString();
+        org.assertj.core.api.Assertions.assertThat(corps).doesNotContain("reponseCorrecte");
+        // le contenu enregistré n'est pas modifié
+        org.assertj.core.api.Assertions.assertThat(q1).containsKey("reponseCorrecte");
+    }
+
+    @Test
+    void detailsDUnCoursHorsDeSaClasse404SansLireLeContenu() throws Exception {
+        Mockito.when(quizEleve.estCoursDeSaClasse(anyString(), anyString())).thenReturn(false);
+        mockMvc.perform(get("/student/courses/course-9/details"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Cours non trouvé avec l'identifiant: course-9"));
+        Mockito.verify(courseDetailRepository, Mockito.never()).findById(anyString());
     }
 
     @Test

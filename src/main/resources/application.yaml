@@ -125,13 +125,17 @@ logging:
       max-file-size: 10MB
       total-size-cap: 1GB
 
+# B6 (revue DevSecOps du 15/11) : Swagger UI et spécification OpenAPI FERMÉS PAR DÉFAUT. Avant : ouverts dans tout
+# déploiement qui ne pose pas SPRING_PROFILES_ACTIVE=prod — c'est le cas de backend/render.yaml et du Dockerfile, donc
+# de la production. Ouverts seulement là où SPRINGDOC_ENABLED=true est posé (qa/start_backend.sh : backends de QA,
+# lus par generer_contrat_routes.py). application-prod.yaml les ferme de toute façon, même si la variable traîne.
 springdoc:
   api-docs:
     path: /v3/api-docs
-    enabled: true
+    enabled: ${SPRINGDOC_ENABLED:false}
   swagger-ui:
     path: /swagger-ui.html
-    enabled: true
+    enabled: ${SPRINGDOC_ENABLED:false}
     try-it-out-enabled: true
     operations-sorter: alpha
     tags-sorter: alpha
@@ -160,9 +164,53 @@ ai:
     max-tokens: ${MISTRAL_MAX_TOKENS:1000}
 
 # Adresse publique du site : base des liens envoyés par e-mail (réinitialisation du mot de passe).
-# Jamais déduite de la requête (en-tête Host / Origin falsifiable).
+# Jamais déduite de la requête (Host, X-Forwarded-Host, Origin, Referer, X-Tenant-Slug : falsifiables) ni d'un domaine
+# propre d'école (son DNS appartient à un tiers et peut basculer).
 app:
   url-frontend: ${FRONTEND_URL:http://localhost:5173}
+
+# Domaine propre d'une école (décisions du Tech Lead du 15/11 : pointage DNS + déclaration) :
+#  - <slug>.<domaine> désigne l'école <slug> ;
+#  - un domaine propre n'est servi que s'il est DÉCLARÉ par l'école (Administration › Adresse de l'école) ET que son
+#    CNAME mène à <slug>.<domaine> ET que l'école est active ; revérifié toutes les 6 heures ;
+#  - dns.statique : table « nom=cible,nom=cible » lue à la place du vrai DNS (tests et QA uniquement, jamais en prod) ;
+#  - relais.confiance : IP des relais (nginx, Caddy) dont l'en-tête X-Forwarded-Host est cru (aucun par défaut) ;
+#    sinon Host seul.
+ecole:
+  plateforme:
+    domaine: ${PLATFORM_DOMAIN:myschool.sn}
+  dns:
+    statique: ${ECOLE_DNS_STATIQUE:}
+  relais:
+    # VIDE par défaut : derrière nginx ou le proxy Vite la connexion vient de 127.0.0.1 ; ne déclarer que l'IP d'un
+    # relais qui ÉCRASE X-Forwarded-Host (nginx.conf, Caddyfile.exemple).
+    confiance: "${ECOLE_RELAIS_CONFIANCE:}"
+  domaines:
+    verification:
+      intervalle: ${ECOLE_DOMAINES_VERIFICATION_INTERVALLE:PT6H}
+  # Archivage des écoles (décisions du Tech Lead du 16/11, V24) : une école suspendue depuis le seuil part dans un fichier
+  # chiffré (AES-256-GCM). Un seul réglage choisit le stockage : local (développement, ce profil) ou cloudinary
+  # (production, application-prod.yaml). Seuil et conservation : parametres_plateforme (écran du super-admin).
+  #  - production : true refuse le stockage local et exige ARCHIVES_CLE. Render pose RENDER=true dans ses services :
+  #    un déploiement Render sans profil prod est donc traité comme une production (jamais d'archive sur son disque
+  #    effacé à chaque déploiement).
+  #  - cle : ARCHIVES_CLE, 32 octets en base64 ; absente hors production : clé de développement créée à part
+  #    (cle-developpement, droits 600), jamais dans le dossier des archives.
+  archivage:
+    stockage: ${ARCHIVES_STOCKAGE:local}
+    production: ${ARCHIVES_PRODUCTION:${RENDER:false}}
+    cle: ${ARCHIVES_CLE:}
+    cle-developpement: ${ARCHIVES_CLE_DEVELOPPEMENT:${user.home}/.ecole221/cle-archives-developpement}
+    local:
+      # hors du dépôt git ; montable comme volume Docker
+      dossier: ${ARCHIVES_DOSSIER:${user.home}/ecole221-archives}
+    cloudinary:
+      dossier: ${ARCHIVES_DOSSIER_CLOUDINARY:ecole221-archives}
+    automatique:
+      active: ${ARCHIVES_AUTOMATIQUE:true}
+      cron: ${ARCHIVES_AUTOMATIQUE_CRON:0 30 2 * * *}
+    purge:
+      lot: 1000
 
 # Configuration pour les services d'emails (Brevo)
 email:

@@ -148,9 +148,23 @@ public class TransfertsElevesService {
         return ecoles.findById(id).orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "École introuvable."));
     }
 
+    /**
+     * École d'origine d'un transfert à accepter. Archivée (données retirées de la base, ou en cours de retrait) :
+     * refus explicite (étude d'archivage, risque R15 : le dossier serait lu dans des tables vides et l'élève
+     * arriverait avec un dossier vide, sans erreur).
+     */
+    public Organization ecoleOrigine(String id) {
+        Organization source = ecole(id);
+        if (ecole_221.sn.ecole.modules.platform.organization.domain.valueobject.OrganizationStatus.ARCHIVED.equals(source.getStatus())) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "Transfert impossible : l'école d'origine est archivée.");
+        }
+        return source;
+    }
+
     @Transactional
     public Map<String, Object> accepter(String id, Map<String, Object> dossier, String auteur) {
         DemandeTransfertJpaEntity d = demandeRecueEnAttente(id);
+        ecoleOrigine(d.getEcoleSourceId());
         try {
             transfert.transferStudent(d.getEleveId(), d.getEcoleSourceId(), d.getEcoleDestinationId(),
                     d.getMotif() == null ? "Transfert accepté par l'école d'accueil" : d.getMotif());

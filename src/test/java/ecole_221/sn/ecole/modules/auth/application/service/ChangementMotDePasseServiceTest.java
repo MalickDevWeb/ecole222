@@ -44,7 +44,7 @@ class ChangementMotDePasseServiceTest {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"court1", "sanschiffreaucun", "1234567890123", ""})
+    @ValueSource(strings = {"court1", "aaaaaaaaaaaaaa", "1234567890123", ""})   // Phrases sans chiffre acceptées
     void les_mots_de_passe_faibles_sont_refuses_en_400(String nouveau) {
         assertStatut(() -> service.changer("usr-1", PROVISOIRE, nouveau), HttpStatus.BAD_REQUEST);
         verify(comptes, never()).save(any());
@@ -74,9 +74,28 @@ class ChangementMotDePasseServiceTest {
 
     @Test
     void regles_explicites() {
-        assertThat(ChangementMotDePasseService.erreurRegles("abcdefghi1")).isNull();
-        assertThat(ChangementMotDePasseService.erreurRegles("abcdefgh1")).contains("10 caractères");
-        assertThat(ChangementMotDePasseService.erreurRegles("abcdefghij")).contains("une lettre et un chiffre");
+        // Politique unique (sans compte = règles de l'administration d'école, 12 caractères ; phrases de passe)
+        assertThat(ChangementMotDePasseService.erreurRegles("le baobab fleurit en mai", null)).isNull();
+        assertThat(ChangementMotDePasseService.erreurRegles("baobabfleur", null)).contains("12 caractères");
+        assertThat(ChangementMotDePasseService.erreurRegles("123456789012", null)).isNotNull();
+        assertThat(ChangementMotDePasseService.erreurRegles("ecole dakar plateau", null, java.util.List.of("Dakar Plateau")))
+                .contains("le nom de l'école");
+    }
+
+    @Test
+    void le_refus_cite_precisement_le_probleme_sans_astuce() {
+        // « Trop de mots » : un message court qui dit ce qui pose problème, sans répéter les conseils
+        assertThat(ChangementMotDePasseService.erreurRegles("awa diop sous le baobab", compte))
+                .isEqualTo("Le mot de passe contient votre prénom et votre nom : choisissez-en un autre.");
+        assertThat(ChangementMotDePasseService.erreurReglesDetaillee("ablayediop2026 thies", null, java.util.List.of(
+                new PolitiqueMotDePasse.MotInterdit("Ablaye", "votre prénom"),
+                new PolitiqueMotDePasse.MotInterdit("Diop", "votre nom"),
+                new PolitiqueMotDePasse.MotInterdit(PolitiqueMotDePasse.chiffresTelephone("+221 77 800 80 80"), "votre numéro de téléphone"))))
+                .isEqualTo("Le mot de passe contient votre prénom et votre nom : choisissez-en un autre.");
+        assertThat(ChangementMotDePasseService.erreurReglesDetaillee("mon numero 778008080 ok", null, java.util.List.of(
+                new PolitiqueMotDePasse.MotInterdit(PolitiqueMotDePasse.chiffresTelephone("+221 77 800 80 80"), "votre numéro de téléphone"))))
+                .isEqualTo("Le mot de passe contient votre numéro de téléphone : choisissez-en un autre.");
+        assertThat(ChangementMotDePasseService.erreurRegles("baobabfleur", null)).doesNotContain("Astuce");
     }
 
     private static void assertStatut(Runnable r, HttpStatus attendu) {

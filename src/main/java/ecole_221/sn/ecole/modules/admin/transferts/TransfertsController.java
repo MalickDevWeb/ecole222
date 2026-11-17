@@ -64,7 +64,7 @@ public class TransfertsController {
     @PostMapping("/{id}/accepter")
     public ResponseEntity<Map<String, Object>> accepter(@PathVariable("id") String id) {
         DemandeTransfertJpaEntity d = transferts.demandeRecueEnAttente(id);
-        Organization source = transferts.ecole(d.getEcoleSourceId());
+        Organization source = transferts.ecoleOrigine(d.getEcoleSourceId());   // refus si l'école d'origine est archivée
         // Dossier lu DANS l'école d'origine (transaction séparée), puis contexte rétabli
         Organization ici = TenantContext.getCurrentOrganization().orElse(null);
         Map<String, Object> dossier;

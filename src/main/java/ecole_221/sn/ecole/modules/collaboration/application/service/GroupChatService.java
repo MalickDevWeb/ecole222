@@ -31,9 +31,13 @@ public class GroupChatService implements GroupChatUseCase {
     private final MessageRepositoryPort messageRepository;
     private final MediaStoragePort mediaStoragePort;
     
+    private final ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService corbeille;
+
     public GroupChatService(GroupChatRepositoryPort groupChatRepository, 
                           MessageRepositoryPort messageRepository,
-                          MediaStoragePort mediaStoragePort) {
+                          MediaStoragePort mediaStoragePort,
+                          ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService corbeille) {
+        this.corbeille = corbeille;
         this.groupChatRepository = groupChatRepository;
         this.messageRepository = messageRepository;
         this.mediaStoragePort = mediaStoragePort;
@@ -596,7 +600,7 @@ public class GroupChatService implements GroupChatUseCase {
     /**
      * Suppression d'un message par son auteur ou par un administrateur de la discussion.
      */
-    public void supprimerMessage(String messageId, String demandeurId) {
+    public java.util.Map<String, Object> supprimerMessage(String messageId, String demandeurId) {
         ecole_221.sn.ecole.modules.collaboration.domain.model.Message m = messageRepository.findById(messageId)
                 .orElseThrow(() -> new org.springframework.web.server.ResponseStatusException(
                         org.springframework.http.HttpStatus.NOT_FOUND, "Message introuvable."));
@@ -607,7 +611,10 @@ public class GroupChatService implements GroupChatUseCase {
             throw new org.springframework.web.server.ResponseStatusException(org.springframework.http.HttpStatus.FORBIDDEN,
                     "Seul l'auteur du message ou un administrateur de la discussion peut le supprimer.");
         }
-        messageRepository.deleteById(messageId);
+        // corbeille (V21) : masqué pour tous, restaurable 30 jours par l'auteur de la suppression ou l'administration
+        var type = ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille.MESSAGE;
+        return ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService.reponseSuppression(type, messageId,
+                corbeille.supprimer(type, messageId));
     }
 
     @Override

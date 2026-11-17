@@ -8,6 +8,8 @@ import ecole_221.sn.ecole.modules.planning.infrastructure.persistence.FiliereJpa
 import ecole_221.sn.ecole.modules.planning.infrastructure.persistence.FiliereJpaRepository;
 import ecole_221.sn.ecole.modules.planning.infrastructure.persistence.RoomJpaEntity;
 import ecole_221.sn.ecole.modules.planning.infrastructure.persistence.RoomJpaRepository;
+import ecole_221.sn.ecole.modules.corbeille.application.CorbeilleService;
+import ecole_221.sn.ecole.modules.corbeille.application.TypeCorbeille;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,9 @@ import java.util.stream.Collectors;
  * Les PUT remplacent la liste de l'école courante : les lignes absentes sont supprimées, les autres sont
  * mises à jour en conservant les colonnes que l'écran admin ne gère pas (emplacement, niveau de filière…).
  * findAll() étant filtré par @TenantId, une école ne voit ni ne supprime jamais les lignes d'une autre.
+ *
+ * Corbeille (V21) : une ligne absente du PUT est mise à la corbeille (restaurable 30 jours), jamais effacée ;
+ * un PUT qui renverrait l'identifiant d'une ligne de la corbeille est refusé (409 : la restaurer plutôt).
  */
 @Repository
 public class JpaPlanningRepository implements PlanningRepositoryPort {
@@ -34,9 +39,11 @@ public class JpaPlanningRepository implements PlanningRepositoryPort {
     private final FiliereJpaRepository filieres;
     private final ClasseJpaRepository classes;
     private final CreneauPlanningJpaRepository creneaux;
+    private final CorbeilleService corbeille;
 
     public JpaPlanningRepository(RoomJpaRepository rooms, FiliereJpaRepository filieres,
-                                 ClasseJpaRepository classes, CreneauPlanningJpaRepository creneaux) {
+                                 ClasseJpaRepository classes, CreneauPlanningJpaRepository creneaux, CorbeilleService corbeille) {
+        this.corbeille = corbeille;
         this.rooms = rooms;
         this.filieres = filieres;
         this.classes = classes;
@@ -55,10 +62,11 @@ public class JpaPlanningRepository implements PlanningRepositoryPort {
 
     @Override
     @Transactional
-    public void saveRooms(List<Room> nouvelles) {
+    public List<java.util.Map<String, Object>> saveRooms(List<Room> nouvelles) {
         Map<String, RoomJpaEntity> existantes = parId(rooms.findAll(), RoomJpaEntity::getId);
         Set<String> gardees = new HashSet<>();
         for (Room r : nouvelles) {
+            if (!existantes.containsKey(r.getId())) corbeille.exigerHorsCorbeille(TypeCorbeille.SALLE, r.getId());
             RoomJpaEntity e = existantes.getOrDefault(r.getId(), new RoomJpaEntity());
             e.setId(r.getId());
             e.setName(r.getName());
@@ -67,7 +75,7 @@ public class JpaPlanningRepository implements PlanningRepositoryPort {
             rooms.save(e);
             gardees.add(r.getId());
         }
-        existantes.values().stream().filter(e -> !gardees.contains(e.getId())).forEach(rooms::delete);
+        return mettreALaCorbeille(TypeCorbeille.SALLE, existantes.keySet().stream().filter(id -> !gardees.contains(id)).toList());
     }
 
     // ==================== FILIÈRES ====================
@@ -82,10 +90,11 @@ public class JpaPlanningRepository implements PlanningRepositoryPort {
 
     @Override
     @Transactional
-    public void saveFilieres(List<Filiere> nouvelles) {
+    public List<java.util.Map<String, Object>> saveFilieres(List<Filiere> nouvelles) {
         Map<String, FiliereJpaEntity> existantes = parId(filieres.findAll(), FiliereJpaEntity::getId);
         Set<String> gardees = new HashSet<>();
         for (Filiere f : nouvelles) {
+            if (!existantes.containsKey(f.getId())) corbeille.exigerHorsCorbeille(TypeCorbeille.FILIERE, f.getId());
             FiliereJpaEntity e = existantes.getOrDefault(f.getId(), new FiliereJpaEntity());
             e.setId(f.getId());
             e.setCode(f.getCode());
@@ -94,7 +103,7 @@ public class JpaPlanningRepository implements PlanningRepositoryPort {
             filieres.save(e);
             gardees.add(f.getId());
         }
-        existantes.values().stream().filter(e -> !gardees.contains(e.getId())).forEach(filieres::delete);
+        return mettreALaCorbeille(TypeCorbeille.FILIERE, existantes.keySet().stream().filter(id -> !gardees.contains(id)).toList());
     }
 
     // ==================== CLASSES ====================
@@ -110,10 +119,11 @@ public class JpaPlanningRepository implements PlanningRepositoryPort {
 
     @Override
     @Transactional
-    public void saveClasses(List<Classe> nouvelles) {
+    public List<java.util.Map<String, Object>> saveClasses(List<Classe> nouvelles) {
         Map<String, ClasseJpaEntity> existantes = parId(classes.findAll(), ClasseJpaEntity::getId);
         Set<String> gardees = new HashSet<>();
         for (Classe c : nouvelles) {
+            if (!existantes.containsKey(c.getId())) corbeille.exigerHorsCorbeille(TypeCorbeille.CLASSE, c.getId());
             ClasseJpaEntity e = existantes.getOrDefault(c.getId(), new ClasseJpaEntity());
             e.setId(c.getId());
             e.setName(c.getName());
@@ -124,7 +134,7 @@ public class JpaPlanningRepository implements PlanningRepositoryPort {
             classes.save(e);
             gardees.add(c.getId());
         }
-        existantes.values().stream().filter(e -> !gardees.contains(e.getId())).forEach(classes::delete);
+        return mettreALaCorbeille(TypeCorbeille.CLASSE, existantes.keySet().stream().filter(id -> !gardees.contains(id)).toList());
     }
 
     // ==================== CRÉNEAUX ====================
@@ -140,10 +150,11 @@ public class JpaPlanningRepository implements PlanningRepositoryPort {
 
     @Override
     @Transactional
-    public void saveSlots(List<TimeSlot> nouveaux) {
+    public List<java.util.Map<String, Object>> saveSlots(List<TimeSlot> nouveaux) {
         Map<String, CreneauPlanningJpaEntity> existants = parId(creneaux.findAll(), CreneauPlanningJpaEntity::getId);
         Set<String> gardes = new HashSet<>();
         for (TimeSlot s : nouveaux) {
+            if (!existants.containsKey(s.getId())) corbeille.exigerHorsCorbeille(TypeCorbeille.CRENEAU, s.getId());
             CreneauPlanningJpaEntity e = existants.getOrDefault(s.getId(), new CreneauPlanningJpaEntity());
             e.setId(s.getId());
             e.setJour(s.getDay());
@@ -158,10 +169,23 @@ public class JpaPlanningRepository implements PlanningRepositoryPort {
             creneaux.save(e);
             gardes.add(s.getId());
         }
-        existants.values().stream().filter(e -> !gardes.contains(e.getId())).forEach(creneaux::delete);
+        return mettreALaCorbeille(TypeCorbeille.CRENEAU, existants.keySet().stream().filter(id -> !gardes.contains(id)).toList());
     }
 
     // ==================== OUTILS ====================
+
+    /** Lignes absentes du PUT : mises à la corbeille, renvoyées pour que l'écran l'annonce. */
+    private List<Map<String, Object>> mettreALaCorbeille(TypeCorbeille type, List<String> ids) {
+        List<Map<String, Object>> retirees = new java.util.ArrayList<>();
+        for (String id : ids) {
+            Map<String, Object> e = new LinkedHashMap<>();
+            e.put("type", type.code());
+            e.put("id", id);
+            e.put("libelle", corbeille.supprimer(type, id));
+            retirees.add(e);
+        }
+        return retirees;
+    }
 
     private static <T> Map<String, T> parId(List<T> lignes, Function<T, String> id) {
         Map<String, T> map = new LinkedHashMap<>();
