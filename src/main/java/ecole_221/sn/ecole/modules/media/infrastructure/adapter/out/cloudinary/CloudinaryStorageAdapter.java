@@ -26,12 +26,20 @@ public class CloudinaryStorageAdapter implements MediaStoragePort {
             @Value("${cloudinary.api-key:}") String apiKey,
             @Value("${cloudinary.api-secret:}") String apiSecret,
             @Value("${cloudinary.simulation:false}") boolean simulation,
-            ecole_221.sn.ecole.modules.media.infrastructure.adapter.out.local.StockageLocalFichiers stockageLocal) {
+            ecole_221.sn.ecole.modules.media.infrastructure.adapter.out.local.StockageLocalFichiers stockageLocal,
+            @Value("${app.url-frontend:}") String urlSite) {
         this.simulation = simulation;
         this.cloudName = cloudName;
         this.apiKey = apiKey;
         this.apiSecret = apiSecret;
         this.stockageLocal = stockageLocal;
+        this.urlSite = urlSite == null ? "" : urlSite.trim().replaceAll("/+$", "");
+    }
+
+    /** Tests : lien local relatif (/api/public/media/…). */
+    public CloudinaryStorageAdapter(String cloudName, String apiKey, String apiSecret, boolean simulation,
+                                    ecole_221.sn.ecole.modules.media.infrastructure.adapter.out.local.StockageLocalFichiers stockageLocal) {
+        this(cloudName, apiKey, apiSecret, simulation, stockageLocal, "");
     }
 
     /** Tests : stockage local dans un dossier temporaire. */
@@ -45,6 +53,13 @@ public class CloudinaryStorageAdapter implements MediaStoragePort {
 
     /** Simulation explicite (développement / QA isolée uniquement) : CLOUDINARY_SIMULATION=true. */
     private final boolean simulation;
+
+    /**
+     * Simulation : adresse du site (app.url-frontend, jamais déduite de la requête), base des liens locaux. 17/11 : un
+     * lien relatif était refusé par les contrôles « http(s) » des dépôts (candidature, inscription par un parent, logo,
+     * contenus de cours…) : sur un backend de test, aucun dossier ne pouvait être déposé avec ses pièces.
+     */
+    private final String urlSite;
 
     private synchronized Cloudinary getCloudinary() {
         if (cloudinary == null) {
@@ -83,7 +98,7 @@ public class CloudinaryStorageAdapter implements MediaStoragePort {
         if (simulation) {
             // 16/11 : avant, l'image de démonstration de Cloudinary (« sample.jpg ») était renvoyée à la place du fichier
             String nom = stockageLocal.enregistrer(fileBytes, fileName, contentType, confidentiel);
-            return UploadedFileFactory.create(fileName, "/api/public/media/" + nom, "local-" + nom, fileBytes.length, contentType);
+            return UploadedFileFactory.create(fileName, urlSite + "/api/public/media/" + nom, "local-" + nom, fileBytes.length, contentType);
         }
 
         if (client == null) {
